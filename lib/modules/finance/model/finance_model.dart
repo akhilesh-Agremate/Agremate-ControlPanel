@@ -10,7 +10,9 @@ class RentPaymentModel {
   final String month;
   final int year;
   final String status; // paid, pending, overdue
+  final DateTime dueDate;
   final DateTime? paidDate;
+  final String? transactionId;
 
   RentPaymentModel({
     required this.id,
@@ -23,8 +25,10 @@ class RentPaymentModel {
     required this.amount,
     required this.month,
     required this.year,
+    required this.dueDate,
     this.status = 'paid',
     this.paidDate,
+    this.transactionId,
   });
 }
 

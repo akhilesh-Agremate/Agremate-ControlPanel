@@ -12,6 +12,8 @@ class PropertyController extends GetxController {
   final currentPage = 1.obs;
   final searchQuery = ''.obs;
   final isLoading = true.obs;
+  final selectedProperty = Rxn<PropertyModel>();
+  final returnTabIndex = Rxn<int>();
   final selectedLandlordDetail = Rxn<LandlordModel>();
   final selectedTenantDetail = Rxn<TenantModel>();
 
@@ -64,7 +66,7 @@ class PropertyController extends GetxController {
     ];
     final cities = ['Mumbai', 'Delhi', 'Bangalore', 'Chennai', 'Pune', 'Hyderabad', 'Kolkata', 'Ahmedabad'];
     final propTypes = ['Apartment', 'Villa', 'Commercial', 'Studio', 'Penthouse', 'Duplex'];
-    final areas = ['Andheri', 'Bandra', 'Juhu', 'Powai', 'Malad', 'Goregaon', 'Thane', 'Worli', 'Dadar', 'Kurla',
+    final areas = ['Green', 'Ocean', 'Blue', 'Whitefield', 'Bandra', 'Juhu', 'Powai', 'Malad', 'Goregaon', 'Thane', 'Worli', 'Dadar', 'Kurla',
                    'Indiranagar', 'Koramangala', 'Whitefield', 'HSR Layout', 'Jayanagar', 'MG Road', 'BTM Layout'];
 
     // Generate landlords
@@ -89,18 +91,56 @@ class PropertyController extends GetxController {
       for (final pid in landlord.propertyIds) {
         final units = _rng.nextInt(20) + 1;
         final occupied = _rng.nextInt(units + 1);
+        final rent = (_rng.nextDouble() * 80 + 10) * 1000;
+        final status = PropertyStatus.values[_rng.nextInt(PropertyStatus.values.length)];
+        
+        final propertyImages = [
+          'https://images.unsplash.com/photo-1568605114967-8130f3a36994?q=80&w=600&h=300&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=600&h=300&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=600&h=300&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=600&h=300&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1600607687940-c52af096999a?q=80&w=600&h=300&auto=format&fit=crop',
+        ];
+
+        // Force deterministic names for the first 10 to match Home screen exactly
+        String propName;
+        if (propIdx < 10) {
+          propName = 'Green Villa ${propIdx + 1}';
+        } else {
+          propName = '${areas[_rng.nextInt(areas.length)]} ${propTypes[_rng.nextInt(propTypes.length)]} ${propIdx + 1}';
+        }
+
         propertyList.add(PropertyModel(
           id: pid,
-          name: '${areas[_rng.nextInt(areas.length)]} ${propTypes[_rng.nextInt(propTypes.length)]} ${propIdx + 1}',
+          name: propName,
           address: '${_rng.nextInt(500) + 1}, ${areas[_rng.nextInt(areas.length)]}, ${cities[_rng.nextInt(cities.length)]}',
           city: cities[_rng.nextInt(cities.length)],
           landlordId: landlord.id,
           landlordName: landlord.name,
-          rentAmount: (_rng.nextDouble() * 80 + 10) * 1000,
+          landlordPhone: landlord.phone,
+          landlordEmail: landlord.email,
+          rentAmount: rent,
+          advanceAmount: rent * 3,
           propertyType: propTypes[_rng.nextInt(propTypes.length)],
           totalUnits: units,
           occupiedUnits: occupied,
-          isRented: occupied > 0,
+          status: status,
+          imageUrl: propertyImages[_rng.nextInt(propertyImages.length)],
+          serviceRequestCounts: {
+            'Plumbing': _rng.nextInt(2),
+            'Electrical': _rng.nextInt(2),
+            'Pest Control': _rng.nextInt(2),
+            'Community': _rng.nextInt(2),
+            'Mechanical': _rng.nextInt(2),
+            'Maintenance': _rng.nextInt(2),
+            'Security': _rng.nextInt(2),
+            'Others': _rng.nextInt(2),
+          },
+          serviceRequestMessages: {
+            'Plumbing': 'Kitchen sink is leaking and causing a mess in the cabinet. Needs urgent repair.',
+            'Electrical': 'Main hall light flickering and sparks seen from the switchboard. Safety concern.',
+            'Maintenance': 'Door hinges are squeaking and the balcony railing feels loose.',
+          },
           createdAt: DateTime.now().subtract(Duration(days: _rng.nextInt(365))),
         ));
         propIdx++;
@@ -133,6 +173,86 @@ class PropertyController extends GetxController {
       ));
     }
     tenants.value = tenantList;
+    
+    // Assign primary tenant names and contact to properties for display
+    // First, clear any existing assignments and ensure all properties with tenant-requiring status have mock data
+    for (int i = 0; i < properties.length; i++) {
+      final prop = properties[i];
+      final needsTenant = prop.status == PropertyStatus.rented || 
+                          prop.status == PropertyStatus.booked || 
+                          prop.status == PropertyStatus.requested;
+      
+      if (needsTenant) {
+        final firstName = tenantNames[_rng.nextInt(tenantNames.length)].split(' ').first;
+        final lastName = tenantNames[_rng.nextInt(tenantNames.length)].split(' ').last;
+        final tName = '$firstName $lastName';
+        
+        properties[i] = PropertyModel(
+          id: prop.id,
+          name: prop.name,
+          address: prop.address,
+          city: prop.city,
+          landlordId: prop.landlordId,
+          landlordName: prop.landlordName,
+          landlordPhone: prop.landlordPhone,
+          landlordEmail: prop.landlordEmail,
+          tenantIds: prop.tenantIds,
+          rentAmount: prop.rentAmount,
+          advanceAmount: prop.advanceAmount,
+          propertyType: prop.propertyType,
+          totalUnits: prop.totalUnits,
+          occupiedUnits: prop.occupiedUnits,
+          status: prop.status,
+          primaryTenantName: tName,
+          primaryTenantPhone: tName.split(' ').first.toLowerCase() == 'a' ? '+91 9876543210' : '+91 ${9000000000 + _rng.nextInt(999999999)}',
+          primaryTenantEmail: '${firstName.toLowerCase()}@email.com',
+          tenantJoinedDate: DateTime.now().subtract(Duration(days: _rng.nextInt(730))),
+          serviceRequestCounts: prop.serviceRequestCounts,
+          serviceRequestMessages: prop.serviceRequestMessages,
+          createdAt: prop.createdAt,
+        );
+      }
+    }
+    
+    // Then overlay with actual tenant list if specific matches exist
+    for (var tenant in tenantList) {
+      final propIdx = properties.indexWhere((p) => p.id == tenant.propertyId);
+      if (propIdx != -1) {
+        final prop = properties[propIdx];
+        final showTenant = prop.status == PropertyStatus.rented || 
+                           prop.status == PropertyStatus.booked || 
+                           prop.status == PropertyStatus.requested;
+
+        if (showTenant) {
+          properties[propIdx] = PropertyModel(
+            id: prop.id,
+            name: prop.name,
+            address: prop.address,
+            city: prop.city,
+            landlordId: prop.landlordId,
+            landlordName: prop.landlordName,
+            landlordPhone: prop.landlordPhone,
+            landlordEmail: prop.landlordEmail,
+            tenantIds: prop.tenantIds,
+            rentAmount: prop.rentAmount,
+            advanceAmount: prop.advanceAmount,
+            propertyType: prop.propertyType,
+            totalUnits: prop.totalUnits,
+            occupiedUnits: prop.occupiedUnits,
+            status: prop.status,
+            primaryTenantName: tenant.name,
+            primaryTenantPhone: tenant.phone,
+            primaryTenantEmail: tenant.email,
+            tenantJoinedDate: prop.tenantJoinedDate ?? DateTime.now().subtract(Duration(days: _rng.nextInt(730))),
+            serviceRequestCounts: prop.serviceRequestCounts,
+            serviceRequestMessages: prop.serviceRequestMessages,
+            createdAt: prop.createdAt,
+          );
+        }
+      }
+    }
+    filteredProperties.value = List.from(properties);
+
     isLoading.value = false;
   }
 

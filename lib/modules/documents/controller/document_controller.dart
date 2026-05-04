@@ -2,11 +2,14 @@ import 'dart:math';
 import 'package:get/get.dart';
 import 'package:agremate_admin/modules/documents/model/document_model.dart';
 
+import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
+
 class DocumentController extends GetxController {
   final documents = <DocumentModel>[].obs;
   final currentPath = <Map<String, String>>[].obs; // breadcrumb
   final currentParentId = Rxn<String>();
   final isLoading = true.obs;
+  final returnTabIndex = Rxn<int>();
   final _rng = Random(42);
 
   List<DocumentModel> get currentDocuments {
@@ -73,9 +76,58 @@ class DocumentController extends GetxController {
   }
 
   void goBack() {
+    if (returnTabIndex.value != null) {
+      final nav = Get.find<NavigationController>();
+      nav.currentIndex.value = returnTabIndex.value!;
+      returnTabIndex.value = null;
+      return;
+    }
+
     if (currentPath.isNotEmpty) {
       currentPath.removeLast();
       currentParentId.value = currentPath.isNotEmpty ? currentPath.last['id'] : null;
     }
+  }
+
+  void navigateToOwnerFolder(String rootFolderId, String rootFolderName, String ownerName, String ownerType) {
+    var folder = documents.firstWhereOrNull(
+      (d) => d.parentId == rootFolderId && d.name == ownerName && d.isFolder
+    );
+
+    if (folder == null) {
+      final newFolderId = '${rootFolderId}_dynamic_${DateTime.now().millisecondsSinceEpoch}';
+      folder = DocumentModel(
+        id: newFolderId,
+        name: ownerName,
+        type: 'folder',
+        parentId: rootFolderId,
+        ownerId: ownerType == 'landlord' ? 'L_dyn' : 'T_dyn',
+        ownerName: ownerName,
+        ownerType: ownerType,
+        createdAt: DateTime.now(),
+        modifiedAt: DateTime.now(),
+      );
+      documents.add(folder);
+      
+      documents.add(DocumentModel(
+        id: '${newFolderId}_f1',
+        name: ownerType == 'landlord' ? 'Property Ownership Proof' : 'Lease Agreement',
+        type: 'file',
+        parentId: newFolderId,
+        ownerId: folder.ownerId,
+        ownerName: ownerName,
+        ownerType: ownerType,
+        fileType: 'pdf',
+        sizeKb: 1250.0,
+        createdAt: DateTime.now(),
+        modifiedAt: DateTime.now(),
+      ));
+    }
+
+    currentPath.value = [
+      {'id': rootFolderId, 'name': rootFolderName},
+      {'id': folder.id, 'name': folder.name},
+    ];
+    currentParentId.value = folder.id;
   }
 }

@@ -48,8 +48,10 @@ class MainLayout extends StatelessWidget {
                     }
                     return AnimatedSwitcher(
                       duration: const Duration(milliseconds: 300),
-                      child: Container(
+                      child: SizedBox(
                         key: ValueKey(index),
+                        width: double.infinity,
+                        height: double.infinity,
                         child: pages[index],
                       ),
                     );

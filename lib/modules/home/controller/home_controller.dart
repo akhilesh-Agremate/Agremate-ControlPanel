@@ -10,10 +10,22 @@ class HomeController extends GetxController {
   ];
 
   // Selected periods for each card
+  var globalPeriod = 'This Month'.obs;
   var rentPeriod = 'This Month'.obs;
   var pendingPeriod = 'This Month'.obs;
   var subAmountPeriod = 'This Month'.obs;
   var subExpiredPeriod = 'This Month'.obs;
+
+  void updateGlobalPeriod(String newPeriod) {
+    globalPeriod.value = newPeriod;
+    rentPeriod.value = newPeriod;
+    pendingPeriod.value = newPeriod;
+    subAmountPeriod.value = newPeriod;
+    subExpiredPeriod.value = newPeriod;
+  }
+  
+  // Detail view state
+  var selectedSubscription = Rxn<Map<String, dynamic>>();
 
   // Mock data mapping
   final Map<String, Map<String, String>> mockData = {
@@ -66,6 +78,7 @@ class HomeController extends GetxController {
     'location': 'Mumbai Block ${i + 10}',
     'propertyImage': 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?q=80&w=600&h=300&auto=format&fit=crop',
     'propertyStatus': 'Rented',
+    'joinedDate': 'Jan 2024',
   });
   final List<String> _indianNames = ['Aarav', 'Vivaan', 'Aditya', 'Vihaan', 'Arjun', 'Sai', 'Ayaan', 'Krishna', 'Ishaan', 'Shaurya'];
   final List<String> _indianLastNames = ['Patel', 'Sharma', 'Singh', 'Kumar', 'Das', 'Bose', 'Gupta', 'Mehta', 'Trivedi', 'Jain'];
@@ -74,12 +87,16 @@ class HomeController extends GetxController {
     String name = '${_indianNames[i % _indianNames.length]} ${_indianLastNames[(i+2) % _indianLastNames.length]}';
     int propertyCount = (i % 5 == 0) ? 12 : ((i % 3 == 0) ? 7 : (i % 4) + 1); // Mix of 1-4, 7, 12 properties
     String plan;
+    int maxProps;
     if (propertyCount >= 10) {
       plan = 'Custom Subscription';
+      maxProps = propertyCount + 5;
     } else if (propertyCount >= 6) {
       plan = '₹799 Subscription';
+      maxProps = 10;
     } else {
       plan = '₹299 Subscription';
+      maxProps = 5;
     }
     
     List<Map<String, String>> properties = List.generate(propertyCount, (pIndex) {
@@ -88,35 +105,83 @@ class HomeController extends GetxController {
         'name': 'Property ${100 + i * 10 + pIndex}',
         'location': 'Block ${String.fromCharCode(65 + pIndex)}, Mumbai',
         'status': isBooked ? 'Booked' : 'Available',
-        'tenantName': isBooked ? '${_indianNames[(i+pIndex) % _indianNames.length]} Tenant' : '',
+        'tenantName': isBooked ? _indianNames[(i+pIndex) % _indianNames.length] : '',
+        'tenantPhone': isBooked ? '+91 98765${12345+i+pIndex}' : '',
+        'tenantEmail': isBooked ? '${_indianNames[(i+pIndex) % _indianNames.length].toLowerCase()}@example.com' : '',
+        'joinedDate': 'Jan 2024',
       };
     });
 
     return {
       'title': name, 
-      'detail': '$propertyCount Properties | Plan: $plan',
+      'detail': 'Plan: $plan',
       'propertyName': 'Multiple Properties ($propertyCount)',
       'landlordName': name,
       'subscriptionPlan': plan,
+      'propertyCount': propertyCount,
+      'maxProperties': maxProps,
       'landlordDetails': 'Email: ${name.toLowerCase().split(' ')[0]}@example.com\nPhone: +91 98765${43210+i}',
       'properties': properties,
+      'status': i % 4 == 0 ? 'Expired' : 'Active',
     };
   });
-  final List<Map<String, dynamic>> recentServices = List.generate(10, (i) => {
-    'title': 'Blue Villa ${i + 1}', 
-    'detail': 'Issue: Plumbing Leak\nStatus: High Priority'
+  late final List<Map<String, dynamic>> recentServices = List.generate(10, (i) {
+    bool isSolved = i % 3 == 0;
+    final issues = [
+      'Plumbing Leak',
+      'Electrical Repair',
+      'Maintenance Request',
+      'AC Servicing',
+      'Painting Work',
+      'Carpentry Issue'
+    ];
+    String issue = issues[i % issues.length];
+
+    return {
+      'title': 'Green Villa ${i + 1}',
+      'propertyName': 'Green Villa ${i + 1}',
+      'detail': 'Issue: $issue',
+      'landlordName':
+          '${_indianNames[(i + 1) % _indianNames.length]} ${_indianLastNames[i % _indianLastNames.length]}',
+      'tenantName':
+          '${_indianNames[i % _indianNames.length]} ${_indianLastNames[(i + 1) % _indianLastNames.length]}',
+      'location': 'Mumbai Block ${i + 5}',
+      'raisedDate': 'May ${10 + i}, 2024',
+      'resolvedDate': isSolved ? 'May ${12 + i}, 2024' : null,
+      'status': isSolved ? 'Solved' : 'Pending',
+      'activeStatus': isSolved ? 'Completed' : 'Active',
+    };
   });
   final List<Map<String, dynamic>> propertyList = List.generate(10, (i) => {
-    'title': 'Ocean Villa ${i + 1}', 
-    'detail': 'Landlord: Robert Brown | Location: Block ${101 + i}\nStatus: Available'
+    'title': 'Green Villa ${i + 1}',
+    'landlordName': 'Robert Brown',
+    'location': 'Block ${101 + i}, Mumbai',
+    'status': i % 2 == 0 ? 'Available' : 'Rented',
+    'detail': 'Landlord: Robert Brown | Location: Block ${101 + i}\nStatus: ${i % 2 == 0 ? 'Available' : 'Rented'}'
   });
   final List<Map<String, dynamic>> documentList = List.generate(10, (i) => {
     'title': 'Lease_Agreement_${i + 1}.pdf', 
     'detail': 'Landlord: John Doe | Tenant: Alex Smith'
   });
-  final List<Map<String, dynamic>> supportList = List.generate(10, (i) => {
-    'title': 'Support Ticket ${i + 1}', 
-    'detail': 'Category: Billing\nStatus: Open'
+  final List<Map<String, dynamic>> supportList = List.generate(10, (i) {
+    final categories = ['Technical', 'Billing', 'Account', 'General'];
+    final statuses = ['Pending', 'In Progress', 'Resolved'];
+    final messages = [
+      'System login issue',
+      'Payment failure',
+      'Update profile details',
+      'Feature request',
+      'Bug report'
+    ];
+    return {
+      'title': 'Ticket #${i + 1001}',
+      'category': categories[i % categories.length],
+      'status': statuses[i % statuses.length],
+      'message': messages[i % messages.length],
+      'date': 'May ${15 + i}, 2024',
+      'detail':
+          'Category: ${categories[i % categories.length]} | Status: ${statuses[i % statuses.length]}\nMessage: ${messages[i % messages.length]}'
+    };
   });
 
   String getAmount(String label, String period) {

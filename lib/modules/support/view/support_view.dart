@@ -29,8 +29,24 @@ class SupportView extends StatelessWidget {
             ),
             const SizedBox(height: 32),
 
-            // FAQ
-            Text('Frequently Asked Questions', style: AppTheme.heading2),
+            // FAQ Header with Add Button
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Frequently Asked Questions', style: AppTheme.heading2),
+                ElevatedButton.icon(
+                  onPressed: () => _showAddFaqDialog(context, sc),
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('Add Question'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.accentGreen,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
             ...sc.faqs.map((faq) => Container(
               margin: const EdgeInsets.only(bottom: 8),
@@ -99,6 +115,65 @@ class SupportView extends StatelessWidget {
         ),
       );
     });
+  }
+  void _showAddFaqDialog(BuildContext context, SupportController sc) {
+    final qController = TextEditingController();
+    final aController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.bgCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.help_outline_rounded, color: AppTheme.accentGreen),
+            const SizedBox(width: 12),
+            const Text('Add New FAQ', style: TextStyle(color: AppTheme.textPrimary)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: qController,
+              style: const TextStyle(color: AppTheme.textPrimary),
+              decoration: const InputDecoration(
+                labelText: 'Question',
+                hintText: 'e.g., How do I reset my password?',
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: aController,
+              maxLines: 3,
+              style: const TextStyle(color: AppTheme.textPrimary),
+              decoration: const InputDecoration(
+                labelText: 'Answer',
+                hintText: 'Provide a clear explanation...',
+                alignLabelWithHint: true,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: AppTheme.textMuted)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (qController.text.isNotEmpty && aController.text.isNotEmpty) {
+                sc.addFaq(qController.text, aController.text);
+                Navigator.pop(ctx);
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentGreen),
+            child: const Text('Add Question'),
+          ),
+        ],
+      ),
+    );
   }
 }
 

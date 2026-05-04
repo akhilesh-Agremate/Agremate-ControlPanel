@@ -30,14 +30,14 @@ class AppConstants {
   };
 
   static const Map<String, Color> serviceColors = {
-    'Plumbing': Color(0xFF00BCD4),
-    'Electricity': Color(0xFFFFB300),
-    'Pest Control': Color(0xFF4CAF50),
-    'Community': Color(0xFF9C27B0),
-    'Mechanical': Color(0xFFFF5722),
-    'Maintenance': Color(0xFF2196F3),
-    'Security': Color(0xFFE91E63),
-    'Others': Color(0xFF607D8B),
+    'Plumbing':     Color(0xFF2083D5), // Steel Blue
+    'Electricity':  Color(0xFF6CA0DA), // Blue Grey
+    'Pest Control': Color(0xFF2083D5), // Steel Blue
+    'Community':    Color(0xFF6CA0DA), // Blue Grey
+    'Mechanical':   Color(0xFF2083D5), // Steel Blue
+    'Maintenance':  Color(0xFFE24B4A), // Red (error/maintenance)
+    'Security':     Color(0xFF6CA0DA), // Blue Grey
+    'Others':       Color(0xFFCEE1F3), // Pale Sky
   };
 
   static const int propertiesPerPage = 30;

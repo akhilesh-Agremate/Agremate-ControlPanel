@@ -20,6 +20,15 @@ class DocumentsView extends StatelessWidget {
             // Breadcrumb
             Row(
               children: [
+                if (dc.currentPath.isNotEmpty) ...[
+                  IconButton(
+                    onPressed: dc.goBack,
+                    icon: const Icon(Icons.arrow_back, color: AppTheme.textPrimary, size: 20),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                  const SizedBox(width: 16),
+                ],
                 InkWell(
                   onTap: () => dc.navigateToBreadcrumb(-1),
                   child: Row(
@@ -47,12 +56,6 @@ class DocumentsView extends StatelessWidget {
                     ),
                   ],
                 )),
-                const Spacer(),
-                if (dc.currentPath.isNotEmpty)
-                  IconButton(
-                    onPressed: dc.goBack,
-                    icon: const Icon(Icons.arrow_back, color: AppTheme.textPrimary, size: 20),
-                  ),
               ],
             ),
             const SizedBox(height: 24),
@@ -66,18 +69,22 @@ class DocumentsView extends StatelessWidget {
                 runSpacing: 16,
                 children: dc.currentFolders.map((folder) {
                   final isLandlord = folder.ownerType == 'landlord';
-                  final color = isLandlord ? AppTheme.accentOrange : AppTheme.accentCyan;
+                  final color = isLandlord ? AppTheme.landlordFill : AppTheme.tenantFill;
+                  final bgColor = isLandlord ? AppTheme.landlordBg : AppTheme.tenantBg;
+                  final borderColor = isLandlord ? AppTheme.landlordBorder : AppTheme.tenantBorder;
+                  final textColor = isLandlord ? AppTheme.landlordText : AppTheme.tenantText;
                   return SizedBox(
                     width: 200,
                     child: GlassCard(
-                      glowColor: color,
+                      color: bgColor,
+                      borderColor: borderColor,
                       onTap: () => dc.openFolder(folder.id, folder.name),
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         children: [
                           Icon(Icons.folder_rounded, color: color, size: 48),
                           const SizedBox(height: 10),
-                          Text(folder.name, style: AppTheme.heading3, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis, maxLines: 2),
+                          Text(folder.name, style: AppTheme.heading3.copyWith(color: textColor), textAlign: TextAlign.center, overflow: TextOverflow.ellipsis, maxLines: 2),
                           const SizedBox(height: 4),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -85,7 +92,7 @@ class DocumentsView extends StatelessWidget {
                               color: color.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: Text(folder.ownerType.capitalizeFirst ?? '', style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w600)),
+                            child: Text(folder.ownerType.capitalizeFirst ?? '', style: TextStyle(color: textColor, fontSize: 10, fontWeight: FontWeight.w600)),
                           ),
                         ],
                       ),

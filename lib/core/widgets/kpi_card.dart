@@ -33,52 +33,54 @@ class _KpiCardState extends State<KpiCard> with SingleTickerProviderStateMixin {
       onExit: (_) => setState(() => _hovering = false),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: _hovering ? AppTheme.bgCardLight : AppTheme.bgCard,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: widget.accentColor.withValues(alpha: _hovering ? 0.5 : 0.2),
+            color: widget.accentColor.withValues(alpha: _hovering ? 0.5 : 0.25),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: widget.accentColor.withValues(alpha: _hovering ? 0.12 : 0.05),
-              blurRadius: _hovering ? 28 : 16,
-              spreadRadius: -4,
-            ),
-          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(
               children: [
                 Expanded(
                   child: Text(
                     widget.title.toUpperCase(),
-                    style: AppTheme.kpiLabel,
+                    style: AppTheme.kpiLabel.copyWith(fontSize: 9),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Icon(widget.icon, color: widget.accentColor, size: 20),
+                Icon(widget.icon, color: widget.accentColor, size: 14),
               ],
             ),
-            const SizedBox(height: 12),
-            Text(widget.value, style: AppTheme.kpiValue.copyWith(color: widget.accentColor)),
-            if (widget.subtitle != null) ...[
-              const SizedBox(height: 6),
-              Text(widget.subtitle!, style: AppTheme.caption.copyWith(color: widget.accentColor.withValues(alpha: 0.7))),
-            ],
-            if (widget.sparkData != null) ...[
-              const SizedBox(height: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(widget.value, style: AppTheme.kpiValue.copyWith(color: widget.accentColor, fontSize: 20, height: 1.1)),
+                if (widget.subtitle != null)
+                  Text(
+                    widget.subtitle!,
+                    style: AppTheme.caption.copyWith(
+                      fontSize: 10,
+                      color: widget.accentColor.withValues(alpha: 0.7),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+            if (widget.sparkData != null)
               SizedBox(
-                height: 30,
+                height: 14,
                 child: CustomPaint(
-                  size: const Size(double.infinity, 30),
+                  size: const Size(double.infinity, 14),
                   painter: _SparklinePainter(widget.sparkData!, widget.accentColor),
                 ),
               ),
-            ],
           ],
         ),
       ),

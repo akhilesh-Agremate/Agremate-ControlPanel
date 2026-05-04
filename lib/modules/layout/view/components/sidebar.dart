@@ -27,13 +27,20 @@ class Sidebar extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppTheme.accentGreen.withValues(alpha: 0.1),
+                    color: const Color(0xFF4A90D9).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.accentGreen.withValues(alpha: 0.3)),
+                    border: Border.all(color: const Color(0xFF4A90D9).withValues(alpha: 0.2)),
                   ),
-                  child: const Icon(Icons.apartment_rounded, color: AppTheme.accentGreen, size: 24),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.asset(
+                      'assets/images/agremate_logo.jpg',
+                      width: 44,
+                      height: 44,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Column(

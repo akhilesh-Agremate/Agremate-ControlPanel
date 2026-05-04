@@ -9,6 +9,8 @@ class GlassCard extends StatefulWidget {
   final double borderRadius;
   final VoidCallback? onTap;
 
+  final Color? color;
+
   const GlassCard({
     super.key,
     required this.child,
@@ -17,7 +19,13 @@ class GlassCard extends StatefulWidget {
     this.glowColor,
     this.borderRadius = 16,
     this.onTap,
+    this.color,
+    this.borderColor,
+    this.topBarColor,
   });
+
+  final Color? borderColor;
+  final Color? topBarColor;
 
   @override
   State<GlassCard> createState() => _GlassCardState();
@@ -36,29 +44,32 @@ class _GlassCardState extends State<GlassCard> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           margin: widget.margin ?? const EdgeInsets.all(0),
-          padding: widget.padding ?? const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: _hovering ? AppTheme.bgCardLight : AppTheme.bgCard,
+            color: widget.color ?? (_hovering ? AppTheme.bgCardLight : AppTheme.bgCard),
             borderRadius: BorderRadius.circular(widget.borderRadius),
             border: Border.all(
-              color: widget.glowColor?.withValues(alpha: _hovering ? 0.5 : 0.25) ?? AppTheme.border,
+              color: widget.borderColor ?? (widget.glowColor?.withValues(alpha: _hovering ? 0.5 : 0.25) ?? AppTheme.border),
               width: 1,
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-              if (widget.glowColor != null)
-                BoxShadow(
-                  color: widget.glowColor!.withValues(alpha: _hovering ? 0.15 : 0.06),
-                  blurRadius: _hovering ? 30 : 20,
-                  spreadRadius: -5,
-                ),
-            ],
           ),
-          child: widget.child,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(widget.borderRadius),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (widget.topBarColor != null)
+                  Container(
+                    height: 4,
+                    width: double.infinity,
+                    color: widget.topBarColor,
+                  ),
+                Padding(
+                  padding: widget.padding ?? const EdgeInsets.all(20),
+                  child: widget.child,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

@@ -2,40 +2,93 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
+  // ─── Brand Palette ────────────────────────────────────────
+  static const Color brandSteelBlue = Color(0xFF2083D5); // Primary brand blue
+  static const Color brandBlueGrey = Color(0xFF6CA0DA); // Secondary accent
+  static const Color brandPaleSky = Color(
+    0xFFCEE1F3,
+  ); // Light background accent
+  static const Color brandWhite = Color(0xFFFFFFFF); // Background white
+  static const Color brandRed = Color(0xFFE24B4A); // Error / Expired states
+  static const Color brandRedLight = Color(0xFFFCEBEB); // Light red background
+
   // ─── Primary Palette ─────────────────────────────────────
-  static const Color bgDark = Color(0xFFFFFFFF);
-  static const Color bgCard = Color(0xFFF8F9FB);
-  static const Color bgCardLight = Color(0xFFF1F4F8);
-  static const Color bgSidebar = Color(0xFFFFFFFF);
-  static const Color border = Color(0xFFE0E6ED);
-  static const Color borderLight = Color(0xFFEEF2F7);
+  static const Color bgDark = brandWhite;
+  static const Color bgCard = Color(0xFFF8FBFF); // near-white with blue tint
+  static const Color bgCardLight = brandPaleSky;
+  static const Color bgSidebar = brandWhite;
+  static const Color border = Color(0xFFCEE1F3); // Pale Sky as border
+  static const Color borderLight = Color(0xFFE6F0FA);
+
+  // Landlord Theme (Steel Blue)
+  static const Color landlordBg = brandPaleSky;
+  static const Color landlordBorder = brandBlueGrey;
+  static const Color landlordFill = brandSteelBlue;
+  static const Color landlordText = Color(0xFF0D4A8A); // dark blue for text
+
+  // Tenant Theme (Blue Grey)
+  static const Color tenantBg = Color(0xFFE8F1FB);
+  static const Color tenantBorder = brandBlueGrey;
+  static const Color tenantFill = brandBlueGrey;
+  static const Color tenantText = Color(0xFF2B5C8A); // medium blue for text
+
+  // Status Badge Themes — using blue palette
+  static const Color statusRentedBg = brandPaleSky;
+  static const Color statusRentedText = brandSteelBlue;
+
+  static const Color statusAvailableBg = Color(0xFFD6EAF8);
+  static const Color statusAvailableText = Color(0xFF1A6DAD);
+
+  static const Color statusRequestedBg = Color(0xFFEAF2FB);
+  static const Color statusRequestedText = brandBlueGrey;
+
+  // Maintenance & Error stay red
+  static const Color statusMaintenanceBg = brandRedLight;
+  static const Color statusMaintenanceText = brandRed;
+
+  // Subscription Badge
+  static const Color statusActiveBg = brandPaleSky;
+  static const Color statusActiveText = brandSteelBlue;
+
+  // Dashboard KPI Card Themes — all blue, expired = red
+  static const Color kpiRentBorder = brandSteelBlue;
+  static const Color kpiRentNumber = brandSteelBlue;
+
+  static const Color kpiPendingBorder = brandBlueGrey;
+  static const Color kpiPendingNumber = Color(0xFF0D4A8A);
+
+  static const Color kpiSubsBorder = brandBlueGrey;
+  static const Color kpiSubsNumber = brandSteelBlue;
+
+  static const Color kpiExpiredBorder = brandRed;
+  static const Color kpiExpiredNumber = brandRed;
 
   // ─── Accent Colors ───────────────────────────────────────
-  static const Color accentGreen = Color(0xFF03A9F4); // Changed to Light Blue
-  static const Color accentOrange = Color(0xFFFF9800);
-  static const Color accentPurple = Color(0xFFAB47BC);
-  static const Color accentCyan = Color(0xFF00BCD4);
-  static const Color accentRed = Color(0xFFEF5350);
-  static const Color accentBlue = Color(0xFF2196F3); // Standard Blue for buttons
-  static const Color accentPink = Color(0xFFEC407A);
-  static const Color accentYellow = Color(0xFFFFEE58);
+  static const Color accentGreen = brandSteelBlue;
+  static const Color accentOrange = brandBlueGrey;
+  static const Color accentPurple = brandBlueGrey;
+  static const Color accentCyan = brandSteelBlue;
+  static const Color accentRed = brandRed;
+  static const Color accentBlue = brandSteelBlue;
+  static const Color accentPink = brandBlueGrey;
+  static const Color accentYellow = brandPaleSky;
 
   // ─── Text Colors ─────────────────────────────────────────
   static const Color textPrimary = Color(0xFF1A1A24);
-  static const Color textSecondary = Color(0xFF64748B);
-  static const Color textMuted = Color(0xFF94A3B8);
+  static const Color textSecondary = Color(0xFF4A6A8A); // blue-tinted secondary
+  static const Color textMuted = Color(0xFF8AA8C8); // pale blue muted
 
   // ─── Gradients ───────────────────────────────────────────
   static const LinearGradient sidebarGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0xFFFFFFFF), Color(0xFFF8F9FB)],
+    colors: [brandWhite, Color(0xFFF0F7FF)],
   );
 
   static const LinearGradient cardGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFFFFFFF), Color(0xFFF8F9FB)],
+    colors: [brandWhite, Color(0xFFF0F7FF)],
   );
 
   static LinearGradient accentGradient(Color color) => LinearGradient(
@@ -57,19 +110,6 @@ class AppTheme {
         color: glowColor?.withValues(alpha: 0.2) ?? border,
         width: 1,
       ),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.05),
-          blurRadius: 10,
-          offset: const Offset(0, 4),
-        ),
-        if (glowColor != null)
-          BoxShadow(
-            color: glowColor.withValues(alpha: 0.05),
-            blurRadius: 15,
-            spreadRadius: -2,
-          ),
-      ],
     );
   }
 
@@ -84,33 +124,21 @@ class AppTheme {
         color: glowColor?.withValues(alpha: 0.2) ?? border,
         width: 1,
       ),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.04),
-          blurRadius: 12,
-          offset: const Offset(0, 4),
-        ),
-        if (glowColor != null)
-          BoxShadow(
-            color: glowColor.withValues(alpha: 0.04),
-            blurRadius: 20,
-            spreadRadius: -4,
-          ),
-      ],
     );
   }
 
   // ─── Theme Data ──────────────────────────────────────────
-  static ThemeData get lightTheme { // Renamed from darkTheme
+  static ThemeData get lightTheme {
+    // Renamed from darkTheme
     return ThemeData(
       brightness: Brightness.light,
       scaffoldBackgroundColor: bgDark,
-      primaryColor: accentGreen,
+      primaryColor: brandSteelBlue,
       colorScheme: const ColorScheme.light(
-        primary: accentGreen,
-        secondary: accentCyan,
+        primary: brandSteelBlue,
+        secondary: brandBlueGrey,
         surface: bgCard,
-        error: accentRed,
+        error: brandRed,
         onSurface: textPrimary,
       ),
       textTheme: GoogleFonts.montserratTextTheme().apply(
@@ -135,18 +163,23 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: accentGreen, width: 1.5),
+          borderSide: const BorderSide(color: brandSteelBlue, width: 1.5),
         ),
         labelStyle: const TextStyle(color: textSecondary),
         hintStyle: const TextStyle(color: textMuted),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: accentBlue, // Blue for buttons
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
           elevation: 0,
         ),

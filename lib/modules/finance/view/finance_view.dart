@@ -28,13 +28,13 @@ class FinanceView extends StatelessWidget {
             // Total Revenue KPI
             Row(
               children: [
-                Expanded(child: KpiCard(title: 'Total Revenue', value: fmt.format(fc.totalRevenue.value), icon: Icons.account_balance_wallet_rounded, accentColor: AppTheme.accentGreen, subtitle: 'All landlords combined')),
+                Expanded(child: KpiCard(title: 'Total Revenue', value: fmt.format(fc.currentTotalRevenue), icon: Icons.account_balance_wallet_rounded, accentColor: AppTheme.accentGreen, subtitle: fc.selectedPropertyName.value.isEmpty ? 'All landlords combined' : fc.selectedPropertyName.value)),
                 const SizedBox(width: 16),
-                Expanded(child: KpiCard(title: 'Rented Properties', value: '${fc.rentedProperties.length}', icon: Icons.home_rounded, accentColor: AppTheme.accentOrange)),
+                Expanded(child: KpiCard(title: 'Rented Properties', value: '${fc.currentRentedPropertiesCount}', icon: Icons.home_rounded, accentColor: AppTheme.accentOrange)),
                 const SizedBox(width: 16),
-                Expanded(child: KpiCard(title: 'Paid This Year', value: '${fc.rentPayments.where((p) => p.status == "paid").length}', icon: Icons.check_circle_rounded, accentColor: AppTheme.accentCyan)),
+                Expanded(child: KpiCard(title: 'Paid This Year', value: '${fc.currentPaidCount}', icon: Icons.check_circle_rounded, accentColor: AppTheme.accentCyan)),
                 const SizedBox(width: 16),
-                Expanded(child: KpiCard(title: 'Overdue', value: '${fc.rentPayments.where((p) => p.status == "overdue").length}', icon: Icons.warning_rounded, accentColor: AppTheme.accentRed)),
+                Expanded(child: KpiCard(title: 'Overdue', value: '${fc.currentOverdueCount}', icon: Icons.warning_rounded, accentColor: AppTheme.accentRed)),
               ],
             ),
             const SizedBox(height: 28),
@@ -56,8 +56,8 @@ class FinanceView extends StatelessWidget {
                           leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 60, getTitlesWidget: (v, m) => Text(fmt.format(v), style: const TextStyle(color: AppTheme.textMuted, fontSize: 10)))),
                           bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (v, m) {
                             final idx = v.toInt();
-                            if (idx >= 0 && idx < fc.revenueRecords.length) {
-                              return Padding(padding: const EdgeInsets.only(top: 8), child: Text(fc.revenueRecords[idx].month, style: const TextStyle(color: AppTheme.textMuted, fontSize: 10)));
+                            if (idx >= 0 && idx < fc.currentRevenueRecords.length) {
+                              return Padding(padding: const EdgeInsets.only(top: 8), child: Text(fc.currentRevenueRecords[idx].month, style: const TextStyle(color: AppTheme.textMuted, fontSize: 10)));
                             }
                             return const SizedBox();
                           })),
@@ -65,9 +65,11 @@ class FinanceView extends StatelessWidget {
                           rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                         ),
                         borderData: FlBorderData(show: false),
+                        minY: 0,
                         lineBarsData: [
                           LineChartBarData(
-                            spots: fc.revenueRecords.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.amount)).toList(),
+                            preventCurveOverShooting: true,
+                            spots: fc.currentRevenueRecords.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value.amount)).toList(),
                             isCurved: true,
                             color: AppTheme.accentGreen,
                             barWidth: 3,
@@ -97,17 +99,20 @@ class FinanceView extends StatelessWidget {
               // Landlord/Tenant info
               if (fc.selectedPropertyPayments.isNotEmpty) ...[
                 GlassCard(
-                  glowColor: AppTheme.accentOrange,
+                  color: AppTheme.landlordBg,
+                  borderColor: AppTheme.landlordBorder,
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [
-                      const Icon(Icons.person, color: AppTheme.accentOrange, size: 20),
+                      const Icon(Icons.person, color: AppTheme.landlordFill, size: 20),
                       const SizedBox(width: 8),
-                      Text('Landlord: ${fc.selectedPropertyPayments.first.landlordName}', style: AppTheme.heading3),
+                      Text('Landlord: ${fc.selectedPropertyPayments.first.landlordName}', style: AppTheme.heading3.copyWith(color: AppTheme.landlordText)),
                       const SizedBox(width: 32),
-                      const Icon(Icons.person_outline, color: AppTheme.accentCyan, size: 20),
+                      const VerticalDivider(),
+                      const SizedBox(width: 32),
+                      const Icon(Icons.person_outline, color: AppTheme.tenantFill, size: 20),
                       const SizedBox(width: 8),
-                      Text('Tenant: ${fc.selectedPropertyPayments.first.tenantName}', style: AppTheme.heading3),
+                      Text('Tenant: ${fc.selectedPropertyPayments.first.tenantName}', style: AppTheme.heading3.copyWith(color: AppTheme.tenantText)),
                     ],
                   ),
                 ),
@@ -123,14 +128,18 @@ class FinanceView extends StatelessWidget {
                     DataColumn(label: Text('Month', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600))),
                     DataColumn(label: Text('Villa Name', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600))),
                     DataColumn(label: Text('Amount', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600))),
+                    DataColumn(label: Text('Transaction ID', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600))),
                     DataColumn(label: Text('Status', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600))),
+                    DataColumn(label: Text('Due Date', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600))),
                     DataColumn(label: Text('Paid Date', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600))),
                   ],
                   rows: fc.selectedPropertyPayments.map((p) => DataRow(cells: [
                     DataCell(Text('${p.month} ${p.year}', style: const TextStyle(color: AppTheme.textSecondary))),
                     DataCell(Text(fc.selectedPropertyName.value, style: const TextStyle(color: AppTheme.textSecondary))),
                     DataCell(Text(fmtFull.format(p.amount), style: const TextStyle(color: AppTheme.accentGreen, fontWeight: FontWeight.w600))),
-                    DataCell(StatusBadge(label: p.status.capitalizeFirst ?? p.status, color: p.status == 'paid' ? AppTheme.accentGreen : (p.status == 'overdue' ? AppTheme.accentRed : AppTheme.accentYellow))),
+                    DataCell(Text(p.transactionId ?? '—', style: const TextStyle(color: AppTheme.accentCyan, fontSize: 12, fontWeight: FontWeight.w500))),
+                    DataCell(p.status == 'paid' ? StatusBadge.paid() : (p.status == 'overdue' ? StatusBadge.overdue() : StatusBadge.pending())),
+                    DataCell(Text('${p.dueDate.day}/${p.dueDate.month}/${p.dueDate.year}', style: const TextStyle(color: AppTheme.accentOrange, fontWeight: FontWeight.w500))),
                     DataCell(Text(p.paidDate != null ? '${p.paidDate!.day}/${p.paidDate!.month}/${p.paidDate!.year}' : '—', style: const TextStyle(color: AppTheme.textMuted))),
                   ])).toList(),
                 ),

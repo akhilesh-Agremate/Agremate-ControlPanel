@@ -28,6 +28,41 @@ class FinanceController extends GetxController {
     return map.values.toList();
   }
 
+  List<RentPaymentModel> get currentPayments => 
+      selectedPropertyName.value.isEmpty ? rentPayments.toList() : selectedPropertyPayments.toList();
+
+  double get currentTotalRevenue {
+    double total = 0;
+    for (final p in currentPayments) {
+      if (p.status == 'paid') total += p.amount;
+    }
+    return total;
+  }
+
+  int get currentRentedPropertiesCount {
+    if (selectedPropertyName.value.isNotEmpty) return 1;
+    return rentedProperties.length;
+  }
+
+  int get currentPaidCount => currentPayments.where((p) => p.status == 'paid').length;
+  int get currentOverdueCount => currentPayments.where((p) => p.status == 'overdue').length;
+
+  List<RevenueRecord> get currentRevenueRecords {
+    if (selectedPropertyName.value.isEmpty) return revenueRecords.toList();
+    
+    // Compute for selected property
+    final months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    final records = <RevenueRecord>[];
+    for (int m=0; m<12; m++) {
+      double mt = 0;
+      for (final p in currentPayments.where((p) => p.month == months[m] && p.status == 'paid')) {
+        mt += p.amount;
+      }
+      records.add(RevenueRecord(month: months[m], amount: mt, year: 2025));
+    }
+    return records;
+  }
+
   @override
   void onInit() {
     super.onInit();
@@ -57,12 +92,15 @@ class FinanceController extends GetxController {
       for (int m=0;m<12;m++) {
         final amt = rent+_rng.nextInt(5000).toDouble();
         final st = sts[_rng.nextInt(sts.length)];
+        final dueDate = DateTime(2025, m + 1, 5);
         payments.add(RentPaymentModel(
           id:'RP${payments.length+1}',propertyId:p['id']!,propertyName:p['name']!,
           landlordId:'L${props.indexOf(p)+1}',landlordName:p['ll']!,
           tenantId:'T${props.indexOf(p)+1}',tenantName:p['tn']!,
           amount:amt,month:months[m],year:2025,status:st,
+          dueDate: dueDate,
           paidDate:st=='paid'?DateTime(2025,m+1,_rng.nextInt(28)+1):null,
+          transactionId:st=='paid' ? 'TXN${_rng.nextInt(900000) + 100000}' : null,
         ));
         if(st=='paid') total+=amt;
       }
