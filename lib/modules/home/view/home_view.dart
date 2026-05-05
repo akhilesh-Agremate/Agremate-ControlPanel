@@ -1110,8 +1110,13 @@ class _ActivityListCard extends StatelessWidget {
       final matchedProperty = PropertyModel(
         id: property.id,
         name: property.name,
-        address: item['location'] ?? property.address,
-        city: property.city,
+        address: item['location'] != null
+            ? PropertyAddress(
+                address: item['location'] as String,
+                latitude: property.address.latitude,
+                longitude: property.address.longitude,
+              )
+            : property.address,
         landlordId: property.landlordId,
         landlordName: item['landlordName'] ?? property.landlordName,
         landlordPhone: property.landlordPhone,
@@ -1120,8 +1125,6 @@ class _ActivityListCard extends StatelessWidget {
         rentAmount: property.rentAmount,
         advanceAmount: property.advanceAmount,
         propertyType: property.propertyType,
-        totalUnits: property.totalUnits,
-        occupiedUnits: property.occupiedUnits,
         status: property.status,
         primaryTenantName: item['tenantName'] ?? property.primaryTenantName,
         primaryTenantPhone: property.primaryTenantPhone,

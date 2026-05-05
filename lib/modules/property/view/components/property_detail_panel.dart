@@ -145,7 +145,7 @@ class PropertyDetailPanel extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  '${property.address}, ${property.city}',
+                                  '${property.address.address}, ${property.city}',
                                   style: AppTheme.bodyText.copyWith(
                                     fontWeight: FontWeight.w600,
                                     color: Colors.black,
@@ -233,7 +233,7 @@ class PropertyDetailPanel extends StatelessWidget {
                                 name: property.primaryTenantName ?? 'N/A',
                                 phone: property.primaryTenantPhone ?? 'N/A',
                                 email: property.primaryTenantEmail ?? 'N/A',
-                                address: property.address,
+                                address: property.address.address,
                                 accentColor: AppTheme.accentGreen,
                               )
                             : Container(
