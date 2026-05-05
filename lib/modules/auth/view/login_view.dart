@@ -84,68 +84,65 @@ class _LoginViewState extends State<LoginView> {
     final auth = Get.find<AuthController>();
 
     return Scaffold(
-      body: Stack(
+      backgroundColor: Colors.white,
+      body: Row(
         children: [
-          // ── Background: room / chair image ────────────────────────────
-          Positioned.fill(
-            child: Image.asset(
-              'assets/images/bg_room.jpg',
-              fit: BoxFit.cover,
-              alignment: Alignment.center,
-              errorBuilder: (_, __, ___) => Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFFD6E4F0), Color(0xFFB0C4D8), Color(0xFF8EA9BE)],
-                  ),
+          // ─── Left Side: Branding & Logo ──────────────────────
+          if (MediaQuery.of(context).size.width > 900)
+            Expanded(
+              flex: 5,
+              child: Container(
+                color: const Color(0xFFF8FAFC),
+                child: Image.asset(
+                  'assets/images/login_bg_v3.jpg',
+                  fit: BoxFit.cover,
                 ),
               ),
             ),
-          ),
 
-          // ── Subtle dark overlay ───────────────────────────────────────
-          Positioned.fill(
-            child: Container(color: Colors.black.withValues(alpha: 0.28)),
-          ),
-
-          // ── Main content ──────────────────────────────────────────────
-          SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 30),
-                  child: Container(
-                    constraints: const BoxConstraints(maxWidth: 420),
-                    padding: const EdgeInsets.fromLTRB(26, 32, 26, 36),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.93),
-                      borderRadius: BorderRadius.circular(26),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.22),
-                          blurRadius: 40,
-                          spreadRadius: 4,
-                          offset: const Offset(0, 12),
+          // ─── Right Side: Login Form ─────────────────────────
+          Expanded(
+            flex: 5,
+            child: Container(
+              color: Colors.white,
+              child: SafeArea(
+                child: Center(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 22,
+                        vertical: 30,
+                      ),
+                      child: Container(
+                        constraints: const BoxConstraints(maxWidth: 420),
+                        padding: const EdgeInsets.fromLTRB(26, 32, 26, 36),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(26),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.08),
+                              blurRadius: 40,
+                              offset: const Offset(0, 12),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Heading
-                        Text(
-                          'Login',
-                          style: GoogleFonts.inter(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF1E293B),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Heading
+                            Text(
+                              'Login',
+                              style: GoogleFonts.inter(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFF1E293B),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
                           'Enter your credentials to continue',
                           style: GoogleFonts.inter(
                               fontSize: 14, color: const Color(0xFF64748B)),
@@ -263,7 +260,9 @@ class _LoginViewState extends State<LoginView> {
                             ),
                           );
                         }),
-                      ],
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),

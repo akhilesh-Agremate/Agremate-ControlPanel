@@ -23,7 +23,7 @@ class HomeController extends GetxController {
     subAmountPeriod.value = newPeriod;
     subExpiredPeriod.value = newPeriod;
   }
-  
+
   // Detail view state
   var selectedSubscription = Rxn<Map<String, dynamic>>();
 
@@ -67,25 +67,56 @@ class HomeController extends GetxController {
   }
 
   // Mock data for lists
-  final List<Map<String, dynamic>> recentRent = List.generate(10, (i) => {
-    'title': 'Green Villa ${i + 1}', 
-    'detail': 'Landlord: John Doe ${i + 1} | Tenant: Alex Smith ${i + 1}\nRent: ₹${25000 + i * 500}',
-    'propertyName': 'Green Villa ${i + 1}',
-    'tenantName': 'Alex Smith ${i + 1}',
-    'landlordName': 'John Doe ${i + 1}',
-    'rentAmount': '₹${25000 + i * 500}',
-    'advanceAmount': '₹${(25000 + i * 500) * 3}',
-    'location': 'Mumbai Block ${i + 10}',
-    'propertyImage': 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?q=80&w=600&h=300&auto=format&fit=crop',
-    'propertyStatus': 'Rented',
-    'joinedDate': 'Jan 2024',
-  });
-  final List<String> _indianNames = ['Aarav', 'Vivaan', 'Aditya', 'Vihaan', 'Arjun', 'Sai', 'Ayaan', 'Krishna', 'Ishaan', 'Shaurya'];
-  final List<String> _indianLastNames = ['Patel', 'Sharma', 'Singh', 'Kumar', 'Das', 'Bose', 'Gupta', 'Mehta', 'Trivedi', 'Jain'];
+  final List<Map<String, dynamic>> recentRent = List.generate(
+    10,
+    (i) => {
+      'title': 'Green Villa ${i + 1}',
+      'detail':
+          'Landlord: John Doe ${i + 1} | Tenant: Alex Smith ${i + 1}\nRent: ₹${25000 + i * 500}',
+      'propertyName': 'Green Villa ${i + 1}',
+      'tenantName': 'Alex Smith ${i + 1}',
+      'landlordName': 'John Doe ${i + 1}',
+      'rentAmount': '₹${25000 + i * 500}',
+      'advanceAmount': '₹${(25000 + i * 500) * 3}',
+      'location': 'Mumbai Block ${i + 10}',
+      'propertyImage':
+          'https://images.unsplash.com/photo-1568605114967-8130f3a36994?q=80&w=600&h=300&auto=format&fit=crop',
+      'propertyStatus': 'Rented',
+      'joinedDate': 'Jan 2024',
+    },
+  );
+  final List<String> _indianNames = [
+    'Aarav',
+    'Vivaan',
+    'Aditya',
+    'Vihaan',
+    'Arjun',
+    'Sai',
+    'Ayaan',
+    'Krishna',
+    'Ishaan',
+    'Shaurya',
+  ];
+  final List<String> _indianLastNames = [
+    'Patel',
+    'Sharma',
+    'Singh',
+    'Kumar',
+    'Das',
+    'Bose',
+    'Gupta',
+    'Mehta',
+    'Trivedi',
+    'Jain',
+  ];
 
   late final List<Map<String, dynamic>> recentSubs = List.generate(10, (i) {
-    String name = '${_indianNames[i % _indianNames.length]} ${_indianLastNames[(i+2) % _indianLastNames.length]}';
-    int propertyCount = (i % 5 == 0) ? 12 : ((i % 3 == 0) ? 7 : (i % 4) + 1); // Mix of 1-4, 7, 12 properties
+    String name =
+        '${_indianNames[i % _indianNames.length]} ${_indianLastNames[(i + 2) % _indianLastNames.length]}';
+    int propertyCount =
+        (i % 5 == 0)
+            ? 12
+            : ((i % 3 == 0) ? 7 : (i % 4) + 1); // Mix of 1-4, 7, 12 properties
     String plan;
     int maxProps;
     if (propertyCount >= 10) {
@@ -98,29 +129,36 @@ class HomeController extends GetxController {
       plan = '₹299 Subscription';
       maxProps = 5;
     }
-    
-    List<Map<String, String>> properties = List.generate(propertyCount, (pIndex) {
+
+    List<Map<String, String>> properties = List.generate(propertyCount, (
+      pIndex,
+    ) {
       bool isBooked = (pIndex % 2 == 0); // Alternate booked/available
       return {
         'name': 'Property ${100 + i * 10 + pIndex}',
         'location': 'Block ${String.fromCharCode(65 + pIndex)}, Mumbai',
         'status': isBooked ? 'Booked' : 'Available',
-        'tenantName': isBooked ? _indianNames[(i+pIndex) % _indianNames.length] : '',
-        'tenantPhone': isBooked ? '+91 98765${12345+i+pIndex}' : '',
-        'tenantEmail': isBooked ? '${_indianNames[(i+pIndex) % _indianNames.length].toLowerCase()}@example.com' : '',
+        'tenantName':
+            isBooked ? _indianNames[(i + pIndex) % _indianNames.length] : '',
+        'tenantPhone': isBooked ? '+91 98765${12345 + i + pIndex}' : '',
+        'tenantEmail':
+            isBooked
+                ? '${_indianNames[(i + pIndex) % _indianNames.length].toLowerCase()}@example.com'
+                : '',
         'joinedDate': 'Jan 2024',
       };
     });
 
     return {
-      'title': name, 
+      'title': name,
       'detail': 'Plan: $plan',
       'propertyName': 'Multiple Properties ($propertyCount)',
       'landlordName': name,
       'subscriptionPlan': plan,
       'propertyCount': propertyCount,
       'maxProperties': maxProps,
-      'landlordDetails': 'Email: ${name.toLowerCase().split(' ')[0]}@example.com\nPhone: +91 98765${43210+i}',
+      'landlordDetails':
+          'Email: ${name.toLowerCase().split(' ')[0]}@example.com\nPhone: +91 98765${43210 + i}',
       'properties': properties,
       'status': i % 4 == 0 ? 'Expired' : 'Active',
     };
@@ -133,7 +171,7 @@ class HomeController extends GetxController {
       'Maintenance Request',
       'AC Servicing',
       'Painting Work',
-      'Carpentry Issue'
+      'Carpentry Issue',
     ];
     String issue = issues[i % issues.length];
 
@@ -152,17 +190,24 @@ class HomeController extends GetxController {
       'activeStatus': isSolved ? 'Completed' : 'Active',
     };
   });
-  final List<Map<String, dynamic>> propertyList = List.generate(10, (i) => {
-    'title': 'Green Villa ${i + 1}',
-    'landlordName': 'Robert Brown',
-    'location': 'Block ${101 + i}, Mumbai',
-    'status': i % 2 == 0 ? 'Available' : 'Rented',
-    'detail': 'Landlord: Robert Brown | Location: Block ${101 + i}\nStatus: ${i % 2 == 0 ? 'Available' : 'Rented'}'
-  });
-  final List<Map<String, dynamic>> documentList = List.generate(10, (i) => {
-    'title': 'Lease_Agreement_${i + 1}.pdf', 
-    'detail': 'Landlord: John Doe | Tenant: Alex Smith'
-  });
+  final List<Map<String, dynamic>> propertyList = List.generate(
+    10,
+    (i) => {
+      'title': 'Green Villa ${i + 1}',
+      'landlordName': 'Robert Brown',
+      'location': 'Block ${101 + i}, Mumbai',
+      'status': i % 2 == 0 ? 'Available' : 'Rented',
+      'detail':
+          'Landlord: Robert Brown | Location: Block ${101 + i}\nStatus: ${i % 2 == 0 ? 'Available' : 'Rented'}',
+    },
+  );
+  final List<Map<String, dynamic>> documentList = List.generate(
+    10,
+    (i) => {
+      'title': 'Lease_Agreement_${i + 1}.pdf',
+      'detail': 'Landlord: John Doe | Tenant: Alex Smith',
+    },
+  );
   final List<Map<String, dynamic>> supportList = List.generate(10, (i) {
     final categories = ['Technical', 'Billing', 'Account', 'General'];
     final statuses = ['Pending', 'In Progress', 'Resolved'];
@@ -171,7 +216,7 @@ class HomeController extends GetxController {
       'Payment failure',
       'Update profile details',
       'Feature request',
-      'Bug report'
+      'Bug report',
     ];
     return {
       'title': 'Ticket #${i + 1001}',
@@ -180,7 +225,7 @@ class HomeController extends GetxController {
       'message': messages[i % messages.length],
       'date': 'May ${15 + i}, 2024',
       'detail':
-          'Category: ${categories[i % categories.length]} | Status: ${statuses[i % statuses.length]}\nMessage: ${messages[i % messages.length]}'
+          'Category: ${categories[i % categories.length]} | Status: ${statuses[i % statuses.length]}\nMessage: ${messages[i % messages.length]}',
     };
   });
 

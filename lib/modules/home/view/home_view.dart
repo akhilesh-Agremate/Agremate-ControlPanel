@@ -400,7 +400,7 @@ class _ActivityListCard extends StatelessWidget {
                                           children: [
                                             // Column 1: Names
                                             Expanded(
-                                              flex: 2,
+                                              flex: 3,
                                               child: Column(
                                                 crossAxisAlignment:
                                                     CrossAxisAlignment.start,
@@ -438,7 +438,7 @@ class _ActivityListCard extends StatelessWidget {
                                                 ],
                                               ),
                                             ),
-                                            // Column 3: Location & Date (Right)
+                                            // Column 3: Location & Date (Right Corner)
                                             Expanded(
                                               flex: 2,
                                               child: Column(
@@ -842,17 +842,20 @@ class _ActivityListCard extends StatelessWidget {
                                                           vertical: 3,
                                                         ),
                                                     decoration: BoxDecoration(
-                                                      color: item['status'] ==
-                                                              'Resolved'
-                                                          ? AppTheme.accentBlue
-                                                          : item['status'] ==
+                                                      color:
+                                                          item['status'] ==
+                                                                  'Resolved'
+                                                              ? AppTheme
+                                                                  .accentBlue
+                                                              : item['status'] ==
                                                                   'In Progress'
                                                               ? AppTheme
                                                                   .accentOrange
                                                               : Colors.red,
                                                       borderRadius:
                                                           BorderRadius.circular(
-                                                              8),
+                                                            8,
+                                                          ),
                                                     ),
                                                     child: Text(
                                                       item['status'] ??
