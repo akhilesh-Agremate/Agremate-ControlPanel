@@ -45,11 +45,13 @@ class _GlassCardState extends State<GlassCard> {
           duration: const Duration(milliseconds: 200),
           margin: widget.margin ?? const EdgeInsets.all(0),
           decoration: BoxDecoration(
-            color: widget.color ?? (_hovering ? AppTheme.bgCardLight : AppTheme.bgCard),
+            color: widget.color ?? AppTheme.bgCard,
             borderRadius: BorderRadius.circular(widget.borderRadius),
             border: Border.all(
-              color: widget.borderColor ?? (widget.glowColor?.withValues(alpha: _hovering ? 0.5 : 0.25) ?? AppTheme.border),
-              width: 1,
+              color: _hovering 
+                  ? AppTheme.accentBlue 
+                  : (widget.borderColor ?? (widget.glowColor?.withValues(alpha: 0.25) ?? AppTheme.border)),
+              width: _hovering ? 1.5 : 1.0,
             ),
           ),
           child: ClipRRect(

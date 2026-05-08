@@ -42,7 +42,7 @@ class PropertyView extends StatelessWidget {
               children: [
                 Expanded(
                   child: AspectRatio(
-                    aspectRatio: 2.0,
+                    aspectRatio: 1.5,
                     child: KpiCard(
                       title: 'Total Landlords',
                       value: '${pc.landlords.length}',
@@ -56,7 +56,7 @@ class PropertyView extends StatelessWidget {
                 const SizedBox(width: 16),
                 Expanded(
                   child: AspectRatio(
-                    aspectRatio: 2.0,
+                    aspectRatio: 1.5,
                     child: KpiCard(
                       title: 'Total Tenants',
                       value: '${pc.tenants.length}',
@@ -70,7 +70,7 @@ class PropertyView extends StatelessWidget {
                 const SizedBox(width: 16),
                 Expanded(
                   child: AspectRatio(
-                    aspectRatio: 2.0,
+                    aspectRatio: 1.5,
                     child: KpiCard(
                       title: 'Total Properties',
                       value: '${pc.properties.length}',
@@ -84,7 +84,7 @@ class PropertyView extends StatelessWidget {
                 const SizedBox(width: 16),
                 Expanded(
                   child: AspectRatio(
-                    aspectRatio: 2.0,
+                    aspectRatio: 1.5,
                     child: KpiCard(
                       title: 'Total Revenue',
                       value: fmt.format(pc.landlords.fold<double>(0, (s, l) => s + (l.totalRevenue ?? 0))),
@@ -104,6 +104,20 @@ class PropertyView extends StatelessWidget {
                 Text('Properties', style: AppTheme.heading2),
                 const SizedBox(width: 8),
                 Text('($totalFiltered total)', style: AppTheme.caption),
+                const Spacer(),
+                ElevatedButton.icon(
+                  onPressed: () => _showAddPropertyDialog(context, pc),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add Property'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.accentGreen,
+                    foregroundColor: AppTheme.bgDark,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -122,7 +136,7 @@ class PropertyView extends StatelessWidget {
                 }
 
                 if (pageItems.isEmpty) {
-                  return _EmptyState(page: page);
+                  return _EmptyState(page: page, onRefresh: pc.refreshProperties);
                 }
 
                 return Wrap(
@@ -143,18 +157,138 @@ class PropertyView extends StatelessWidget {
             const SizedBox(height: 32),
 
             // ── Pagination ─────────────────────────────────────────────────
-            if (pc.totalPages > 1) _Pagination(pc: pc),
+            _Pagination(pc: pc),
           ],
         ),
       );
     });
+  }
+
+  void _showAddPropertyDialog(BuildContext context, PropertyController pc) {
+    final nameC = TextEditingController();
+    final addressC = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.bgCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Add Property',
+          style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold),
+        ),
+        content: SizedBox(
+          width: 400,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameC,
+                style: const TextStyle(color: AppTheme.textPrimary),
+                decoration: InputDecoration(
+                  labelText: 'Property Name',
+                  labelStyle: const TextStyle(color: AppTheme.textMuted),
+                  filled: true,
+                  fillColor: AppTheme.bgCardLight,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: AppTheme.border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: AppTheme.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: AppTheme.accentGreen),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: addressC,
+                style: const TextStyle(color: AppTheme.textPrimary),
+                maxLines: 2,
+                decoration: InputDecoration(
+                  labelText: 'Address',
+                  labelStyle: const TextStyle(color: AppTheme.textMuted),
+                  filled: true,
+                  fillColor: AppTheme.bgCardLight,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: AppTheme.border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: AppTheme.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: AppTheme.accentGreen),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                style: const TextStyle(color: AppTheme.textPrimary),
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Monthly Rent',
+                  labelStyle: const TextStyle(color: AppTheme.textMuted),
+                  filled: true,
+                  fillColor: AppTheme.bgCardLight,
+                  prefixText: '₹ ',
+                  prefixStyle: const TextStyle(color: AppTheme.textPrimary),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: AppTheme.border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: AppTheme.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: AppTheme.accentGreen),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: AppTheme.textMuted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.accentGreen,
+              foregroundColor: AppTheme.bgDark,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              if (nameC.text.isNotEmpty && addressC.text.isNotEmpty) {
+                Get.snackbar(
+                  'Coming Soon',
+                  'Property creation via API will be available soon.',
+                  duration: const Duration(seconds: 3),
+                );
+                Navigator.pop(ctx);
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
   }
 }
 
 // ── Empty State ──────────────────────────────────────────────────────────────
 class _EmptyState extends StatelessWidget {
   final int page;
-  const _EmptyState({required this.page});
+  final VoidCallback onRefresh;
+  const _EmptyState({required this.page, required this.onRefresh});
 
   @override
   Widget build(BuildContext context) {
@@ -171,16 +305,29 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Text(
-            'No properties available',
+            page > 1 ? 'No Properties on Page $page' : 'No Properties Found',
             style: AppTheme.heading3.copyWith(color: AppTheme.textMuted),
           ),
           const SizedBox(height: 8),
           Text(
             page > 1
-                ? 'Page $page has no data. Try going back to a previous page.'
+                ? 'This page has no properties yet. New properties added by landlords will appear here automatically.'
                 : 'No properties were returned from the API.',
             style: AppTheme.caption,
             textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
+          OutlinedButton.icon(
+            onPressed: onRefresh,
+            icon: const Icon(Icons.refresh_rounded, size: 16),
+            label: const Text('Refresh Now'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.accentGreen,
+              side: const BorderSide(color: AppTheme.accentGreen),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
           ),
         ],
       ),
@@ -206,8 +353,7 @@ class _PropertyCard extends StatelessWidget {
     final fmt = NumberFormat.currency(symbol: '₹', locale: 'en_IN', decimalDigits: 0);
 
     final showTenant = prop.status == PropertyStatus.rented ||
-        prop.status == PropertyStatus.booked ||
-        prop.status == PropertyStatus.requested;
+        prop.status == PropertyStatus.booked;
 
     Widget statusBadge;
     Color statusColor;
@@ -254,8 +400,26 @@ class _PropertyCard extends StatelessWidget {
                     fit: BoxFit.cover,
                     errorBuilder: (c, e, s) => Container(
                       height: 180,
+                      width: double.infinity,
                       color: AppTheme.bgCardLight,
-                      child: const Icon(Icons.image_not_supported_rounded, color: AppTheme.textMuted),
+                      child: const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.image_not_supported_rounded,
+                            color: AppTheme.textMuted,
+                            size: 32,
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Image Not Available',
+                            style: TextStyle(
+                              color: AppTheme.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -299,7 +463,7 @@ class _PropertyCard extends StatelessWidget {
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          'Owner: ${prop.isOwner ? "Yes" : "No"}',
+                          'Landlord: ${prop.landlordName}',
                           style: AppTheme.caption.copyWith(color: AppTheme.landlordFill, fontWeight: FontWeight.w600),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -337,50 +501,89 @@ class _Pagination extends StatelessWidget {
   final PropertyController pc;
   const _Pagination({required this.pc});
 
+  /// Builds a smart windowed page list:
+  /// Always shows first, last, current ±2, with '…' gaps in between.
+  List<Widget> _buildPageButtons(int current, int total) {
+    final Set<int> pagesToShow = {};
+    // Always anchor: page 1 and the last known data page
+    pagesToShow.add(1);
+    if (total > 0) pagesToShow.add(total);
+    // Always include current page (even if it exceeds total)
+    pagesToShow.add(current);
+    // Show neighbours bounded by 1 on left; on right extend up to max(total, current)
+    final upperBound = current > total ? current : total;
+    for (int d = -2; d <= 2; d++) {
+      final p = current + d;
+      if (p >= 1 && p <= upperBound) pagesToShow.add(p);
+    }
+    final sorted = pagesToShow.toList()..sort();
+
+    final widgets = <Widget>[];
+    int? prev;
+    for (final page in sorted) {
+      if (prev != null && page - prev > 1) {
+        // Ellipsis gap
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text('…',
+                style: TextStyle(color: AppTheme.textMuted, fontSize: 14)),
+          ),
+        );
+      }
+      final isActive = page == current;
+      widgets.add(
+        InkWell(
+          onTap: () => pc.goToPage(page),
+          borderRadius: BorderRadius.circular(8),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: isActive ? AppTheme.accentGreen : AppTheme.bgCardLight,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                  color: isActive ? AppTheme.accentGreen : AppTheme.border),
+            ),
+            child: Text(
+              '$page',
+              style: TextStyle(
+                color: isActive ? AppTheme.bgDark : AppTheme.textSecondary,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ),
+        ),
+      );
+      prev = page;
+    }
+    return widgets;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Obx(() {
       final current = pc.currentPage.value;
       final total = pc.totalPages;
+      if (total <= 1) return const SizedBox.shrink();
       return Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // ← Prev
           IconButton(
             onPressed: current > 1 ? () => pc.goToPage(current - 1) : null,
             icon: Icon(Icons.chevron_left,
                 color: current > 1 ? AppTheme.textPrimary : AppTheme.textMuted),
           ),
-          const SizedBox(width: 8),
-          ...List.generate(total, (i) {
-            final page = i + 1;
-            final isActive = page == current;
-            return InkWell(
-              onTap: () => pc.goToPage(page),
-              borderRadius: BorderRadius.circular(8),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isActive ? AppTheme.accentGreen : AppTheme.bgCardLight,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: isActive ? AppTheme.accentGreen : AppTheme.border),
-                ),
-                child: Text(
-                  '$page',
-                  style: TextStyle(
-                    color: isActive ? AppTheme.bgDark : AppTheme.textSecondary,
-                    fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                  ),
-                ),
-              ),
-            );
-          }),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
+          // Page buttons with smart windowing
+          ..._buildPageButtons(current, total),
+          const SizedBox(width: 4),
+          // → Next (no upper bound — allows navigating to empty pages)
           IconButton(
-            onPressed: current < total ? () => pc.goToPage(current + 1) : null,
-            icon: Icon(Icons.chevron_right,
-                color: current < total ? AppTheme.textPrimary : AppTheme.textMuted),
+            onPressed: () => pc.goToPage(current + 1),
+            icon: const Icon(Icons.chevron_right, color: AppTheme.textPrimary),
           ),
         ],
       );

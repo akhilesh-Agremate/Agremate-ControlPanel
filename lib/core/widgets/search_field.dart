@@ -4,8 +4,9 @@ import 'package:agremate_admin/core/theme/theme.dart';
 class SearchField extends StatelessWidget {
   final String hint;
   final ValueChanged<String> onChanged;
+  final ValueChanged<String>? onSubmitted;
 
-  const SearchField({super.key, this.hint = 'Search...', required this.onChanged});
+  const SearchField({super.key, this.hint = 'Search...', required this.onChanged, this.onSubmitted});
 
   @override
   Widget build(BuildContext context) {
@@ -14,13 +15,14 @@ class SearchField extends StatelessWidget {
       height: 42,
       child: TextField(
         onChanged: onChanged,
+        onSubmitted: onSubmitted,
         style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 14),
           prefixIcon: const Icon(Icons.search, color: AppTheme.textMuted, size: 20),
           filled: true,
-          fillColor: AppTheme.bgCardLight,
+          fillColor: const Color(0xFFF0F2F5), // Light Gray
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),

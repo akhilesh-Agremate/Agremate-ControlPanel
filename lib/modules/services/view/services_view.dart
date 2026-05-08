@@ -43,11 +43,9 @@ class ServicesView extends StatelessWidget {
                 return SizedBox(
                   width: 220,
                   child: GlassCard(
+                    color: Colors.white,
                     glowColor: isSelected ? color : color.withValues(alpha: 0.5),
-                    onTap: () {
-                      sc.selectServiceType(type);
-                      _showRequestsDialog(context, sc, type, color);
-                    },
+                    onTap: () => sc.selectServiceType(type),
                     padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -68,12 +66,12 @@ class ServicesView extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 14),
-                        Text(type, style: AppTheme.heading3),
+                        Text(type, style: AppTheme.heading3.copyWith(color: AppTheme.textPrimary)),
                         const SizedBox(height: 6),
-                        Text('$count requests', style: AppTheme.bodyText),
+                        Text('$count requests', style: AppTheme.bodyText.copyWith(color: AppTheme.textSecondary)),
                         if (pending > 0) ...[
                           const SizedBox(height: 4),
-                          Text('$pending pending', style: TextStyle(color: AppTheme.accentYellow, fontSize: 12, fontWeight: FontWeight.w500)),
+                          Text('$pending pending', style: TextStyle(color: AppTheme.accentYellow, fontSize: 12, fontWeight: FontWeight.w600)),
                         ],
                       ],
                     ),
@@ -81,90 +79,121 @@ class ServicesView extends StatelessWidget {
                 );
               }).toList(),
             ),
+            const SizedBox(height: 32),
+            // Inline request list
+            if (sc.selectedServiceType.value.isNotEmpty) ...[
+              Row(
+                children: [
+                  Text('${sc.selectedServiceType.value} Requests', style: AppTheme.heading2),
+                  const Spacer(),
+                  StatusBadge(
+                    label: '${sc.filteredRequests.length} total',
+                    color: AppConstants.serviceColors[sc.selectedServiceType.value] ?? AppTheme.accentCyan,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              if (sc.filteredRequests.isEmpty)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: Text('No requests found', style: TextStyle(color: AppTheme.textMuted)),
+                  ),
+                )
+              else
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: sc.filteredRequests.length,
+                  itemBuilder: (context, index) {
+                    final req = sc.filteredRequests[index];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 5,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2083D5), // Uniform Agremate Blue
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                          const SizedBox(width: 20),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(req.propertyName, style: AppTheme.heading3),
+                                const SizedBox(height: 6),
+                                Text(req.description, style: AppTheme.bodyText.copyWith(color: AppTheme.textSecondary)),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Icon(Icons.person_outline_rounded, size: 14, color: AppTheme.textMuted),
+                                    const SizedBox(width: 4),
+                                    Text('By ${req.tenantName}', style: AppTheme.caption.copyWith(fontWeight: FontWeight.w600)),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              StatusBadge(
+                                label: req.status.replaceAll('_', ' ').toUpperCase(),
+                                color: req.status == 'completed' ? AppTheme.accentGreen : (req.status == 'pending' ? AppTheme.accentYellow : AppTheme.accentBlue),
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                'Requested on ${req.requestDate.day}/${req.requestDate.month}/${req.requestDate.year}',
+                                style: AppTheme.caption.copyWith(fontSize: 11),
+                              ),
+                              if (req.status == 'completed') ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Completed on ${req.requestDate.add(const Duration(days: 2)).day}/${req.requestDate.add(const Duration(days: 2)).month}/${req.requestDate.year}', // Simulated completion date
+                                  style: AppTheme.caption.copyWith(fontSize: 11, color: AppTheme.accentGreen, fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+            ] else
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 60),
+                  child: Column(
+                    children: [
+                      Icon(Icons.touch_app_rounded, size: 48, color: AppTheme.textMuted.withValues(alpha: 0.2)),
+                      const SizedBox(height: 16),
+                      Text('Select a category to view requests', style: AppTheme.bodyText.copyWith(color: AppTheme.textMuted)),
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
       );
     });
-  }
-
-  void _showRequestsDialog(BuildContext context, ServicesController sc, String type, Color color) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.bgCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Text('$type Requests', style: const TextStyle(color: AppTheme.textPrimary)),
-            const Spacer(),
-            Obx(() => StatusBadge(
-              label: '${sc.filteredRequests.length} total',
-              color: color,
-            )),
-          ],
-        ),
-        content: SizedBox(
-          width: 600,
-          height: 400,
-          child: Obx(() {
-            if (sc.filteredRequests.isEmpty) {
-              return const Center(child: Text('No requests found', style: TextStyle(color: AppTheme.textMuted)));
-            }
-            return ListView.builder(
-              itemCount: sc.filteredRequests.length,
-              itemBuilder: (context, index) {
-                final req = sc.filteredRequests[index];
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(16),
-                  decoration: AppTheme.solidCardDecoration(),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 4,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: req.status == 'completed' ? AppTheme.accentGreen : (req.status == 'pending' ? AppTheme.accentYellow : AppTheme.accentBlue),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(req.propertyName, style: AppTheme.heading3),
-                            const SizedBox(height: 4),
-                            Text(req.description, style: AppTheme.bodyText),
-                            const SizedBox(height: 4),
-                            Text('Requested by ${req.tenantName}', style: AppTheme.caption),
-                          ],
-                        ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          StatusBadge(
-                            label: req.status.replaceAll('_', ' ').capitalizeFirst ?? req.status,
-                            color: req.status == 'completed' ? AppTheme.accentGreen : (req.status == 'pending' ? AppTheme.accentYellow : AppTheme.accentBlue),
-                          ),
-                          const SizedBox(height: 6),
-                          StatusBadge(label: req.priority, color: req.priority == 'high' ? AppTheme.accentRed : (req.priority == 'medium' ? AppTheme.accentOrange : AppTheme.textMuted)),
-                          const SizedBox(height: 6),
-                          Text('${req.requestDate.day}/${req.requestDate.month}/${req.requestDate.year}', style: AppTheme.caption),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              },
-            );
-          }),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close', style: TextStyle(color: AppTheme.textMuted))),
-        ],
-      ),
-    );
   }
 }

@@ -40,8 +40,9 @@ class TopBar extends StatelessWidget {
             const Spacer(),
             if (showSearch)
               SearchField(
-                hint: 'Search ${title.toLowerCase()}...',
+                hint: index == 0 ? 'Search tenant, property...' : 'Search ${title.toLowerCase()}...',
                 onChanged: (q) => nav.searchQuery.value = q,
+                onSubmitted: (q) => nav.performGlobalSearch(q),
               ),
             const SizedBox(width: 16),
             Container(

@@ -33,7 +33,7 @@ class UserView extends StatelessWidget {
                 // Landlord Card
                 Expanded(
                   child: GlassCard(
-                    color: AppTheme.landlordBg,
+                    color: Colors.white,
                     borderColor: AppTheme.landlordBorder,
                     padding: const EdgeInsets.all(24),
                     child: Column(
@@ -79,49 +79,55 @@ class UserView extends StatelessWidget {
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: pc.landlords.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 16),
+                          separatorBuilder: (_, __) => const SizedBox(height: 12),
                           itemBuilder: (context, index) {
                             final landlord = pc.landlords[index];
                             final landlordProps = pc.properties.where((p) => p.landlordId == landlord.id).toList();
                             final propNames = landlordProps.map((p) => p.name).join(', ');
 
-                            return InkWell(
-                              onTap: () => _showLandlordDetailDialog(context, landlord, landlordProps),
-                              borderRadius: BorderRadius.circular(12),
-                              child: Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Row(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 18,
-                                      backgroundColor: AppTheme.landlordFill,
-                                      child: Text(
-                                        landlord.name.isNotEmpty ? landlord.name[0].toUpperCase() : 'L',
-                                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
-                                      ),
+                            return GlassCard(
+                              color: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              onTap: () {
+                                if (landlordProps.isNotEmpty) {
+                                  pc.selectedProperty.value = landlordProps.first;
+                                  nav.currentIndex.value = 1; // Nav to Property tab
+                                } else {
+                                  Get.snackbar('Info', 'No properties currently assigned to this landlord');
+                                }
+                              },
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 18,
+                                    backgroundColor: AppTheme.landlordFill,
+                                    child: Text(
+                                      landlord.name.isNotEmpty ? landlord.name[0].toUpperCase() : 'L',
+                                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
                                     ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            landlord.name,
-                                            style: AppTheme.heading3.copyWith(color: AppTheme.landlordText),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            '${landlordProps.length} Properties: $propNames',
-                                            style: AppTheme.caption.copyWith(color: AppTheme.landlordText.withValues(alpha: 0.7)),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ],
-                                      ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          landlord.name,
+                                          style: AppTheme.heading3.copyWith(color: AppTheme.landlordText),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          landlordProps.isNotEmpty 
+                                            ? '${landlordProps.length} Properties: $propNames'
+                                            : 'Phone: ${landlord.phone}',
+                                          style: AppTheme.caption.copyWith(color: AppTheme.landlordText.withValues(alpha: 0.7)),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
                                     ),
-                                    const Icon(Icons.keyboard_arrow_down_rounded, color: AppTheme.landlordFill, size: 20),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             );
                           },
@@ -134,7 +140,7 @@ class UserView extends StatelessWidget {
                 // Tenant Card
                 Expanded(
                   child: GlassCard(
-                    color: AppTheme.tenantBg,
+                    color: Colors.white,
                     borderColor: AppTheme.tenantBorder,
                     padding: const EdgeInsets.all(24),
                     child: Column(
@@ -179,53 +185,48 @@ class UserView extends StatelessWidget {
                         ListView.separated(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          itemCount: pc.tenants.length.clamp(0, 15), // Show up to 15 for demo
-                          separatorBuilder: (_, __) => const SizedBox(height: 16),
+                          itemCount: pc.tenants.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 12),
                           itemBuilder: (context, index) {
                             final tenant = pc.tenants[index];
-                            final prop = pc.properties.firstWhereOrNull((p) => p.id == tenant.propertyId);
+                            final prop = pc.properties.firstWhereOrNull(
+                              (p) => p.id == tenant.propertyId || p.primaryTenantName == tenant.name,
+                            );
 
-                            return InkWell(
+                            return GlassCard(
+                              color: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                               onTap: () {
-                                if (prop != null) {
-                                  pc.returnTabIndex.value = 6; // User tab
-                                  pc.selectedProperty.value = prop;
-                                  nav.currentIndex.value = 1;
-                                }
+                                pc.viewTenantDetails(tenant.id);
                               },
-                              borderRadius: BorderRadius.circular(12),
-                              child: Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Row(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 18,
-                                      backgroundColor: AppTheme.tenantFill,
-                                      child: Text(
-                                        tenant.name.isNotEmpty ? tenant.name[0].toUpperCase() : 'T',
-                                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
-                                      ),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 18,
+                                    backgroundColor: AppTheme.tenantFill,
+                                    child: Text(
+                                      tenant.name.isNotEmpty ? tenant.name[0].toUpperCase() : 'T',
+                                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
                                     ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            tenant.name,
-                                            style: AppTheme.heading3.copyWith(color: AppTheme.tenantText),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            'Property: ${prop?.name ?? 'Assigned soon'}',
-                                            style: AppTheme.caption.copyWith(color: AppTheme.tenantText.withValues(alpha: 0.7)),
-                                          ),
-                                        ],
-                                      ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          tenant.name,
+                                          style: AppTheme.heading3.copyWith(color: AppTheme.tenantText),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          prop != null ? 'Property: ${prop.name}' : 'Phone: ${tenant.phone}',
+                                          style: AppTheme.caption.copyWith(color: AppTheme.tenantText.withValues(alpha: 0.7)),
+                                        ),
+                                      ],
                                     ),
-                                    const Icon(Icons.keyboard_arrow_down_rounded, color: AppTheme.tenantFill, size: 20),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             );
                           },

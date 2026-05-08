@@ -49,7 +49,6 @@ class AppConstants {
     {'icon': Icons.home_repair_service_rounded, 'label': 'Services', 'index': 2},
     {'icon': Icons.account_balance_wallet_rounded, 'label': 'Finance', 'index': 3},
     {'icon': Icons.folder_rounded, 'label': 'Documents', 'index': 4},
-    {'icon': Icons.support_agent_rounded, 'label': 'Support', 'index': 5},
     {'icon': Icons.group_rounded, 'label': 'User', 'index': 6},
   ];
 }

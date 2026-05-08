@@ -20,7 +20,12 @@ class FinanceView extends StatelessWidget {
     final fmtFull = NumberFormat.currency(symbol: '₹', locale: 'en_IN', decimalDigits: 0);
 
     return Obx(() {
+      if (fc.isLoading.value) {
+        return const Center(child: CircularProgressIndicator(color: AppTheme.accentGreen));
+      }
+
       return SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(28),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -28,13 +33,58 @@ class FinanceView extends StatelessWidget {
             // Total Revenue KPI
             Row(
               children: [
-                Expanded(child: KpiCard(title: 'Total Revenue', value: fmt.format(fc.currentTotalRevenue), icon: Icons.account_balance_wallet_rounded, accentColor: AppTheme.accentGreen, subtitle: fc.selectedPropertyName.value.isEmpty ? 'All landlords combined' : fc.selectedPropertyName.value)),
+                Expanded(
+                  child: AspectRatio(
+                    aspectRatio: 1.5,
+                    child: KpiCard(
+                      title: 'Total Revenue', 
+                      value: fmt.format(fc.currentTotalRevenue), 
+                      icon: Icons.account_balance_wallet_rounded, 
+                      accentColor: AppTheme.accentGreen, 
+                      subtitle: fc.selectedPropertyName.value.isEmpty ? 'All landlords combined' : fc.selectedPropertyName.value,
+                      sparkData: fc.currentRevenueRecords.map((r) => r.amount / 1000).toList(),
+                    ),
+                  ),
+                ),
                 const SizedBox(width: 16),
-                Expanded(child: KpiCard(title: 'Rented Properties', value: '${fc.currentRentedPropertiesCount}', icon: Icons.home_rounded, accentColor: AppTheme.accentOrange)),
+                Expanded(
+                  child: AspectRatio(
+                    aspectRatio: 1.5,
+                    child: KpiCard(
+                      title: 'Rented Properties', 
+                      value: '${fc.currentRentedPropertiesCount}', 
+                      icon: Icons.home_rounded, 
+                      accentColor: AppTheme.accentOrange,
+                      sparkData: const [5, 6, 5, 7, 8, 7, 9, 10, 10, 9, 11, 12],
+                    ),
+                  ),
+                ),
                 const SizedBox(width: 16),
-                Expanded(child: KpiCard(title: 'Paid This Year', value: '${fc.currentPaidCount}', icon: Icons.check_circle_rounded, accentColor: AppTheme.accentCyan)),
+                Expanded(
+                  child: AspectRatio(
+                    aspectRatio: 1.5,
+                    child: KpiCard(
+                      title: 'Paid This Year', 
+                      value: '${fc.currentPaidCount}', 
+                      icon: Icons.check_circle_rounded, 
+                      accentColor: AppTheme.accentCyan,
+                      sparkData: const [40, 45, 42, 50, 55, 52, 60, 65, 62, 70, 75, 80],
+                    ),
+                  ),
+                ),
                 const SizedBox(width: 16),
-                Expanded(child: KpiCard(title: 'Overdue', value: '${fc.currentOverdueCount}', icon: Icons.warning_rounded, accentColor: AppTheme.accentRed)),
+                Expanded(
+                  child: AspectRatio(
+                    aspectRatio: 1.5,
+                    child: KpiCard(
+                      title: 'Overdue', 
+                      value: '${fc.currentOverdueCount}', 
+                      icon: Icons.warning_rounded, 
+                      accentColor: AppTheme.accentRed,
+                      sparkData: const [12, 10, 15, 8, 5, 7, 10, 12, 11, 15, 13, 18],
+                    ),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 28),
@@ -54,7 +104,11 @@ class FinanceView extends StatelessWidget {
                         gridData: FlGridData(drawVerticalLine: false, getDrawingHorizontalLine: (v) => FlLine(color: AppTheme.border.withValues(alpha: 0.3), strokeWidth: 0.5)),
                         titlesData: FlTitlesData(
                           leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 60, getTitlesWidget: (v, m) => Text(fmt.format(v), style: const TextStyle(color: AppTheme.textMuted, fontSize: 10)))),
-                          bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, getTitlesWidget: (v, m) {
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              interval: 1,
+                              getTitlesWidget: (v, m) {
                             final idx = v.toInt();
                             if (idx >= 0 && idx < fc.currentRevenueRecords.length) {
                               return Padding(padding: const EdgeInsets.only(top: 8), child: Text(fc.currentRevenueRecords[idx].month, style: const TextStyle(color: AppTheme.textMuted, fontSize: 10)));
@@ -190,7 +244,28 @@ class FinanceView extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Text(fmtFull.format(prop['totalPaid']), style: TextStyle(color: AppTheme.accentGreen, fontWeight: FontWeight.w700, fontSize: 16)),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Joined: ${prop['joinedDate'] ?? 'Jan 2024'}',
+                          style: AppTheme.caption.copyWith(
+                            fontSize: 10,
+                            color: AppTheme.textMuted,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          fmtFull.format(prop['totalPaid']),
+                          style: TextStyle(
+                            color: AppTheme.accentGreen,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(width: 8),
                     const Icon(Icons.chevron_right, color: AppTheme.textMuted),
                   ],

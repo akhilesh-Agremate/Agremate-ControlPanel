@@ -79,6 +79,11 @@ class AccountView extends StatelessWidget {
 
             const SizedBox(height: 32),
 
+            // Register New Account
+            const _RegisterNewAccount(),
+
+            const SizedBox(height: 32),
+
             // Logout
             GlassCard(
               glowColor: AppTheme.accentRed,
@@ -224,6 +229,194 @@ class _EditFormState extends State<_EditForm> {
           ElevatedButton(
             onPressed: () => widget.ac.updateProfile(nameC.text, emailC.text, phoneC.text),
             child: const Text('Save Changes'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RegisterNewAccount extends StatefulWidget {
+  const _RegisterNewAccount();
+
+  @override
+  State<_RegisterNewAccount> createState() => _RegisterNewAccountState();
+}
+
+class _RegisterNewAccountState extends State<_RegisterNewAccount> {
+  final _emailPhoneController = TextEditingController();
+  final _passwordController = TextEditingController();
+  String? _selectedRole;
+  final List<String> _roles = ['Landlord', 'Property Manager', 'Admin', 'Super Admin'];
+
+  String? _emailPhoneError;
+  String? _passwordError;
+  String? _roleError;
+
+  @override
+  void dispose() {
+    _emailPhoneController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  bool _isValidEmail(String email) {
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    return emailRegex.hasMatch(email);
+  }
+
+  bool _isValidPhone(String phone) {
+    final phoneRegex = RegExp(r'^\d{10}$');
+    return phoneRegex.hasMatch(phone);
+  }
+
+  bool _isPasswordComplex(String pw) {
+    final hasUpper = pw.contains(RegExp(r'[A-Z]'));
+    final hasLower = pw.contains(RegExp(r'[a-z]'));
+    final hasDigit = pw.contains(RegExp(r'[0-9]'));
+    final hasSpecial = pw.contains(RegExp(r'[@#$%&]'));
+    return hasUpper && hasLower && hasDigit && hasSpecial;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      glowColor: AppTheme.accentBlue,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Register New Account', style: AppTheme.heading2),
+          const SizedBox(height: 24),
+          TextField(
+            controller: _emailPhoneController,
+            style: const TextStyle(color: AppTheme.textPrimary),
+            decoration: const InputDecoration(
+              labelText: 'Phone number or Email',
+              filled: true,
+              fillColor: Colors.white,
+            ),
+            onChanged: (val) {
+              if (_emailPhoneError != null) setState(() => _emailPhoneError = null);
+            },
+          ),
+          if (_emailPhoneError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8, left: 12),
+              child: Text(_emailPhoneError!, style: const TextStyle(color: AppTheme.accentRed, fontSize: 12)),
+            ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _passwordController,
+            obscureText: true,
+            style: const TextStyle(color: AppTheme.textPrimary),
+            decoration: const InputDecoration(
+              labelText: 'Password',
+              filled: true,
+              fillColor: Colors.white,
+            ),
+            onChanged: (val) {
+              if (_passwordError != null) setState(() => _passwordError = null);
+            },
+          ),
+          if (_passwordError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8, left: 12),
+              child: Text(_passwordError!, style: const TextStyle(color: AppTheme.accentRed, fontSize: 12)),
+            ),
+          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return DropdownMenu<String>(
+                width: constraints.maxWidth,
+                initialSelection: _selectedRole,
+                hintText: 'Select a role',
+                textStyle: const TextStyle(color: AppTheme.textPrimary),
+                inputDecorationTheme: Theme.of(context).inputDecorationTheme.copyWith(
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
+                menuStyle: MenuStyle(
+                  backgroundColor: const WidgetStatePropertyAll(AppTheme.bgCard),
+                  elevation: const WidgetStatePropertyAll(4.0),
+                ),
+                dropdownMenuEntries: _roles.map((role) {
+                  return DropdownMenuEntry<String>(
+                    value: role, 
+                    label: role,
+                    style: MenuItemButton.styleFrom(foregroundColor: AppTheme.textPrimary),
+                  );
+                }).toList(),
+                onSelected: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _selectedRole = val;
+                      _roleError = null;
+                    });
+                  }
+                },
+              );
+            }
+          ),
+          if (_roleError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8, left: 12),
+              child: Text(_roleError!, style: const TextStyle(color: AppTheme.accentRed, fontSize: 12)),
+            ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                 setState(() {
+                   _emailPhoneError = null;
+                   _passwordError = null;
+                   _roleError = null;
+                 });
+                 
+                 final emailPhone = _emailPhoneController.text.trim();
+                 final password = _passwordController.text;
+                 bool hasError = false;
+
+                 if (emailPhone.isEmpty) {
+                   _emailPhoneError = 'Phone number or Email is required.';
+                   hasError = true;
+                 } else if (!_isValidEmail(emailPhone) && !_isValidPhone(emailPhone)) {
+                   _emailPhoneError = 'Enter a valid Email or 10-digit Phone number.';
+                   hasError = true;
+                 }
+
+                 if (password.isEmpty) {
+                   _passwordError = 'Password is required.';
+                   hasError = true;
+                 } else if (password.length < 6 || !_isPasswordComplex(password)) {
+                   _passwordError = 'Must be at least 6 chars and include uppercase, lowercase, number, and special char (@#\$%&).';
+                   hasError = true;
+                 }
+
+                 if (_selectedRole == null) {
+                   _roleError = 'Please select a role.';
+                   hasError = true;
+                 }
+
+                 if (hasError) {
+                   setState(() {});
+                   return;
+                 }
+
+                 Get.snackbar(
+                   'Success', 
+                   'Account registered successfully!', 
+                   backgroundColor: AppTheme.accentGreen, 
+                   colorText: Colors.white,
+                   snackPosition: SnackPosition.BOTTOM,
+                   margin: const EdgeInsets.all(16)
+                 );
+                 _emailPhoneController.clear();
+                 _passwordController.clear();
+                 setState(() => _selectedRole = null);
+              },
+              child: const Text('Register'),
+            ),
           ),
         ],
       ),

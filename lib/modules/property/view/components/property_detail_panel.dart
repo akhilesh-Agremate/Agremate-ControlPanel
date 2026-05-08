@@ -111,6 +111,46 @@ class PropertyDetailPanel extends StatelessWidget {
                             height: 280,
                             width: double.infinity,
                             fit: BoxFit.cover,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) return child;
+                              return Container(
+                                height: 280,
+                                width: double.infinity,
+                                color: Colors.grey.shade100,
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    value: loadingProgress.expectedTotalBytes != null
+                                        ? loadingProgress.cumulativeBytesLoaded /
+                                            loadingProgress.expectedTotalBytes!
+                                        : null,
+                                    color: AppTheme.accentGreen,
+                                  ),
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              height: 280,
+                              width: double.infinity,
+                              color: Colors.grey.shade100,
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.image_not_supported_rounded,
+                                    color: Colors.grey.shade300,
+                                    size: 48,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Property Image Not Available',
+                                    style: AppTheme.bodyText.copyWith(
+                                      color: Colors.grey.shade400,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -161,10 +201,11 @@ class PropertyDetailPanel extends StatelessWidget {
 
                   const SizedBox(height: 32),
 
-                  // ROW 2: Features + Landlord
+                  // MAIN BODY: Two-Column Layout to prevent vertical gaps
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // LEFT COLUMN: Features, Amenities, Finance
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -177,39 +218,10 @@ class PropertyDetailPanel extends StatelessWidget {
                                 _buildFeatureIcon(Icons.pool, 'Pool'),
                                 _buildFeatureIcon(Icons.fitness_center, 'Gym'),
                                 _buildFeatureIcon(Icons.park, 'Garden'),
-                                _buildFeatureIcon(
-                                  Icons.security_rounded,
-                                  '24/7 Security',
-                                ),
+                                _buildFeatureIcon(Icons.security_rounded, '24/7 Security'),
                               ],
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 48),
-                      Expanded(
-                        child: _buildContactCard(
-                          title: 'Landlord',
-                          name: property.landlordName,
-                          phone: property.landlordPhone ?? 'N/A',
-                          email: property.landlordEmail ?? 'N/A',
-                          address: 'Landlord Office, Block A, Mumbai',
-                          accentColor: AppTheme.accentBlue,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // ROW 3: Amenities + Tenant
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                            const SizedBox(height: 32),
                             _buildSectionHeader('Amenities', Colors.black),
                             const SizedBox(height: 20),
                             Wrap(
@@ -222,74 +234,20 @@ class PropertyDetailPanel extends StatelessWidget {
                                 _buildAmenityBox('Balcony', Icons.balcony),
                               ],
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 48),
-                      Expanded(
-                        child: showTenant
-                            ? _buildContactCard(
-                                title: 'Tenant',
-                                name: property.primaryTenantName ?? 'N/A',
-                                phone: property.primaryTenantPhone ?? 'N/A',
-                                email: property.primaryTenantEmail ?? 'N/A',
-                                address: property.address.address,
-                                accentColor: AppTheme.accentGreen,
-                              )
-                            : Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade100,
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: Colors.black12),
-                                ),
-                                child: Column(
-                                  children: [
-                                    const Icon(
-                                      Icons.person_add_disabled_rounded,
-                                      color: Colors.black38,
-                                      size: 24,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'No Tenant Occupying',
-                                      style: AppTheme.bodyText.copyWith(
-                                        color: Colors.black45,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // ROW 4: Finance + Documents
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                            const SizedBox(height: 32),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 _buildSectionHeader('Finance', Colors.black),
                                 TextButton.icon(
                                   onPressed: () {
-                                    // Navigate to finance details
                                     final fc = Get.find<FinanceController>();
                                     fc.selectProperty(property.id, property.name);
                                     nav.currentIndex.value = 3; // Finance tab
                                   },
                                   icon: const Icon(Icons.info_outline_rounded,
                                       size: 14, color: AppTheme.accentGreen),
-                                  label: Text(
+                                  label: const Text(
                                     'More Details',
                                     style: TextStyle(
                                       color: AppTheme.accentGreen,
@@ -315,15 +273,15 @@ class PropertyDetailPanel extends StatelessWidget {
                                   child: _buildFinanceCard(
                                     'Monthly Rent',
                                     fmt.format(property.rentAmount),
-                                    Colors.black, // Dark color as requested
+                                    Colors.black,
                                   ),
                                 ),
-                                const SizedBox(width: 20),
+                                const SizedBox(width: 16),
                                 Expanded(
                                   child: _buildFinanceCard(
                                     'Advance',
                                     fmt.format(property.advanceAmount),
-                                    Colors.black, // Dark color as requested
+                                    Colors.black,
                                   ),
                                 ),
                               ],
@@ -332,10 +290,56 @@ class PropertyDetailPanel extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 48),
+                      // RIGHT COLUMN: Landlord, Tenant, Documents
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            _buildContactCard(
+                              title: 'Landlord',
+                              name: property.landlordName,
+                              phone: property.landlordPhone ?? 'N/A',
+                              email: property.landlordEmail ?? 'N/A',
+                              address: 'Landlord Office, Block A, Mumbai',
+                              accentColor: AppTheme.accentBlue,
+                            ),
+                            const SizedBox(height: 24),
+                            showTenant
+                                ? _buildContactCard(
+                                    title: 'Tenant',
+                                    name: property.primaryTenantName ?? 'N/A',
+                                    phone: property.primaryTenantPhone ?? 'N/A',
+                                    email: property.primaryTenantEmail ?? 'N/A',
+                                    address: property.address.address,
+                                    accentColor: AppTheme.accentGreen,
+                                  )
+                                : Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade100,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(color: Colors.black12),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        const Icon(
+                                          Icons.person_add_disabled_rounded,
+                                          color: Colors.black38,
+                                          size: 24,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'No Tenant Occupying',
+                                          style: AppTheme.bodyText.copyWith(
+                                            color: Colors.black45,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                            const SizedBox(height: 24),
                             _buildSectionHeader('Documents', Colors.black),
                             const SizedBox(height: 16),
                             Row(

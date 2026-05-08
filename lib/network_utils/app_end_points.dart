@@ -23,4 +23,7 @@ class AppEndpoints {
   static const getMyPropertyList = "/Property/list-by-user";
   static const verifyPan = "/Zoop/pan-verification";
   static const allProperties = "/Property/all";
+  static const allTenants = "/Tenant/get-all";
+  static const allLandlords = "/Landlord";
+  static const currentUserDetails = "/User/current-user-details";
 }
