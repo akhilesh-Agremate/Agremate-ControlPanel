@@ -157,6 +157,8 @@ class HomeController extends GetxController {
       'subscriptionPlan': plan,
       'propertyCount': propertyCount,
       'maxProperties': maxProps,
+      'usedProperties': propertyCount,
+      'totalProperties': maxProps,
       'landlordDetails':
           'Email: ${name.toLowerCase().split(' ')[0]}@example.com\nPhone: +91 98765${43210 + i}',
       'properties': properties,
@@ -190,27 +192,44 @@ class HomeController extends GetxController {
       'activeStatus': isSolved ? 'Completed' : 'Active',
     };
   });
-  final List<Map<String, dynamic>> propertyList = List.generate(
-    10,
-    (i) => {
+  late final List<Map<String, dynamic>> propertyList = List.generate(10, (i) {
+    final landlord =
+        '${_indianNames[(i + 2) % _indianNames.length]} ${_indianLastNames[(i + 1) % _indianLastNames.length]}';
+    return {
       'title': 'Green Villa ${i + 1}',
-      'landlordName': 'Robert Brown',
+      'landlordName': landlord,
       'location': 'Block ${101 + i}, Mumbai',
       'status': i % 2 == 0 ? 'Available' : 'Rented',
+      'joinedDate': 'Jan 2024',
+      'propertyImages': List.generate((i % 3 == 0) ? 12 : 3, (index) {
+        final List<String> villaImages = [
+          'https://images.unsplash.com/photo-1568605114967-8130f3a36994?q=80&w=100&h=100&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=100&h=100&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1600585154340-be6191da95b4?q=80&w=100&h=100&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1518780664697-55e3ad937233?q=80&w=100&h=100&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?q=80&w=100&h=100&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1480074568708-e7b720bb3f09?q=80&w=100&h=100&auto=format&fit=crop',
+        ];
+        return villaImages[index % villaImages.length];
+      }),
       'detail':
-          'Landlord: Robert Brown | Location: Block ${101 + i}\nStatus: ${i % 2 == 0 ? 'Available' : 'Rented'}',
-    },
-  );
-  final List<Map<String, dynamic>> documentList = List.generate(
+          'Landlord: $landlord | Location: Block ${101 + i}\nStatus: ${i % 2 == 0 ? 'Available' : 'Rented'}',
+    };
+  });
+  late final List<Map<String, dynamic>> documentList = List.generate(
     10,
     (i) => {
       'title': 'Lease_Agreement_${i + 1}.pdf',
+      'propertyName': 'Green Villa ${i + 1}',
+      'landlordName': _indianNames[i % _indianNames.length] + ' ' + _indianLastNames[(i + 1) % _indianLastNames.length],
+      'fileTypes': ['pdf', 'jpg', 'doc', 'svg'].take((i % 4) + 1).toList(),
+      'date': 'Oct ${10 + i}, 2023',
       'detail': 'Landlord: John Doe | Tenant: Alex Smith',
     },
   );
-  final List<Map<String, dynamic>> supportList = List.generate(10, (i) {
+  late final List<Map<String, dynamic>> supportList = List.generate(10, (i) {
     final categories = ['Technical', 'Billing', 'Account', 'General'];
-    final statuses = ['Pending', 'In Progress', 'Resolved'];
+    final statuses = ['Pending', 'In Progress', 'Solved'];
     final messages = [
       'System login issue',
       'Payment failure',
@@ -218,14 +237,16 @@ class HomeController extends GetxController {
       'Feature request',
       'Bug report',
     ];
+    final status = statuses[i % statuses.length];
     return {
       'title': 'Ticket #${i + 1001}',
       'category': categories[i % categories.length],
-      'status': statuses[i % statuses.length],
+      'status': status,
       'message': messages[i % messages.length],
       'date': 'May ${15 + i}, 2024',
+      'resolvedDate': status == 'Solved' ? 'May ${17 + i}, 2024' : null,
       'detail':
-          'Category: ${categories[i % categories.length]} | Status: ${statuses[i % statuses.length]}\nMessage: ${messages[i % messages.length]}',
+          'Category: ${categories[i % categories.length]} | Status: $status\nMessage: ${messages[i % messages.length]}',
     };
   });
 

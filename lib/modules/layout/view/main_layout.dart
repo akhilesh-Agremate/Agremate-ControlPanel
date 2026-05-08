@@ -12,6 +12,7 @@ import 'package:agremate_admin/modules/documents/view/documents_view.dart';
 import 'package:agremate_admin/modules/support/view/support_view.dart';
 import 'package:agremate_admin/modules/user/view/user_view.dart';
 import 'package:agremate_admin/modules/account/view/account_view.dart';
+import 'package:agremate_admin/modules/tenant/view/tenant_detail_view.dart';
 
 class MainLayout extends StatelessWidget {
   const MainLayout({super.key});
@@ -28,6 +29,7 @@ class MainLayout extends StatelessWidget {
       const SupportView(),
       const UserView(),
       const AccountView(),
+      const TenantDetailView(),
     ];
 
     return Scaffold(

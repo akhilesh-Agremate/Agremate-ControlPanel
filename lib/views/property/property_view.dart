@@ -285,9 +285,23 @@ class _PropertyCard extends StatelessWidget {
                       height: 120,
                       width: double.infinity,
                       color: AppTheme.bgCardLight,
-                      child: const Icon(
-                        Icons.image_not_supported_rounded,
-                        color: AppTheme.textMuted,
+                      child: const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.image_not_supported_rounded,
+                            color: AppTheme.textMuted,
+                            size: 28,
+                          ),
+                          SizedBox(height: 6),
+                          Text(
+                            'Image Not Available',
+                            style: TextStyle(
+                              color: AppTheme.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
               ),

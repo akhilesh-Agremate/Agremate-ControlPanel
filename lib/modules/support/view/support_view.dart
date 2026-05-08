@@ -50,14 +50,28 @@ class SupportView extends StatelessWidget {
             const SizedBox(height: 16),
             ...sc.faqs.map((faq) => Container(
               margin: const EdgeInsets.only(bottom: 8),
-              decoration: AppTheme.solidCardDecoration(borderRadius: 12),
-              child: ExpansionTile(
-                tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                iconColor: AppTheme.accentGreen,
-                collapsedIconColor: AppTheme.textMuted,
-                title: Text(faq['q']!, style: AppTheme.heading3.copyWith(fontSize: 14)),
-                children: [Text(faq['a']!, style: AppTheme.bodyText)],
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Theme(
+                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: const BorderSide(color: AppTheme.accentBlue, width: 1.5),
+                  ),
+                  collapsedShape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: const BorderSide(color: AppTheme.border, width: 1.0),
+                  ),
+                  tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                  childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                  iconColor: AppTheme.accentGreen,
+                  collapsedIconColor: AppTheme.textMuted,
+                  title: Text(faq['q']!, style: AppTheme.heading3.copyWith(fontSize: 14)),
+                  children: [Text(faq['a']!, style: AppTheme.bodyText)],
+                ),
               ),
             )),
             const SizedBox(height: 32),
@@ -189,18 +203,22 @@ class _ContactCard extends StatelessWidget {
     return GlassCard(
       glowColor: color,
       padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
-            child: Icon(icon, color: color, size: 28),
-          ),
-          const SizedBox(height: 12),
-          Text(title, style: AppTheme.heading3),
-          const SizedBox(height: 6),
-          Text(value, style: AppTheme.bodyText, textAlign: TextAlign.center),
-        ],
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            const SizedBox(height: 12),
+            Text(title, style: AppTheme.heading3),
+            const SizedBox(height: 6),
+            Text(value, style: AppTheme.bodyText, textAlign: TextAlign.center),
+          ],
+        ),
       ),
     );
   }

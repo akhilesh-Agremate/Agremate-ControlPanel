@@ -62,6 +62,7 @@ class PropertyModel {
   final int totalUnits;
   final int occupiedUnits;
   final DateTime createdAt;
+  final Map<String, dynamic> rawJson;
 
   PropertyModel({
     required this.id,
@@ -94,36 +95,48 @@ class PropertyModel {
     this.totalUnits = 1,
     this.occupiedUnits = 0,
     required this.createdAt,
+    this.rawJson = const {},
   });
 
   factory PropertyModel.fromJson(Map<String, dynamic> json) {
-    final addr = PropertyAddress.fromJson(json['address'] ?? {});
-    return PropertyModel(
-      id: json['propertyId'] ?? '',
-      name: json['name'] ?? '',
-      address: addr,
-      isOwner: json['isOwner'] ?? true,
-      status: _parseStatus(json['status']),
-      rentAmount: (json['rent'] as num?)?.toDouble() ?? 0.0,
-      advanceAmount: (json['advance'] as num?)?.toDouble() ?? 0.0,
-      bedrooms: json['bedrooms'] ?? 0,
-      bathrooms: json['bathrooms'] ?? 0,
-      kitchen: json['kitchen'] ?? 0,
-      builtYear: json['builtYear'] ?? 0,
-      description: json['description'],
-      documents: json['documents'] ?? [],
-      imageUrl: (json['images'] != null && (json['images'] as List).isNotEmpty)
-          ? json['images'][0]
-          : [
-              'https://images.unsplash.com/photo-1568605114967-8130f3a36994?q=80&w=600&h=300&auto=format&fit=crop',
-              'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=600&h=300&auto=format&fit=crop',
-              'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=600&h=300&auto=format&fit=crop',
-              'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=600&h=300&auto=format&fit=crop',
-              'https://images.unsplash.com/photo-1600607687940-c52af096999a?q=80&w=600&h=300&auto=format&fit=crop',
-            ][(json['propertyId']?.hashCode ?? 0) % 5],
-      createdAt: DateTime.now(),
-      city: addr.address.split(',').last.trim(),
-    );
+    try {
+      final addr = PropertyAddress.fromJson(json['address'] ?? json['placeDetails'] ?? {});
+      return PropertyModel(
+        id: json['propertyId']?.toString() ?? json['id']?.toString() ?? '',
+        name: json['name']?.toString() ?? json['propertyName']?.toString() ?? 'Unnamed Property',
+        address: addr,
+        isOwner: json['isOwner'] ?? true,
+        status: _parseStatus(json['status']?.toString()),
+        rentAmount: (json['rentAmount'] as num?)?.toDouble() ?? 
+                    (json['rent'] as num?)?.toDouble() ?? 
+                    (json['price'] as num?)?.toDouble() ?? 0.0,
+        advanceAmount: (json['advanceAmount'] as num?)?.toDouble() ?? 
+                       (json['advance'] as num?)?.toDouble() ?? 0.0,
+        bedrooms: (json['bedrooms'] as num?)?.toInt() ?? 0,
+        bathrooms: (json['bathrooms'] as num?)?.toInt() ?? 0,
+        kitchen: (json['kitchen'] as num?)?.toInt() ?? 0,
+        builtYear: (json['builtYear'] as num?)?.toInt() ?? 0,
+        description: json['description']?.toString(),
+        documents: json['documents'] ?? [],
+        imageUrl: (json['images'] != null && (json['images'] as List).isNotEmpty)
+            ? json['images'][0]
+            : [
+                'https://images.unsplash.com/photo-1568605114967-8130f3a36994?q=80&w=600&h=300&auto=format&fit=crop',
+                'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=600&h=300&auto=format&fit=crop',
+                'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=600&h=300&auto=format&fit=crop',
+                'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=600&h=300&auto=format&fit=crop',
+                'https://images.unsplash.com/photo-1600607687940-c52af096999a?q=80&w=600&h=300&auto=format&fit=crop',
+              ][(json['propertyId']?.hashCode ?? 0) % 5],
+        createdAt: DateTime.now(),
+        city: addr.address.split(',').last.trim(),
+        landlordName: json['landlordName']?.toString() ?? json['ownerName']?.toString() ?? (json['user'] != null ? json['user']['name']?.toString() : null) ?? 'N/A',
+        primaryTenantName: json['tenantName']?.toString() ?? json['primaryTenantName']?.toString() ?? (json['tenant'] != null ? json['tenant']['name']?.toString() : null),
+        rawJson: json,
+      );
+    } catch (e) {
+      print('PropertyModel.fromJson Error: $e');
+      rethrow;
+    }
   }
 
   static PropertyStatus _parseStatus(String? status) {

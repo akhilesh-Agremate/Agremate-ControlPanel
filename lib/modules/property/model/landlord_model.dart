@@ -8,6 +8,8 @@ class LandlordModel {
   final double totalRevenue;
   final DateTime lastLogin;
   final bool isActive;
+  final String? panNumber;
+  final String? aadharNumber;
 
   LandlordModel({
     required this.id,
@@ -19,28 +21,21 @@ class LandlordModel {
     this.totalRevenue = 0,
     required this.lastLogin,
     this.isActive = true,
+    this.panNumber,
+    this.aadharNumber,
   });
 
-  int get propertyCount => propertyIds.length;
-
-  LandlordModel copyWith({
-    String? name,
-    String? phone,
-    String? email,
-    List<String>? propertyIds,
-    double? totalRevenue,
-    bool? isActive,
-  }) {
+  factory LandlordModel.fromJson(Map<String, dynamic> json) {
     return LandlordModel(
-      id: id,
-      name: name ?? this.name,
-      phone: phone ?? this.phone,
-      email: email ?? this.email,
-      avatar: avatar,
-      propertyIds: propertyIds ?? this.propertyIds,
-      totalRevenue: totalRevenue ?? this.totalRevenue,
-      lastLogin: lastLogin,
-      isActive: isActive ?? this.isActive,
+      id: json['id'] ?? '',
+      name: json['fullName'] ?? 'N/A',
+      phone: json['phone'] ?? 'N/A',
+      email: json['email'] ?? 'N/A',
+      panNumber: json['panNumber'],
+      aadharNumber: json['aadharNumber'],
+      lastLogin: DateTime.now(),
     );
   }
+
+  int get propertyCount => propertyIds.length;
 }

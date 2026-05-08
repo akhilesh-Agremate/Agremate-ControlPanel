@@ -82,6 +82,12 @@ class Sidebar extends StatelessWidget {
                   isActive: nav.currentIndex.value == 7,
                   onTap: () => nav.changePage(7),
                 )),
+                Obx(() => _NavItem(
+                  icon: Icons.support_agent_rounded,
+                  label: 'Support',
+                  isActive: nav.currentIndex.value == 5,
+                  onTap: () => nav.changePage(5),
+                )),
                 _NavItem(
                   icon: Icons.logout_rounded,
                   label: 'Logout',
@@ -103,8 +109,9 @@ class Sidebar extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.bgCard,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Logout', style: TextStyle(color: AppTheme.textPrimary)),
-        content: const Text('Are you sure you want to logout?', style: TextStyle(color: AppTheme.textSecondary)),
+        title: const Text('Logout', style: TextStyle(color: AppTheme.textPrimary), textAlign: TextAlign.center),
+        content: const Text('Are you sure you want to logout?', style: TextStyle(color: AppTheme.textSecondary), textAlign: TextAlign.center),
+        actionsAlignment: MainAxisAlignment.center,
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: AppTheme.textMuted))),
           ElevatedButton(
@@ -148,11 +155,20 @@ class _NavItemState extends State<_NavItem> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: widget.isActive
-                ? AppTheme.accentGreen.withValues(alpha: 0.1)
+                ? Colors.white
                 : (_hovering ? AppTheme.bgCardLight : Colors.transparent),
             borderRadius: BorderRadius.circular(12),
             border: widget.isActive
-                ? Border.all(color: AppTheme.accentGreen.withValues(alpha: 0.3))
+                ? Border.all(color: AppTheme.accentBlue.withValues(alpha: 0.5), width: 1)
+                : null,
+            boxShadow: widget.isActive
+                ? [
+                    BoxShadow(
+                      color: AppTheme.accentBlue.withValues(alpha: 0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    )
+                  ]
                 : null,
           ),
           child: Row(

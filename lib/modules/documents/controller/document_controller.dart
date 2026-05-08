@@ -34,6 +34,7 @@ class DocumentController extends GetxController {
     docs.add(DocumentModel(id:'F2',name:'Tenant Documents',type:'folder',ownerId:'admin',ownerName:'Admin',ownerType:'tenant',createdAt:now,modifiedAt:now));
     // Landlord subfolders
     final llNames = ['Rajesh Sharma','Priya Patel','Amit Kumar','Sunita Gupta','Vikram Singh'];
+    final uploaders = ['Rajesh Sharma', 'Suresh Raina', 'Mahendra Singh', 'Virat Kohli', 'Rohit Sharma', 'Priya Patel', 'Ananya Singh'];
     for(int i=0;i<llNames.length;i++){
       final fid='F1_$i';
       docs.add(DocumentModel(id:fid,name:llNames[i],type:'folder',parentId:'F1',ownerId:'L${i+1}',ownerName:llNames[i],ownerType:'landlord',createdAt:now.subtract(Duration(days:_rng.nextInt(90))),modifiedAt:now.subtract(Duration(days:_rng.nextInt(10)))));
@@ -41,7 +42,7 @@ class DocumentController extends GetxController {
       final fileTypes=['pdf','doc','image','spreadsheet'];
       final fileNames=['Rental Agreement','Property Tax Receipt','ID Proof','Insurance Policy','Bank Statement'];
       for(int j=0;j<fileNames.length;j++){
-        docs.add(DocumentModel(id:'${fid}_$j',name:fileNames[j],type:'file',parentId:fid,ownerId:'L${i+1}',ownerName:llNames[i],ownerType:'landlord',fileType:fileTypes[_rng.nextInt(fileTypes.length)],sizeKb:_rng.nextDouble()*5000+100,createdAt:now.subtract(Duration(days:_rng.nextInt(180))),modifiedAt:now.subtract(Duration(days:_rng.nextInt(30)))));
+        docs.add(DocumentModel(id:'${fid}_$j',name:fileNames[j],type:'file',parentId:fid,ownerId:'L${i+1}',ownerName:uploaders[_rng.nextInt(uploaders.length)],ownerType:'landlord',fileType:fileTypes[_rng.nextInt(fileTypes.length)],sizeKb:_rng.nextDouble()*5000+100,createdAt:now.subtract(Duration(days:_rng.nextInt(180))),modifiedAt:now.subtract(Duration(days:_rng.nextInt(30)))));
       }
     }
     // Tenant subfolders
@@ -52,7 +53,7 @@ class DocumentController extends GetxController {
       final fileNames=['Lease Agreement','Aadhaar Card','Rent Receipt','Maintenance Bill'];
       final fileTypes=['pdf','doc','image','spreadsheet'];
       for(int j=0;j<fileNames.length;j++){
-        docs.add(DocumentModel(id:'${fid}_$j',name:fileNames[j],type:'file',parentId:fid,ownerId:'T${i+1}',ownerName:tnNames[i],ownerType:'tenant',fileType:fileTypes[_rng.nextInt(fileTypes.length)],sizeKb:_rng.nextDouble()*3000+50,createdAt:now.subtract(Duration(days:_rng.nextInt(180))),modifiedAt:now.subtract(Duration(days:_rng.nextInt(30)))));
+        docs.add(DocumentModel(id:'${fid}_$j',name:fileNames[j],type:'file',parentId:fid,ownerId:'T${i+1}',ownerName:uploaders[_rng.nextInt(uploaders.length)],ownerType:'tenant',fileType:fileTypes[_rng.nextInt(fileTypes.length)],sizeKb:_rng.nextDouble()*3000+50,createdAt:now.subtract(Duration(days:_rng.nextInt(180))),modifiedAt:now.subtract(Duration(days:_rng.nextInt(30)))));
       }
     }
     documents.value = docs;
