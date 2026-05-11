@@ -8,6 +8,7 @@ class StatusBadge extends StatelessWidget {
 
   final Color? backgroundColor;
   final Color? textColor;
+  final Color? borderColor;
 
   const StatusBadge({
     super.key,
@@ -15,6 +16,7 @@ class StatusBadge extends StatelessWidget {
     required this.color,
     this.backgroundColor,
     this.textColor,
+    this.borderColor,
     this.fontSize = 11,
   });
 
@@ -33,8 +35,8 @@ class StatusBadge extends StatelessWidget {
   factory StatusBadge.booked()      => const StatusBadge(label: 'Booked', color: AppTheme.brandSteelBlue, backgroundColor: AppTheme.brandPaleSky, textColor: AppTheme.brandSteelBlue);
 
   // Subscription status factories
-  factory StatusBadge.active()  => const StatusBadge(label: 'Active', color: AppTheme.brandSteelBlue, backgroundColor: AppTheme.brandSteelBlue, textColor: AppTheme.brandWhite);
-  factory StatusBadge.expired() => const StatusBadge(label: 'Expired', color: AppTheme.brandRed, backgroundColor: AppTheme.brandRed, textColor: AppTheme.brandWhite);
+  factory StatusBadge.active()  => const StatusBadge(label: 'Active', color: AppTheme.accentBlue, backgroundColor: Colors.white, textColor: AppTheme.accentBlue, borderColor: AppTheme.accentBlue);
+  factory StatusBadge.expired() => const StatusBadge(label: 'Expired', color: AppTheme.brandRed, backgroundColor: Colors.white, textColor: AppTheme.brandRed, borderColor: AppTheme.brandRed);
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +45,7 @@ class StatusBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: backgroundColor ?? color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: textColor?.withValues(alpha: 0.3) ?? color.withValues(alpha: 0.4)),
+        border: Border.all(color: borderColor ?? (textColor?.withValues(alpha: 0.3) ?? color.withValues(alpha: 0.4))),
       ),
       child: Text(
         label,

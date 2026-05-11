@@ -10,10 +10,23 @@ import 'package:agremate_admin/modules/finance/controller/finance_controller.dar
 import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
 import 'package:agremate_admin/modules/documents/controller/document_controller.dart';
 
-class PropertyDetailPanel extends StatelessWidget {
+class PropertyDetailPanel extends StatefulWidget {
   final PropertyModel property;
 
   const PropertyDetailPanel({super.key, required this.property});
+
+  @override
+  State<PropertyDetailPanel> createState() => _PropertyDetailPanelState();
+}
+
+class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
+  late String _currentImageUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentImageUrl = widget.property.imageUrl;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,12 +40,12 @@ class PropertyDetailPanel extends StatelessWidget {
 
     // Visibility logic based on status
     final showTenant =
-        property.status == PropertyStatus.rented ||
-        property.status == PropertyStatus.booked ||
-        property.status == PropertyStatus.requested;
+        widget.property.status == PropertyStatus.rented ||
+        widget.property.status == PropertyStatus.booked ||
+        widget.property.status == PropertyStatus.requested;
 
     Widget statusBadge;
-    switch (property.status) {
+    switch (widget.property.status) {
       case PropertyStatus.rented:
         statusBadge = StatusBadge.rented();
         break;
@@ -50,7 +63,7 @@ class PropertyDetailPanel extends StatelessWidget {
         break;
       default:
         statusBadge = StatusBadge(
-          label: property.statusLabel,
+          label: widget.property.statusLabel,
           color: AppTheme.accentGreen,
         );
     }
@@ -104,54 +117,93 @@ class PropertyDetailPanel extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
-                          child: Image.network(
-                            property.imageUrl,
-                            height: 280,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return Container(
+                        child: Column(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: Image.network(
+                                _currentImageUrl,
                                 height: 280,
                                 width: double.infinity,
-                                color: Colors.grey.shade100,
-                                child: Center(
-                                  child: CircularProgressIndicator(
-                                    value: loadingProgress.expectedTotalBytes != null
-                                        ? loadingProgress.cumulativeBytesLoaded /
-                                            loadingProgress.expectedTotalBytes!
-                                        : null,
-                                    color: AppTheme.accentGreen,
+                                fit: BoxFit.cover,
+                                loadingBuilder: (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return Container(
+                                    height: 280,
+                                    width: double.infinity,
+                                    color: Colors.grey.shade100,
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        value: loadingProgress.expectedTotalBytes != null
+                                            ? loadingProgress.cumulativeBytesLoaded /
+                                                loadingProgress.expectedTotalBytes!
+                                            : null,
+                                        color: AppTheme.accentGreen,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                errorBuilder: (context, error, stackTrace) => Container(
+                                  height: 280,
+                                  width: double.infinity,
+                                  color: Colors.grey.shade100,
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.image_not_supported_rounded,
+                                        color: Colors.grey.shade300,
+                                        size: 48,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        'Property Image Not Available',
+                                        style: AppTheme.bodyText.copyWith(
+                                          color: Colors.grey.shade400,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              );
-                            },
-                            errorBuilder: (context, error, stackTrace) => Container(
-                              height: 280,
-                              width: double.infinity,
-                              color: Colors.grey.shade100,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.image_not_supported_rounded,
-                                    color: Colors.grey.shade300,
-                                    size: 48,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    'Property Image Not Available',
-                                    style: AppTheme.bodyText.copyWith(
-                                      color: Colors.grey.shade400,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
                               ),
                             ),
-                          ),
+                            if (widget.property.images.isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                height: 60,
+                                child: ListView.builder(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: widget.property.images.length,
+                                  itemBuilder: (context, index) {
+                                    final imgUrl = widget.property.images[index];
+                                    final isSelected = _currentImageUrl == imgUrl;
+                                    return GestureDetector(
+                                      onTap: () {
+                                        setState(() => _currentImageUrl = imgUrl);
+                                        _showImageGallery(context, index);
+                                      },
+                                      child: Container(
+                                        width: 60,
+                                        margin: const EdgeInsets.only(right: 8),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: isSelected ? AppTheme.accentGreen : Colors.transparent,
+                                            width: 2,
+                                          ),
+                                          image: DecorationImage(
+                                            image: NetworkImage(imgUrl),
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                       const SizedBox(width: 48),
@@ -161,7 +213,7 @@ class PropertyDetailPanel extends StatelessWidget {
                           children: [
                             const SizedBox(height: 10),
                             Text(
-                              property.name,
+                              widget.property.name,
                               style: AppTheme.heading1.copyWith(
                                 fontSize: 36,
                                 color: Colors.black,
@@ -169,7 +221,7 @@ class PropertyDetailPanel extends StatelessWidget {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'Premium ${property.propertyType} located in the heart of ${property.city}. Featuring modern architecture and top-tier security systems for a comfortable living experience.',
+                              'Premium ${widget.property.propertyType} located in the heart of ${widget.property.city}. Featuring modern architecture and top-tier security systems for a comfortable living experience.',
                               style: AppTheme.bodyText.copyWith(
                                 height: 1.6,
                                 color: Colors.black87,
@@ -185,7 +237,7 @@ class PropertyDetailPanel extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  '${property.address.address}, ${property.city}',
+                                  '${widget.property.address.address}, ${widget.property.city}',
                                   style: AppTheme.bodyText.copyWith(
                                     fontWeight: FontWeight.w600,
                                     color: Colors.black,
@@ -210,7 +262,10 @@ class PropertyDetailPanel extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildSectionHeader('Features & Facilities', Colors.black),
+                            _buildSectionHeader(
+                              'Features & Facilities',
+                              Colors.black,
+                            ),
                             const SizedBox(height: 20),
                             Row(
                               children: [
@@ -218,7 +273,10 @@ class PropertyDetailPanel extends StatelessWidget {
                                 _buildFeatureIcon(Icons.pool, 'Pool'),
                                 _buildFeatureIcon(Icons.fitness_center, 'Gym'),
                                 _buildFeatureIcon(Icons.park, 'Garden'),
-                                _buildFeatureIcon(Icons.security_rounded, '24/7 Security'),
+                                _buildFeatureIcon(
+                                  Icons.security_rounded,
+                                  '24/7 Security',
+                                ),
                               ],
                             ),
                             const SizedBox(height: 32),
@@ -229,8 +287,14 @@ class PropertyDetailPanel extends StatelessWidget {
                               runSpacing: 16,
                               children: [
                                 _buildAmenityBox('Bakery', Icons.bakery_dining),
-                                _buildAmenityBox('Laundry', Icons.local_laundry_service),
-                                _buildAmenityBox('Parking', Icons.local_parking),
+                                _buildAmenityBox(
+                                  'Laundry',
+                                  Icons.local_laundry_service,
+                                ),
+                                _buildAmenityBox(
+                                  'Parking',
+                                  Icons.local_parking,
+                                ),
                                 _buildAmenityBox('Balcony', Icons.balcony),
                               ],
                             ),
@@ -242,11 +306,17 @@ class PropertyDetailPanel extends StatelessWidget {
                                 TextButton.icon(
                                   onPressed: () {
                                     final fc = Get.find<FinanceController>();
-                                    fc.selectProperty(property.id, property.name);
+                                    fc.selectProperty(
+                                      widget.property.id,
+                                      widget.property.name,
+                                    );
                                     nav.currentIndex.value = 3; // Finance tab
                                   },
-                                  icon: const Icon(Icons.info_outline_rounded,
-                                      size: 14, color: AppTheme.accentGreen),
+                                  icon: const Icon(
+                                    Icons.info_outline_rounded,
+                                    size: 14,
+                                    color: AppTheme.accentGreen,
+                                  ),
                                   label: const Text(
                                     'More Details',
                                     style: TextStyle(
@@ -256,12 +326,14 @@ class PropertyDetailPanel extends StatelessWidget {
                                     ),
                                   ),
                                   style: TextButton.styleFrom(
-                                    backgroundColor:
-                                        AppTheme.accentGreen.withValues(alpha: 0.1),
+                                    backgroundColor: AppTheme.accentGreen
+                                        .withValues(alpha: 0.1),
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 12),
+                                      horizontal: 12,
+                                    ),
                                     shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(20)),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -272,7 +344,7 @@ class PropertyDetailPanel extends StatelessWidget {
                                 Expanded(
                                   child: _buildFinanceCard(
                                     'Monthly Rent',
-                                    fmt.format(property.rentAmount),
+                                    fmt.format(widget.property.rentAmount),
                                     Colors.black,
                                   ),
                                 ),
@@ -280,7 +352,7 @@ class PropertyDetailPanel extends StatelessWidget {
                                 Expanded(
                                   child: _buildFinanceCard(
                                     'Advance',
-                                    fmt.format(property.advanceAmount),
+                                    fmt.format(widget.property.advanceAmount),
                                     Colors.black,
                                   ),
                                 ),
@@ -297,48 +369,48 @@ class PropertyDetailPanel extends StatelessWidget {
                           children: [
                             _buildContactCard(
                               title: 'Landlord',
-                              name: property.landlordName,
-                              phone: property.landlordPhone ?? 'N/A',
-                              email: property.landlordEmail ?? 'N/A',
+                              name: widget.property.landlordName,
+                              phone: widget.property.landlordPhone ?? 'N/A',
+                              email: widget.property.landlordEmail ?? 'N/A',
                               address: 'Landlord Office, Block A, Mumbai',
                               accentColor: AppTheme.accentBlue,
                             ),
                             const SizedBox(height: 24),
                             showTenant
                                 ? _buildContactCard(
-                                    title: 'Tenant',
-                                    name: property.primaryTenantName ?? 'N/A',
-                                    phone: property.primaryTenantPhone ?? 'N/A',
-                                    email: property.primaryTenantEmail ?? 'N/A',
-                                    address: property.address.address,
-                                    accentColor: AppTheme.accentGreen,
-                                  )
+                                  title: 'Tenant',
+                                  name: widget.property.primaryTenantName ?? 'N/A',
+                                  phone: widget.property.primaryTenantPhone ?? 'N/A',
+                                  email: widget.property.primaryTenantEmail ?? 'N/A',
+                                  address: widget.property.address.address,
+                                  accentColor: AppTheme.accentGreen,
+                                )
                                 : Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade100,
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(color: Colors.black12),
-                                    ),
-                                    child: Column(
-                                      children: [
-                                        const Icon(
-                                          Icons.person_add_disabled_rounded,
-                                          color: Colors.black38,
-                                          size: 24,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          'No Tenant Occupying',
-                                          style: AppTheme.bodyText.copyWith(
-                                            color: Colors.black45,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade100,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: Colors.black12),
                                   ),
+                                  child: Column(
+                                    children: [
+                                      const Icon(
+                                        Icons.person_add_disabled_rounded,
+                                        color: Colors.black38,
+                                        size: 24,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'No Tenant Occupying',
+                                        style: AppTheme.bodyText.copyWith(
+                                          color: Colors.black45,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                             const SizedBox(height: 24),
                             _buildSectionHeader('Documents', Colors.black),
                             const SizedBox(height: 16),
@@ -354,11 +426,10 @@ class PropertyDetailPanel extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 16),
                                 Expanded(
-                                  child: _buildDocumentSection(
-                                    'Tenant Docs',
-                                    ['Agreement.pdf', 'ID_Proof.pdf'],
-                                    AppTheme.accentGreen,
-                                  ),
+                                  child: _buildDocumentSection('Tenant Docs', [
+                                    'Agreement.pdf',
+                                    'ID_Proof.pdf',
+                                  ], AppTheme.accentGreen),
                                 ),
                               ],
                             ),
@@ -462,10 +533,7 @@ class PropertyDetailPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: AppTheme.caption.copyWith(color: Colors.black45),
-          ),
+          Text(label, style: AppTheme.caption.copyWith(color: Colors.black45)),
           const SizedBox(height: 12),
           Text(
             value,
@@ -559,7 +627,10 @@ class PropertyDetailPanel extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: AppTheme.bodyText.copyWith(fontSize: 13, color: Colors.black87),
+            style: AppTheme.bodyText.copyWith(
+              fontSize: 13,
+              color: Colors.black87,
+            ),
             overflow: TextOverflow.ellipsis,
           ),
         ),
@@ -613,6 +684,75 @@ class PropertyDetailPanel extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  void _showImageGallery(BuildContext context, int initialIndex) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        int currentIndex = initialIndex;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: EdgeInsets.zero,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: MediaQuery.of(context).size.width,
+                      height: MediaQuery.of(context).size.height,
+                      color: Colors.black.withValues(alpha: 0.9),
+                    ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white, size: 48),
+                        onPressed: currentIndex > 0 ? () => setDialogState(() => currentIndex--) : null,
+                      ),
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.network(
+                            widget.property.images[currentIndex],
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 48),
+                        onPressed: currentIndex < widget.property.images.length - 1 
+                            ? () => setDialogState(() => currentIndex++) 
+                            : null,
+                      ),
+                    ],
+                  ),
+                  Positioned(
+                    top: 40,
+                    right: 40,
+                    child: IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white, size: 32),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 40,
+                    child: Text(
+                      '${currentIndex + 1} / ${widget.property.images.length}',
+                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

@@ -186,16 +186,47 @@ class FinanceView extends StatelessWidget {
                     DataColumn(label: Text('Status', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600))),
                     DataColumn(label: Text('Due Date', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600))),
                     DataColumn(label: Text('Paid Date', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600))),
+                    DataColumn(label: Text('Delay', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600))),
                   ],
-                  rows: fc.selectedPropertyPayments.map((p) => DataRow(cells: [
-                    DataCell(Text('${p.month} ${p.year}', style: const TextStyle(color: AppTheme.textSecondary))),
-                    DataCell(Text(fc.selectedPropertyName.value, style: const TextStyle(color: AppTheme.textSecondary))),
-                    DataCell(Text(fmtFull.format(p.amount), style: const TextStyle(color: AppTheme.accentGreen, fontWeight: FontWeight.w600))),
-                    DataCell(Text(p.transactionId ?? '—', style: const TextStyle(color: AppTheme.accentCyan, fontSize: 12, fontWeight: FontWeight.w500))),
-                    DataCell(p.status == 'paid' ? StatusBadge.paid() : (p.status == 'overdue' ? StatusBadge.overdue() : StatusBadge.pending())),
-                    DataCell(Text('${p.dueDate.day}/${p.dueDate.month}/${p.dueDate.year}', style: const TextStyle(color: AppTheme.accentOrange, fontWeight: FontWeight.w500))),
-                    DataCell(Text(p.paidDate != null ? '${p.paidDate!.day}/${p.paidDate!.month}/${p.paidDate!.year}' : '—', style: const TextStyle(color: AppTheme.textMuted))),
-                  ])).toList(),
+                  rows: fc.selectedPropertyPayments.map((p) {
+                    final delayDays = p.paidDate != null ? p.paidDate!.difference(p.dueDate).inDays : 0;
+                    Color delayColor = Colors.green;
+                    
+                    if (p.paidDate == null) {
+                      delayColor = AppTheme.textMuted;
+                    } else if (delayDays > 10) {
+                      delayColor = AppTheme.accentRed;
+                    } else if (delayDays >= 2) {
+                      delayColor = Colors.orange;
+                    } else if (delayDays > 0) {
+                      delayColor = Colors.orangeAccent;
+                    } else {
+                      delayColor = Colors.green;
+                    }
+
+                    return DataRow(cells: [
+                      DataCell(Text('${p.month} ${p.year}', style: const TextStyle(color: AppTheme.textSecondary))),
+                      DataCell(Text(fc.selectedPropertyName.value, style: const TextStyle(color: AppTheme.textSecondary))),
+                      DataCell(Text(fmtFull.format(p.amount), style: const TextStyle(color: AppTheme.accentGreen, fontWeight: FontWeight.w600))),
+                      DataCell(Text(p.transactionId ?? '—', style: const TextStyle(color: AppTheme.accentCyan, fontSize: 12, fontWeight: FontWeight.w500))),
+                      DataCell(p.status == 'paid' ? StatusBadge.paid() : (p.status == 'overdue' ? StatusBadge.overdue() : StatusBadge.pending())),
+                      DataCell(Text('${p.dueDate.day}/${p.dueDate.month}/${p.dueDate.year}', style: const TextStyle(color: AppTheme.accentOrange, fontWeight: FontWeight.w500))),
+                      DataCell(Text(p.paidDate != null ? '${p.paidDate!.day}/${p.paidDate!.month}/${p.paidDate!.year}' : '—', style: const TextStyle(color: AppTheme.textMuted))),
+                      DataCell(Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            p.paidDate == null ? '—' : (delayDays <= 0 ? 'On Time' : '$delayDays Days'),
+                            style: TextStyle(color: delayColor, fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
+                          if (p.paidDate != null && delayDays >= 1) ...[
+                            const SizedBox(width: 4),
+                            Icon(Icons.notifications_active_rounded, color: delayColor, size: 14),
+                          ],
+                        ],
+                      )),
+                    ]);
+                  }).toList(),
                 ),
               ),
             ] else ...[

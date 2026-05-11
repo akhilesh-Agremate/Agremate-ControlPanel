@@ -60,6 +60,44 @@ class ServicesController extends GetxController {
     for (int i = 0; i < 60; i++) {
       final type = AppConstants.serviceTypes[_rng.nextInt(AppConstants.serviceTypes.length)];
       final descs = descriptions[type]!;
+      final landlordName = tenantNames[(i + 1) % tenantNames.length];
+      final location = 'Mumbai Block ${i + 5}';
+      final isSolved = statuses[_rng.nextInt(statuses.length)] == 'completed';
+      
+      // Generate mock chat messages
+      final List<Map<String, dynamic>> chatMessages = [
+        {
+          'sender': 'tenant',
+          'senderName': tenantNames[_rng.nextInt(tenantNames.length)],
+          'message': 'Hi, I have an issue with $type: ${descs[_rng.nextInt(descs.length)]}.',
+          'time': 'May ${10 + (i % 20)}, 2024 · 09:15 AM',
+          'isRead': true,
+        },
+        {
+          'sender': 'landlord',
+          'senderName': landlordName,
+          'message': 'I will look into it immediately.',
+          'time': 'May ${10 + (i % 20)}, 2024 · 10:30 AM',
+          'isRead': true,
+        },
+        if (isSolved) ...[
+          {
+            'sender': 'landlord',
+            'senderName': landlordName,
+            'message': 'The issue has been resolved. Please confirm.',
+            'time': 'May ${12 + (i % 20)}, 2024 · 03:45 PM',
+            'isRead': true,
+          },
+          {
+            'sender': 'tenant',
+            'senderName': tenantNames[_rng.nextInt(tenantNames.length)],
+            'message': 'Yes, it is fixed now. Thanks!',
+            'time': 'May ${12 + (i % 20)}, 2024 · 04:10 PM',
+            'isRead': true,
+          },
+        ]
+      ];
+
       requests.add(ServiceRequestModel(
         id: 'SR${i + 1}',
         propertyId: 'P${_rng.nextInt(12) + 1}',
@@ -70,6 +108,9 @@ class ServicesController extends GetxController {
         status: statuses[_rng.nextInt(statuses.length)],
         requestDate: DateTime.now().subtract(Duration(days: _rng.nextInt(30))),
         priority: priorities[_rng.nextInt(priorities.length)],
+        landlordName: landlordName,
+        location: location,
+        chatMessages: chatMessages,
       ));
     }
     serviceRequests.value = requests;

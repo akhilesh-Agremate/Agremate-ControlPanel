@@ -176,20 +176,78 @@ class HomeController extends GetxController {
       'Carpentry Issue',
     ];
     String issue = issues[i % issues.length];
+    final String tenantName =
+        '${_indianNames[i % _indianNames.length]} ${_indianLastNames[(i + 1) % _indianLastNames.length]}';
+    final String landlordName =
+        '${_indianNames[(i + 1) % _indianNames.length]} ${_indianLastNames[i % _indianLastNames.length]}';
+
+    // Generate mock chat messages for this service request
+    final List<Map<String, dynamic>> chatMessages =
+        i % 4 == 1
+            ? [] // Some have no chat yet
+            : [
+              {
+                'sender': 'tenant',
+                'senderName': tenantName,
+                'message':
+                    'Hi, I wanted to report a $issue problem in the property. It needs urgent attention.',
+                'time': 'May ${10 + i}, 2024 · 09:15 AM',
+                'isRead': true,
+              },
+              {
+                'sender': 'landlord',
+                'senderName': landlordName,
+                'message':
+                    'Thanks for letting me know. I\'ll arrange for someone to come and check it as soon as possible.',
+                'time': 'May ${10 + i}, 2024 · 10:30 AM',
+                'isRead': true,
+              },
+              {
+                'sender': 'tenant',
+                'senderName': tenantName,
+                'message': 'Please hurry, it\'s causing inconvenience.',
+                'time': 'May ${10 + i}, 2024 · 11:00 AM',
+                'isRead': true,
+              },
+              if (isSolved) ...[
+                {
+                  'sender': 'landlord',
+                  'senderName': landlordName,
+                  'message':
+                      'The technician visited today and fixed the issue. Please let me know if everything is fine now.',
+                  'time': 'May ${12 + i}, 2024 · 03:45 PM',
+                  'isRead': true,
+                },
+                {
+                  'sender': 'tenant',
+                  'senderName': tenantName,
+                  'message': 'Yes, all good now. Thank you for the quick resolution! 👍',
+                  'time': 'May ${12 + i}, 2024 · 04:10 PM',
+                  'isRead': true,
+                },
+              ] else ...[
+                {
+                  'sender': 'landlord',
+                  'senderName': landlordName,
+                  'message': 'I have scheduled a technician for tomorrow morning. Please be available.',
+                  'time': 'May ${11 + i}, 2024 · 06:00 PM',
+                  'isRead': false,
+                },
+              ],
+            ];
 
     return {
       'title': 'Green Villa ${i + 1}',
       'propertyName': 'Green Villa ${i + 1}',
       'detail': 'Issue: $issue',
-      'landlordName':
-          '${_indianNames[(i + 1) % _indianNames.length]} ${_indianLastNames[i % _indianLastNames.length]}',
-      'tenantName':
-          '${_indianNames[i % _indianNames.length]} ${_indianLastNames[(i + 1) % _indianLastNames.length]}',
+      'landlordName': landlordName,
+      'tenantName': tenantName,
       'location': 'Mumbai Block ${i + 5}',
       'raisedDate': 'May ${10 + i}, 2024',
       'resolvedDate': isSolved ? 'May ${12 + i}, 2024' : null,
       'status': isSolved ? 'Solved' : 'Pending',
       'activeStatus': isSolved ? 'Completed' : 'Active',
+      'chatMessages': chatMessages,
     };
   });
   late final List<Map<String, dynamic>> propertyList = List.generate(10, (i) {
@@ -201,14 +259,20 @@ class HomeController extends GetxController {
       'location': 'Block ${101 + i}, Mumbai',
       'status': i % 2 == 0 ? 'Available' : 'Rented',
       'joinedDate': 'Jan 2024',
-      'propertyImages': List.generate((i % 3 == 0) ? 12 : 3, (index) {
+      'propertyImages': List.generate((i == 0) ? 15 : ((i % 3 == 0) ? 12 : 3), (
+        index,
+      ) {
         final List<String> villaImages = [
-          'https://images.unsplash.com/photo-1568605114967-8130f3a36994?q=80&w=100&h=100&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=100&h=100&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1600585154340-be6191da95b4?q=80&w=100&h=100&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1518780664697-55e3ad937233?q=80&w=100&h=100&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?q=80&w=100&h=100&auto=format&fit=crop',
-          'https://images.unsplash.com/photo-1480074568708-e7b720bb3f09?q=80&w=100&h=100&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1568605114967-8130f3a36994?q=80&w=400&h=400&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=400&h=400&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1600585154340-be6191da95b4?q=80&w=400&h=400&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1518780664697-55e3ad937233?q=80&w=400&h=400&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?q=80&w=400&h=400&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1480074568708-e7b720bb3f09?q=80&w=400&h=400&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1613490493576-7fde63acd811?q=80&w=400&h=400&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?q=80&w=400&h=400&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?q=80&w=400&h=400&auto=format&fit=crop',
+          'https://images.unsplash.com/photo-1449156001437-37c647dce501?q=80&w=400&h=400&auto=format&fit=crop',
         ];
         return villaImages[index % villaImages.length];
       }),
@@ -221,7 +285,10 @@ class HomeController extends GetxController {
     (i) => {
       'title': 'Lease_Agreement_${i + 1}.pdf',
       'propertyName': 'Green Villa ${i + 1}',
-      'landlordName': _indianNames[i % _indianNames.length] + ' ' + _indianLastNames[(i + 1) % _indianLastNames.length],
+      'landlordName':
+          _indianNames[i % _indianNames.length] +
+          ' ' +
+          _indianLastNames[(i + 1) % _indianLastNames.length],
       'fileTypes': ['pdf', 'jpg', 'doc', 'svg'].take((i % 4) + 1).toList(),
       'date': 'Oct ${10 + i}, 2023',
       'detail': 'Landlord: John Doe | Tenant: Alex Smith',

@@ -6,7 +6,12 @@ class SearchField extends StatelessWidget {
   final ValueChanged<String> onChanged;
   final ValueChanged<String>? onSubmitted;
 
-  const SearchField({super.key, this.hint = 'Search...', required this.onChanged, this.onSubmitted});
+  const SearchField({
+    super.key,
+    this.hint = 'Search...',
+    required this.onChanged,
+    this.onSubmitted,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -20,10 +25,19 @@ class SearchField extends StatelessWidget {
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 14),
-          prefixIcon: const Icon(Icons.search, color: AppTheme.textMuted, size: 20),
+          prefixIcon: const Icon(
+            Icons.search,
+            color: AppTheme.textMuted,
+            size: 20,
+          ),
           filled: true,
-          fillColor: const Color(0xFFF0F2F5), // Light Gray
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          fillColor: AppTheme.brandWhite, // Light Gray
+          hoverColor: AppTheme.brandWhite,
+          focusColor: AppTheme.brandWhite,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 0,
+          ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(color: AppTheme.border),

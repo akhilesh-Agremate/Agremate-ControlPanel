@@ -8,6 +8,7 @@ class DocumentModel {
   final String ownerType; // landlord, tenant
   final String? fileType; // pdf, doc, image, etc.
   final double? sizeKb;
+  final String? propertyName;
   final DateTime createdAt;
   final DateTime modifiedAt;
 
@@ -19,6 +20,7 @@ class DocumentModel {
     required this.ownerId,
     required this.ownerName,
     required this.ownerType,
+    this.propertyName,
     this.fileType,
     this.sizeKb,
     required this.createdAt,

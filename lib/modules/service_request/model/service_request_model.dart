@@ -9,6 +9,9 @@ class ServiceRequestModel {
   final DateTime requestDate;
   final DateTime? completedDate;
   final String priority; // low, medium, high
+  final String landlordName;
+  final String location;
+  final List<Map<String, dynamic>> chatMessages;
 
   ServiceRequestModel({
     required this.id,
@@ -21,6 +24,9 @@ class ServiceRequestModel {
     required this.requestDate,
     this.completedDate,
     this.priority = 'medium',
+    this.landlordName = 'John Doe',
+    this.location = 'Unknown Location',
+    this.chatMessages = const [],
   });
 
   bool get isPending => status == 'pending';

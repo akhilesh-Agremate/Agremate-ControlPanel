@@ -36,8 +36,8 @@ class AppTheme {
   static const Color statusRentedBg = brandPaleSky;
   static const Color statusRentedText = brandSteelBlue;
 
-  static const Color statusAvailableBg = Color(0xFFD6EAF8);
-  static const Color statusAvailableText = Color(0xFF1A6DAD);
+  static const Color statusAvailableBg = brandPaleSky;
+  static const Color statusAvailableText = brandSteelBlue;
 
   static const Color statusRequestedBg = Color(0xFFEAF2FB);
   static const Color statusRequestedText = brandBlueGrey;

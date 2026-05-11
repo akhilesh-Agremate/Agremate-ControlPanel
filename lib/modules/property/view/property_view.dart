@@ -44,6 +44,20 @@ class PropertyView extends StatelessWidget {
                   child: AspectRatio(
                     aspectRatio: 1.5,
                     child: KpiCard(
+                      title: 'Total Properties',
+                      value: '${pc.properties.length}',
+                      icon: Icons.apartment_rounded,
+                      accentColor: AppTheme.accentGreen,
+                      subtitle: '${pc.properties.where((p) => p.isRented).length} rented',
+                      sparkData: const [4, 6, 5, 8, 7, 9, 10, 8, 11, 13, 12, 16],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: AspectRatio(
+                    aspectRatio: 1.5,
+                    child: KpiCard(
                       title: 'Total Landlords',
                       value: '${pc.landlords.length}',
                       icon: Icons.person_rounded,
@@ -64,20 +78,6 @@ class PropertyView extends StatelessWidget {
                       accentColor: AppTheme.tenantFill,
                       subtitle: 'across ${pc.properties.length} properties',
                       sparkData: const [5, 8, 7, 9, 12, 10, 14, 13, 16, 18, 17, 25],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: AspectRatio(
-                    aspectRatio: 1.5,
-                    child: KpiCard(
-                      title: 'Total Properties',
-                      value: '${pc.properties.length}',
-                      icon: Icons.apartment_rounded,
-                      accentColor: AppTheme.accentGreen,
-                      subtitle: '${pc.properties.where((p) => p.isRented).length} rented',
-                      sparkData: const [4, 6, 5, 8, 7, 9, 10, 8, 11, 13, 12, 16],
                     ),
                   ),
                 ),

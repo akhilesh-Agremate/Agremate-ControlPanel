@@ -143,7 +143,7 @@ class _NavItemState extends State<_NavItem> {
 
   @override
   Widget build(BuildContext context) {
-    final color = widget.isLogout ? AppTheme.accentRed : (widget.isActive ? AppTheme.accentGreen : AppTheme.textMuted);
+    final color = widget.isLogout ? AppTheme.accentRed : (widget.isActive ? AppTheme.accentBlue : AppTheme.textMuted);
     return MouseRegion(
       onEnter: (_) => setState(() => _hovering = true),
       onExit: (_) => setState(() => _hovering = false),
@@ -177,7 +177,7 @@ class _NavItemState extends State<_NavItem> {
               const SizedBox(width: 14),
               Expanded(child: Text(widget.label, style: TextStyle(color: widget.isActive ? AppTheme.textPrimary : color, fontSize: 14, fontWeight: widget.isActive ? FontWeight.w600 : FontWeight.w400))),
               if (widget.isActive)
-                Container(width: 6, height: 6, decoration: BoxDecoration(color: AppTheme.accentGreen, shape: BoxShape.circle)),
+                Container(width: 6, height: 6, decoration: BoxDecoration(color: AppTheme.accentBlue, shape: BoxShape.circle)),
             ],
           ),
         ),

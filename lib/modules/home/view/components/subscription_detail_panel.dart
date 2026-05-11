@@ -123,7 +123,11 @@ class SubscriptionDetailPanel extends StatelessWidget {
                             pc.selectedProperty.value = PropertyModel(
                               id: prop['name'] ?? 'P1',
                               name: prop['name'] ?? '',
-                              address: prop['location'] ?? '',
+                              address: PropertyAddress(
+                                address: prop['location'] ?? '',
+                                latitude: 0,
+                                longitude: 0,
+                              ),
                               landlordId: 'L1',
                               landlordName: item['landlordName'] ?? '',
                               landlordEmail: emailStr,
@@ -135,6 +139,8 @@ class SubscriptionDetailPanel extends StatelessWidget {
                               tenantJoinedDate: DateTime(2024, 1, 15),
                               rentAmount: 25000,
                               advanceAmount: 75000,
+                              images: const <String>[],
+                              tenantIds: const <String>[],
                               createdAt: DateTime.now(),
                             );
                             pc.returnTabIndex.value = 0;
@@ -206,7 +212,7 @@ class SubscriptionDetailPanel extends StatelessWidget {
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                           decoration: BoxDecoration(
-                                            color: isBooked ? Colors.red : AppTheme.accentBlue,
+                                            color: isBooked ? Colors.red : AppTheme.statusAvailableText,
                                             borderRadius: BorderRadius.circular(12),
                                           ),
                                           child: Text(

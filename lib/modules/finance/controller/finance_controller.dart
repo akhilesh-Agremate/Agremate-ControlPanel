@@ -93,14 +93,27 @@ class FinanceController extends GetxController {
         final amt = rent+_rng.nextInt(5000).toDouble();
         final st = sts[_rng.nextInt(sts.length)];
         final dueDate = DateTime(2025, m + 1, 5);
+        final paidDate = st == 'paid' 
+            ? (m == 0 && p['id'] == 'P1' 
+                ? DateTime(2025, m + 1, 3) 
+                : DateTime(2025, m + 1, _rng.nextInt(28) + 1))
+            : null;
+
         payments.add(RentPaymentModel(
-          id:'RP${payments.length+1}',propertyId:p['id']!,propertyName:p['name']!,
-          landlordId:'L${props.indexOf(p)+1}',landlordName:p['ll']!,
-          tenantId:'T${props.indexOf(p)+1}',tenantName:p['tn']!,
-          amount:amt,month:months[m],year:2025,status:st,
+          id: 'RP${payments.length + 1}',
+          propertyId: p['id']!,
+          propertyName: p['name']!,
+          landlordId: 'L${props.indexOf(p) + 1}',
+          landlordName: p['ll']!,
+          tenantId: 'T${props.indexOf(p) + 1}',
+          tenantName: p['tn']!,
+          amount: amt,
+          month: months[m],
+          year: 2025,
+          status: st,
           dueDate: dueDate,
-          paidDate:st=='paid'?DateTime(2025,m+1,_rng.nextInt(28)+1):null,
-          transactionId:st=='paid' ? 'TXN${_rng.nextInt(900000) + 100000}' : null,
+          paidDate: paidDate,
+          transactionId: st == 'paid' ? 'TXN${_rng.nextInt(900000) + 100000}' : null,
         ));
         if(st=='paid') total+=amt;
       }
