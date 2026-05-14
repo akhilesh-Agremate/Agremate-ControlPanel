@@ -17,7 +17,7 @@ class LandlordModel {
     required this.phone,
     required this.email,
     this.avatar = '',
-    this.propertyIds = const [],
+    this.propertyIds = const <String>[],
     this.totalRevenue = 0,
     required this.lastLogin,
     this.isActive = true,

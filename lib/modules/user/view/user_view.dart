@@ -308,11 +308,28 @@ class UserView extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: Image.network(
-                              prop.imageUrl,
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                            ),
+                            child: prop.imageUrl != null
+                                ? Image.network(
+                                    prop.imageUrl!,
+                                    fit: BoxFit.cover,
+                                    width: double.infinity,
+                                    errorBuilder: (c, e, s) => Container(
+                                      color: AppTheme.bgCardLight,
+                                      child: const Icon(
+                                        Icons.image_not_supported_rounded,
+                                        color: AppTheme.textMuted,
+                                        size: 24,
+                                      ),
+                                    ),
+                                  )
+                                : Container(
+                                    color: AppTheme.bgCardLight,
+                                    child: const Icon(
+                                      Icons.image_not_supported_rounded,
+                                      color: AppTheme.textMuted,
+                                      size: 24,
+                                    ),
+                                  ),
                           ),
                           Padding(
                             padding: const EdgeInsets.all(8.0),
