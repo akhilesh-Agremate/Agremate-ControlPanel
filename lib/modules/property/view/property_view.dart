@@ -48,8 +48,22 @@ class PropertyView extends StatelessWidget {
                       value: '${pc.properties.length}',
                       icon: Icons.apartment_rounded,
                       accentColor: AppTheme.accentGreen,
-                      subtitle: '${pc.properties.where((p) => p.isRented).length} rented',
-                      sparkData: const [4, 6, 5, 8, 7, 9, 10, 8, 11, 13, 12, 16],
+                      subtitle:
+                          '${pc.properties.where((p) => p.isRented).length} rented',
+                      sparkData: const [
+                        4,
+                        6,
+                        5,
+                        8,
+                        7,
+                        9,
+                        10,
+                        8,
+                        11,
+                        13,
+                        12,
+                        16,
+                      ],
                     ),
                   ),
                 ),
@@ -77,7 +91,20 @@ class PropertyView extends StatelessWidget {
                       icon: Icons.groups_rounded,
                       accentColor: AppTheme.tenantFill,
                       subtitle: 'across ${pc.properties.length} properties',
-                      sparkData: const [5, 8, 7, 9, 12, 10, 14, 13, 16, 18, 17, 25],
+                      sparkData: const [
+                        5,
+                        8,
+                        7,
+                        9,
+                        12,
+                        10,
+                        14,
+                        13,
+                        16,
+                        18,
+                        17,
+                        25,
+                      ],
                     ),
                   ),
                 ),
@@ -87,10 +114,28 @@ class PropertyView extends StatelessWidget {
                     aspectRatio: 1.5,
                     child: KpiCard(
                       title: 'Total Revenue',
-                      value: fmt.format(pc.landlords.fold<double>(0, (s, l) => s + (l.totalRevenue ?? 0))),
+                      value: fmt.format(
+                        pc.landlords.fold<double>(
+                          0,
+                          (s, l) => s + (l.totalRevenue ?? 0),
+                        ),
+                      ),
                       icon: Icons.trending_up_rounded,
                       accentColor: AppTheme.accentPurple,
-                      sparkData: const [10, 12, 15, 14, 18, 20, 19, 22, 25, 24, 28, 30],
+                      sparkData: const [
+                        10,
+                        12,
+                        15,
+                        14,
+                        18,
+                        20,
+                        19,
+                        22,
+                        25,
+                        24,
+                        28,
+                        30,
+                      ],
                     ),
                   ),
                 ),
@@ -115,7 +160,10 @@ class PropertyView extends StatelessWidget {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
                   ),
                 ),
               ],
@@ -126,7 +174,9 @@ class PropertyView extends StatelessWidget {
             LayoutBuilder(
               builder: (context, constraints) {
                 const crossAxisCount = 3;
-                final cardWidth = (constraints.maxWidth - 16 * (crossAxisCount - 1)) / crossAxisCount;
+                final cardWidth =
+                    (constraints.maxWidth - 16 * (crossAxisCount - 1)) /
+                    crossAxisCount;
 
                 if (isLoading) {
                   return const SizedBox(
@@ -136,21 +186,30 @@ class PropertyView extends StatelessWidget {
                 }
 
                 if (pageItems.isEmpty) {
-                  return _EmptyState(page: page, onRefresh: pc.refreshProperties);
+                  return _EmptyState(
+                    page: page,
+                    onRefresh: pc.refreshProperties,
+                  );
                 }
 
                 return Wrap(
-                  key: ValueKey('page_$page'),   // force widget tree rebuild each page
+                  key: ValueKey(
+                    'page_$page',
+                  ), // force widget tree rebuild each page
                   spacing: 16,
                   runSpacing: 16,
-                  children: pageItems
-                      .map((prop) => _PropertyCard(
-                            prop: prop,
-                            pc: pc,
-                            width: cardWidth,
-                            isSelected: pc.selectedProperty.value?.id == prop.id,
-                          ))
-                      .toList(),
+                  children:
+                      pageItems
+                          .map(
+                            (prop) => _PropertyCard(
+                              prop: prop,
+                              pc: pc,
+                              width: cardWidth,
+                              isSelected:
+                                  pc.selectedProperty.value?.id == prop.id,
+                            ),
+                          )
+                          .toList(),
                 );
               },
             ),
@@ -169,117 +228,134 @@ class PropertyView extends StatelessWidget {
     final addressC = TextEditingController();
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.bgCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Add Property',
-          style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold),
-        ),
-        content: SizedBox(
-          width: 400,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameC,
-                style: const TextStyle(color: AppTheme.textPrimary),
-                decoration: InputDecoration(
-                  labelText: 'Property Name',
-                  labelStyle: const TextStyle(color: AppTheme.textMuted),
-                  filled: true,
-                  fillColor: AppTheme.bgCardLight,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppTheme.border),
+      builder:
+          (ctx) => AlertDialog(
+            backgroundColor: AppTheme.bgCard,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text(
+              'Add Property',
+              style: TextStyle(
+                color: AppTheme.textPrimary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            content: SizedBox(
+              width: 400,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameC,
+                    style: const TextStyle(color: AppTheme.textPrimary),
+                    decoration: InputDecoration(
+                      labelText: 'Property Name',
+                      labelStyle: const TextStyle(color: AppTheme.textMuted),
+                      filled: true,
+                      fillColor: AppTheme.bgCardLight,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: AppTheme.border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: AppTheme.border),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(
+                          color: AppTheme.accentGreen,
+                        ),
+                      ),
+                    ),
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppTheme.border),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: addressC,
+                    style: const TextStyle(color: AppTheme.textPrimary),
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      labelText: 'Address',
+                      labelStyle: const TextStyle(color: AppTheme.textMuted),
+                      filled: true,
+                      fillColor: AppTheme.bgCardLight,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: AppTheme.border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: AppTheme.border),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(
+                          color: AppTheme.accentGreen,
+                        ),
+                      ),
+                    ),
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppTheme.accentGreen),
+                  const SizedBox(height: 12),
+                  TextField(
+                    style: const TextStyle(color: AppTheme.textPrimary),
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Monthly Rent',
+                      labelStyle: const TextStyle(color: AppTheme.textMuted),
+                      filled: true,
+                      fillColor: AppTheme.bgCardLight,
+                      prefixText: '₹ ',
+                      prefixStyle: const TextStyle(color: AppTheme.textPrimary),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: AppTheme.border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: AppTheme.border),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(
+                          color: AppTheme.accentGreen,
+                        ),
+                      ),
+                    ),
                   ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: AppTheme.textMuted),
                 ),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: addressC,
-                style: const TextStyle(color: AppTheme.textPrimary),
-                maxLines: 2,
-                decoration: InputDecoration(
-                  labelText: 'Address',
-                  labelStyle: const TextStyle(color: AppTheme.textMuted),
-                  filled: true,
-                  fillColor: AppTheme.bgCardLight,
-                  border: OutlineInputBorder(
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.accentGreen,
+                  foregroundColor: AppTheme.bgDark,
+                  shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppTheme.border),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppTheme.border),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppTheme.accentGreen),
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                style: const TextStyle(color: AppTheme.textPrimary),
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: 'Monthly Rent',
-                  labelStyle: const TextStyle(color: AppTheme.textMuted),
-                  filled: true,
-                  fillColor: AppTheme.bgCardLight,
-                  prefixText: '₹ ',
-                  prefixStyle: const TextStyle(color: AppTheme.textPrimary),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppTheme.border),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppTheme.border),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppTheme.accentGreen),
-                  ),
-                ),
+                onPressed: () {
+                  if (nameC.text.isNotEmpty && addressC.text.isNotEmpty) {
+                    Get.snackbar(
+                      'Coming Soon',
+                      'Property creation via API will be available soon.',
+                      duration: const Duration(seconds: 3),
+                    );
+                    Navigator.pop(ctx);
+                  }
+                },
+                child: const Text('Add'),
               ),
             ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: AppTheme.textMuted)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.accentGreen,
-              foregroundColor: AppTheme.bgDark,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            onPressed: () {
-              if (nameC.text.isNotEmpty && addressC.text.isNotEmpty) {
-                Get.snackbar(
-                  'Coming Soon',
-                  'Property creation via API will be available soon.',
-                  duration: const Duration(seconds: 3),
-                );
-                Navigator.pop(ctx);
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -350,10 +426,14 @@ class _PropertyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fmt = NumberFormat.currency(symbol: '₹', locale: 'en_IN', decimalDigits: 0);
+    final fmt = NumberFormat.currency(
+      symbol: '₹',
+      locale: 'en_IN',
+      decimalDigits: 0,
+    );
 
-    final showTenant = prop.status == PropertyStatus.rented ||
-        prop.status == PropertyStatus.booked;
+    final showTenant =
+        prop.primaryTenantName != null && prop.primaryTenantName!.isNotEmpty;
 
     Widget statusBadge;
     Color statusColor;
@@ -378,12 +458,19 @@ class _PropertyCard extends StatelessWidget {
         statusBadge = StatusBadge.maintenance();
         statusColor = AppTheme.statusMaintenanceText;
         break;
+      case PropertyStatus.unknown:
+        statusBadge = StatusBadge.unknown();
+        statusColor = const Color(0xFF9E9E9E);
+        break;
     }
 
     return SizedBox(
       width: width,
       child: GlassCard(
-        glowColor: isSelected ? AppTheme.accentGreen : statusColor.withValues(alpha: 0.2),
+        glowColor:
+            isSelected
+                ? AppTheme.accentGreen
+                : statusColor.withValues(alpha: 0.2),
         padding: EdgeInsets.zero,
         onTap: () => pc.selectedProperty.value = prop,
         child: Column(
@@ -392,36 +479,64 @@ class _PropertyCard extends StatelessWidget {
             Stack(
               children: [
                 ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                  child: Image.network(
-                    prop.imageUrl,
-                    height: 180,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (c, e, s) => Container(
-                      height: 180,
-                      width: double.infinity,
-                      color: AppTheme.bgCardLight,
-                      child: const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.image_not_supported_rounded,
-                            color: AppTheme.textMuted,
-                            size: 32,
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Image Not Available',
-                            style: TextStyle(
-                              color: AppTheme.textMuted,
-                              fontSize: 12,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(16),
+                  ),
+                  child:
+                      prop.imageUrl != null
+                          ? Image.network(
+                            prop.imageUrl!,
+                            height: 180,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder:
+                                (c, e, s) => Container(
+                                  height: 180,
+                                  width: double.infinity,
+                                  color: AppTheme.bgCardLight,
+                                  child: const Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.image_not_supported_rounded,
+                                        color: AppTheme.textMuted,
+                                        size: 32,
+                                      ),
+                                      SizedBox(height: 8),
+                                      Text(
+                                        'No Image',
+                                        style: TextStyle(
+                                          color: AppTheme.textMuted,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                          )
+                          : Container(
+                            height: 180,
+                            width: double.infinity,
+                            color: AppTheme.bgCardLight,
+                            child: const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.image_not_supported_rounded,
+                                  color: AppTheme.textMuted,
+                                  size: 32,
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  'No Image',
+                                  style: TextStyle(
+                                    color: AppTheme.textMuted,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
                 ),
                 Positioned(top: 12, right: 12, child: statusBadge),
               ],
@@ -431,7 +546,11 @@ class _PropertyCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(prop.name, style: AppTheme.heading3, overflow: TextOverflow.ellipsis),
+                  Text(
+                    prop.name,
+                    style: AppTheme.heading3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   const SizedBox(height: 6),
                   Text(
                     prop.address.address,
@@ -440,36 +559,50 @@ class _PropertyCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.person_rounded,
+                        color: AppTheme.landlordFill,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          'Landlord: ${prop.landlordName}',
+                          style: AppTheme.caption.copyWith(
+                            color: AppTheme.landlordFill,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                   if (showTenant && prop.primaryTenantName != null)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
+                      padding: const EdgeInsets.only(top: 4),
                       child: Row(
                         children: [
-                          const Icon(Icons.person_outline_rounded, color: AppTheme.tenantFill, size: 14),
+                          const Icon(
+                            Icons.person_outline_rounded,
+                            color: Color(0xFF1A3A6B),
+                            size: 14,
+                          ),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
                               'Tenant: ${prop.primaryTenantName}',
-                              style: AppTheme.caption.copyWith(color: AppTheme.tenantFill, fontWeight: FontWeight.bold),
+                              style: AppTheme.caption.copyWith(
+                                color: const Color(0xFF1A3A6B),
+                                fontWeight: FontWeight.bold,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
                       ),
                     ),
-                  Row(
-                    children: [
-                      const Icon(Icons.person_rounded, color: AppTheme.landlordFill, size: 14),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          'Landlord: ${prop.landlordName}',
-                          style: AppTheme.caption.copyWith(color: AppTheme.landlordFill, fontWeight: FontWeight.w600),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
                   const SizedBox(height: 16),
                   const Divider(color: AppTheme.border, height: 1),
                   const SizedBox(height: 16),
@@ -477,7 +610,11 @@ class _PropertyCard extends StatelessWidget {
                     children: [
                       Text(
                         fmt.format(prop.rentAmount),
-                        style: const TextStyle(color: AppTheme.accentGreen, fontWeight: FontWeight.bold, fontSize: 18),
+                        style: const TextStyle(
+                          color: AppTheme.accentGreen,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
                       ),
                       Text('/month', style: AppTheme.caption),
                       const Spacer(),
@@ -526,8 +663,10 @@ class _Pagination extends StatelessWidget {
         widgets.add(
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text('…',
-                style: TextStyle(color: AppTheme.textMuted, fontSize: 14)),
+            child: Text(
+              '…',
+              style: TextStyle(color: AppTheme.textMuted, fontSize: 14),
+            ),
           ),
         );
       }
@@ -544,7 +683,8 @@ class _Pagination extends StatelessWidget {
               color: isActive ? AppTheme.accentGreen : AppTheme.bgCardLight,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                  color: isActive ? AppTheme.accentGreen : AppTheme.border),
+                color: isActive ? AppTheme.accentGreen : AppTheme.border,
+              ),
             ),
             child: Text(
               '$page',
@@ -573,8 +713,10 @@ class _Pagination extends StatelessWidget {
           // ← Prev
           IconButton(
             onPressed: current > 1 ? () => pc.goToPage(current - 1) : null,
-            icon: Icon(Icons.chevron_left,
-                color: current > 1 ? AppTheme.textPrimary : AppTheme.textMuted),
+            icon: Icon(
+              Icons.chevron_left,
+              color: current > 1 ? AppTheme.textPrimary : AppTheme.textMuted,
+            ),
           ),
           const SizedBox(width: 4),
           // Page buttons with smart windowing

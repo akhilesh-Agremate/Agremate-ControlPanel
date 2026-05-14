@@ -9,16 +9,24 @@ import 'package:agremate_admin/modules/tenant/model/tenant_details_model.dart';
 class PropertyRepository {
   Future<List<PropertyModel>> getAllProperties() async {
     try {
-      final response = await DioClient.instance.get(AppEndpoints.allProperties);
+      final response = await DioClient.instance.get(AppEndpoints.allPropertyDetails);
       print('PropertyRepository.getAllProperties Response: ${response.data}');
-      
-      if (response.data['status'] == true) {
-        final List<dynamic> result = response.data['result'] ?? [];
-        print('PropertyRepository.getAllProperties Result length: ${result.length}');
-        return result.where((e) => e != null).map((json) => PropertyModel.fromJson(json)).toList();
+
+      // The new endpoint returns a plain JSON array
+      final List<dynamic> result;
+      if (response.data is List) {
+        result = response.data as List<dynamic>;
+      } else if (response.data is Map && response.data['result'] != null) {
+        result = response.data['result'] as List<dynamic>;
       } else {
-        throw Exception(response.data['message'] ?? 'Failed to fetch properties');
+        result = [];
       }
+
+      print('PropertyRepository.getAllProperties Result length: ${result.length}');
+      return result
+          .where((e) => e != null)
+          .map((json) => PropertyModel.fromJson(json as Map<String, dynamic>))
+          .toList();
     } catch (e, stack) {
       print('PropertyRepository.getAllProperties Error: $e');
       print(stack);

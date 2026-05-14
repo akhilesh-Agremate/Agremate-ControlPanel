@@ -1,4 +1,6 @@
-enum PropertyStatus { rented, available, booked, requested, maintenance }
+import 'dart:convert';
+
+enum PropertyStatus { rented, available, booked, requested, maintenance, unknown }
 
 class PropertyAddress {
   final String address;
@@ -38,7 +40,7 @@ class PropertyModel {
   final String? description;
   final List<dynamic> documents;
   final List<String> images;
-  final String imageUrl;
+  final String? imageUrl;
 
   // Fields for backward compatibility and UI usage
   final String city;
@@ -58,6 +60,12 @@ class PropertyModel {
   final int occupiedUnits;
   final DateTime createdAt;
   final Map<String, dynamic> rawJson;
+  final List<Map<String, String>> amenitiesList;
+  final DateTime? tenancyStartDate;
+  final String? agreementId;
+  final DateTime? agreementStartDate;
+  final int? agreementPeriodMonths;
+  final double? agreementRentAmount;
 
   PropertyModel({
     required this.id,
@@ -74,8 +82,7 @@ class PropertyModel {
     this.description,
     this.documents = const [],
     this.images = const <String>[],
-    this.imageUrl =
-        'https://images.unsplash.com/photo-1568605114967-8130f3a36994?q=80&w=600&h=300&auto=format&fit=crop',
+    this.imageUrl,
     this.city = 'Unknown',
     this.landlordId = '',
     this.landlordName = 'N/A',
@@ -93,19 +100,73 @@ class PropertyModel {
     this.occupiedUnits = 0,
     required this.createdAt,
     this.rawJson = const {},
+    this.amenitiesList = const [],
+    this.tenancyStartDate,
+    this.agreementId,
+    this.agreementStartDate,
+    this.agreementPeriodMonths,
+    this.agreementRentAmount,
   });
 
   factory PropertyModel.fromJson(Map<String, dynamic> json) {
     try {
-      final addr = PropertyAddress.fromJson(
-        json['address'] ?? json['placeDetails'] ?? {},
-      );
+      // Address can be a JSON-encoded string (new API) or a direct map (old API)
+      PropertyAddress addr;
+      final rawAddr = json['address'];
+      if (rawAddr is String) {
+        try {
+          addr = PropertyAddress.fromJson(jsonDecode(rawAddr) as Map<String, dynamic>);
+        } catch (_) {
+          addr = PropertyAddress(address: rawAddr, latitude: 0, longitude: 0);
+        }
+      } else if (rawAddr is Map<String, dynamic>) {
+        addr = PropertyAddress.fromJson(rawAddr);
+      } else {
+        addr = PropertyAddress.fromJson(
+          json['placeDetails'] as Map<String, dynamic>? ?? {},
+        );
+      }
+
+      // Nested landlord object (new API)
+      final landlordObj = json['landlord'] as Map<String, dynamic>?;
+      final landlordId   = landlordObj?['id']?.toString() ?? json['landlordId']?.toString() ?? '';
+      final landlordName = landlordObj?['name']?.toString() ?? json['landlordName']?.toString() ?? json['ownerName']?.toString() ?? 'N/A';
+      final landlordPhone = landlordObj?['phone']?.toString() ?? json['landlordPhone']?.toString();
+      final landlordEmail = landlordObj?['email']?.toString() ?? json['landlordEmail']?.toString();
+
+      // Nested tenant object (new API)
+      final tenantObj = json['tenant'] as Map<String, dynamic>?;
+      final tenantName  = tenantObj?['name']?.toString() ?? json['tenantName']?.toString() ?? json['primaryTenantName']?.toString();
+      final tenantPhone = tenantObj?['phoneNumber']?.toString() ?? json['primaryTenantPhone']?.toString();
+      DateTime? tenancyStart;
+      if (tenantObj?['tenancyStartDate'] != null) {
+        tenancyStart = DateTime.tryParse(tenantObj!['tenancyStartDate'].toString());
+      }
+
+      // Amenities list (new API)
+      final rawAmenities = json['amenities'] as List<dynamic>?;
+      final amenitiesList = rawAmenities
+          ?.map((a) => {
+                'name':    (a['name'] ?? '').toString(),
+                'type':    (a['type'] ?? '').toString(),
+                'details': (a['details'] ?? '').toString(),
+              })
+          .toList() ?? <Map<String, String>>[];
+
+      // Agreement (new API)
+      final agreementObj = json['agreement'] as Map<String, dynamic>?;
+      final agreementId          = agreementObj?['id']?.toString();
+      final agreementStartDate   = agreementObj?['startDate'] != null ? DateTime.tryParse(agreementObj!['startDate'].toString()) : null;
+      final agreementPeriodMonths = (agreementObj?['periodMonths'] as num?)?.toInt();
+      final agreementRentAmount   = (agreementObj?['rentAmount'] as num?)?.toDouble();
+
+      final images = json['images'] != null
+          ? List<String>.from(json['images'] as List)
+          : <String>[];
+
       return PropertyModel(
         id: json['propertyId']?.toString() ?? json['id']?.toString() ?? '',
-        name:
-            json['name']?.toString() ??
-            json['propertyName']?.toString() ??
-            'Unnamed Property',
+        name: json['name']?.toString() ?? json['propertyName']?.toString() ?? 'Unnamed Property',
         address: addr,
         isOwner: json['isOwner'] ?? true,
         status: _parseStatus(json['status']?.toString()),
@@ -118,42 +179,34 @@ class PropertyModel {
             (json['advanceAmount'] as num?)?.toDouble() ??
             (json['advance'] as num?)?.toDouble() ??
             0.0,
-        bedrooms: (json['bedrooms'] as num?)?.toInt() ?? 0,
+        bedrooms:  (json['bedrooms'] as num?)?.toInt() ?? 0,
         bathrooms: (json['bathrooms'] as num?)?.toInt() ?? 0,
-        kitchen: (json['kitchen'] as num?)?.toInt() ?? 0,
+        kitchen:   (json['kitchen'] as num?)?.toInt() ?? 0,
         builtYear: (json['builtYear'] as num?)?.toInt() ?? 0,
         description: json['description']?.toString(),
         documents: json['documents'] ?? [],
-        images: json['images'] != null
-            ? List<String>.from(json['images'])
-            : <String>[],
-        imageUrl:
-            (json['images'] != null && (json['images'] as List).isNotEmpty)
-                ? json['images'][0]
-                : [
-                  'https://images.unsplash.com/photo-1568605114967-8130f3a36994?q=80&w=600&h=300&auto=format&fit=crop',
-                  'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=600&h=300&auto=format&fit=crop',
-                  'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=600&h=300&auto=format&fit=crop',
-                  'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=600&h=300&auto=format&fit=crop',
-                  'https://images.unsplash.com/photo-1600607687940-c52af096999a?q=80&w=600&h=300&auto=format&fit=crop',
-                ][(json['propertyId']?.hashCode ?? 0) % 5],
+        images: images,
+        imageUrl: images.isNotEmpty ? images[0] : null,
         createdAt: DateTime.now(),
-        city: addr.address.split(',').last.trim(),
-        landlordName:
-            json['landlordName']?.toString() ??
-            json['ownerName']?.toString() ??
-            (json['user'] != null ? json['user']['name']?.toString() : null) ??
-            'N/A',
-        primaryTenantName:
-            json['tenantName']?.toString() ??
-            json['primaryTenantName']?.toString() ??
-            (json['tenant'] != null
-                ? json['tenant']['name']?.toString()
-                : null),
+        city: addr.address.split(',').lastWhere((s) => s.trim().isNotEmpty, orElse: () => '').trim(),
+        landlordId: landlordId,
+        landlordName: landlordName,
+        landlordPhone: landlordPhone,
+        landlordEmail: landlordEmail,
+        primaryTenantName: tenantName,
+        primaryTenantPhone: tenantPhone,
+        tenantJoinedDate: tenancyStart,
         rawJson: json,
+        amenitiesList: amenitiesList,
+        tenancyStartDate: tenancyStart,
+        agreementId: agreementId,
+        agreementStartDate: agreementStartDate,
+        agreementPeriodMonths: agreementPeriodMonths,
+        agreementRentAmount: agreementRentAmount,
       );
-    } catch (e) {
+    } catch (e, stack) {
       print('PropertyModel.fromJson Error: $e');
+      print(stack);
       rethrow;
     }
   }
@@ -171,7 +224,7 @@ class PropertyModel {
       case 'maintenance':
         return PropertyStatus.maintenance;
       default:
-        return PropertyStatus.available;
+        return PropertyStatus.unknown;
     }
   }
 
@@ -189,6 +242,8 @@ class PropertyModel {
         return 'Requested';
       case PropertyStatus.maintenance:
         return 'Maintenance';
+      case PropertyStatus.unknown:
+        return 'Unknown';
     }
   }
 }

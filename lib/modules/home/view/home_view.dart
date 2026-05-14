@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 import 'package:agremate_admin/core/theme/theme.dart';
 import 'package:agremate_admin/modules/home/controller/home_controller.dart';
 import 'package:agremate_admin/core/widgets/glass_card.dart';
-import 'components/subscription_detail_panel.dart';
+import 'package:agremate_admin/modules/home/view/components/subscription_detail_panel.dart';
 import 'package:agremate_admin/modules/property/controller/property_controller.dart';
 import 'package:agremate_admin/modules/property/model/property_model.dart';
 import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
@@ -74,6 +74,11 @@ class HomeView extends StatelessWidget {
 
     return Obx(() {
       final selectedSub = controller.selectedSubscription.value;
+      final nav = Get.find<NavigationController>();
+      final query = nav.searchQuery.value;
+
+      // Update home controller search when query changes
+      controller.search(query);
 
       return Stack(
         children: [
@@ -82,110 +87,158 @@ class HomeView extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Dashboard Overview', style: AppTheme.heading1),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Real-time analytics and performance metrics.',
-                          style: AppTheme.bodyText,
-                        ),
-                      ],
-                    ),
-                    _buildGlobalSelector(context, controller),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ...metricCards.map((c) {
-                      final label = c['label'] as String;
-                      final topColor = c['topColor'] as Color;
-                      final numberColor = c['numberColor'] as Color;
-                      final periodVar = controller.getPeriodVar(label);
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Dashboard Overview', style: AppTheme.heading1),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Real-time analytics and performance metrics.',
+                            style: AppTheme.bodyText,
+                          ),
+                        ],
+                      ),
+                      _buildGlobalSelector(context, controller),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ...metricCards.map((c) {
+                        final label = c['label'] as String;
+                        final topColor = c['topColor'] as Color;
+                        final numberColor = c['numberColor'] as Color;
+                        final periodVar = controller.getPeriodVar(label);
 
-                      return Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 20),
-                          child: SizedBox(
-                            height: 150,
-                            child: GlassCard(
-                              topBarColor: null,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 20,
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          label,
-                                          style: const TextStyle(
-                                            color: AppTheme.textSecondary,
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w600,
+                        return Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 20),
+                            child: SizedBox(
+                              height: 150,
+                              child: GlassCard(
+                                topBarColor: null,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 20,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            label,
+                                            style: const TextStyle(
+                                              color: AppTheme.textSecondary,
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 24),
-                                  Obx(
-                                    () => Text(
-                                      controller.getAmount(
-                                        label,
-                                        periodVar.value,
-                                      ),
-                                      style: AppTheme.kpiValue.copyWith(
-                                        fontSize: 32,
-                                        color: numberColor,
+                                      ],
+                                    ),
+                                    const SizedBox(height: 24),
+                                    Obx(
+                                      () => Text(
+                                        controller.getAmount(
+                                          label,
+                                          periodVar.value,
+                                        ),
+                                        style: AppTheme.kpiValue.copyWith(
+                                          fontSize: 32,
+                                          color: numberColor,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),
+                        );
+                      }),
+                    ],
+                  ),
+                  const SizedBox(height: 48),
+                  // Recent Activities
+                  Text('Recent Activity', style: AppTheme.heading2),
+                  const SizedBox(height: 24),
+                  ...listData.map((list) {
+                    final title = list['title'] as String;
+                    final isService = title == 'Recent Service Requests';
+                    final isRent = title == 'Recent Rent Collections';
+                    final isSubs = title == 'Recent Subscriptions';
+
+                    return Obx(() {
+                      // Explicitly read from the matching RxList so GetX
+                      // always has a registered observable dependency.
+                      final List<Map<String, dynamic>> rawData;
+                      if (isRent) {
+                        rawData = List<Map<String, dynamic>>.from(
+                          controller.recentRent,
+                        );
+                      } else if (isService) {
+                        rawData = List<Map<String, dynamic>>.from(
+                          controller.recentServices,
+                        );
+                      } else if (isSubs) {
+                        rawData = List<Map<String, dynamic>>.from(
+                          controller.recentSubs,
+                        );
+                      } else if (title == 'Property') {
+                        rawData = List<Map<String, dynamic>>.from(
+                          controller.propertyList,
+                        );
+                      } else if (title == 'Document') {
+                        rawData = List<Map<String, dynamic>>.from(
+                          controller.documentList,
+                        );
+                      } else {
+                        rawData = List<Map<String, dynamic>>.from(
+                          controller.supportList,
+                        );
+                      }
+
+                      final List<Map<String, dynamic>> data =
+                          controller.getFilteredData(rawData, query);
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 24),
+                        child: _ActivityListCard(
+                          title: title,
+                          data: data,
+                          color: list['color'] as Color,
+                          controller: controller,
+                          isService: isService,
+                          emptyMessage:
+                              isService
+                                  ? 'No recent service requests found.'
+                                  : isRent && data.isEmpty
+                                  ? 'Loading rent collections...'
+                                  : null,
                         ),
                       );
-                    }),
-                  ],
-                ),
-                const SizedBox(height: 48),
-                // Recent Activities
-                Text('Recent Activity', style: AppTheme.heading2),
-                const SizedBox(height: 24),
-                ...listData.map((list) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 24),
-                    child: _ActivityListCard(
-                      title: list['title'] as String,
-                      data: list['data'] as List<Map<String, dynamic>>,
-                      color: list['color'] as Color,
-                      controller: controller,
-                    ),
-                  );
-                }).toList(),
-              ],
+                    });
+                  }).toList(),
+                ],
+              ),
             ),
-          ),
           if (selectedSub != null) ...[
             GestureDetector(
               onTap: () => controller.selectedSubscription.value = null,
-              child: Container(color: Colors.black.withValues(alpha: 0.3)),
+              child: Container(
+                color: AppTheme.brandSteelBlue.withValues(alpha: 0.12),
+              ),
             ),
             Positioned(
               top: 0,
@@ -294,17 +347,24 @@ class _ActivityListCard extends StatelessWidget {
   final List<Map<String, dynamic>> data;
   final Color color;
   final HomeController controller;
+  final String? emptyMessage;
+  final bool isService;
 
   const _ActivityListCard({
     required this.title,
     required this.data,
     required this.color,
     required this.controller,
+    this.emptyMessage,
+    this.isService = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Obx(() {
+      // Accessing length ensures GetX registers this as an observable dependency
+      // even if the specific key doesn't exist yet in the RxMap.
+      controller.expandedLists.length;
       final isExpanded = controller.expandedLists[title] ?? false;
       return Container(
         margin: const EdgeInsets.only(bottom: 16),
@@ -374,24 +434,67 @@ class _ActivityListCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children:
-                        data
-                            .take(10)
-                            .map(
-                              (item) => _ActivityItemCard(
-                                key: ValueKey(item['title'] ?? item.hashCode),
-                                item: item,
-                                title: title,
-                                controller: controller,
-                                onNavigateToProperty: _navigateToProperty,
-                                buildMetadataRow: _buildMetadataRow,
-                                buildLabelValue: _buildLabelValue,
-                                buildFilledChip: _buildFilledChip,
-                                buildOutlinedChip: _buildOutlinedChip,
-                                buildUsageIndicator: _buildUsageIndicator,
+                        (isService && controller.isLoading.value)
+                            ? [
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 30),
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Color(0xFF2196F3),
+                                  ),
+                                ),
                               ),
-                            )
-                            .cast<Widget>()
-                            .toList(),
+                            ]
+                            : data.isEmpty
+                            ? [
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 20,
+                                ),
+                                child: Text(
+                                  emptyMessage ?? 'No records found.',
+                                  textAlign: TextAlign.center,
+                                  style: AppTheme.bodyText.copyWith(
+                                    color: AppTheme.textMuted,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ),
+                            ]
+                            : isService
+                            ? [
+                              Column(
+                                children:
+                                    data.take(10).map((item) {
+                                      final raw = item['rawModel'];
+                                      return _HomeServiceRequestCard(
+                                        item: item,
+                                        rawModel: raw,
+                                      );
+                                    }).toList(),
+                              ),
+                            ]
+                            : data
+                                .take(10)
+                                .map(
+                                  (item) => _ActivityItemCard(
+                                    key: ValueKey(
+                                      item['title'] ?? item.hashCode,
+                                    ),
+                                    item: item,
+                                    title: title,
+                                    controller: controller,
+                                    onNavigateToProperty: _navigateToProperty,
+                                    buildMetadataRow: _buildMetadataRow,
+                                    buildLabelValue: _buildLabelValue,
+                                    buildFilledChip: _buildFilledChip,
+                                    buildOutlinedChip: _buildOutlinedChip,
+                                    buildUsageIndicator: _buildUsageIndicator,
+                                  ),
+                                )
+                                .cast<Widget>()
+                                .toList(),
                   ),
                 ),
               ],
@@ -403,18 +506,28 @@ class _ActivityListCard extends StatelessWidget {
   }
 
   Widget _buildMetadataRow(IconData icon, String text) {
+    final bool isDate =
+        text.startsWith('Joined:') ||
+        text.startsWith('Raised:') ||
+        text.startsWith('Solved:') ||
+        text.startsWith('Added:');
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 14, color: AppTheme.textMuted),
         const SizedBox(width: 4),
-        Flexible(
-          child: Text(
-            text,
-            style: AppTheme.caption.copyWith(fontSize: 11),
-            overflow: TextOverflow.ellipsis,
+        if (isDate)
+          Text(text, style: AppTheme.caption.copyWith(fontSize: 11))
+        else
+          Flexible(
+            child: Text(
+              text,
+              style: AppTheme.caption.copyWith(fontSize: 11),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-        ),
       ],
     );
   }
@@ -652,6 +765,7 @@ class _ActivityListCard extends StatelessWidget {
 
       pc.returnTabIndex.value = 0;
       pc.selectedProperty.value = matchedProperty;
+      nav.searchQuery.value = '';
       nav.currentIndex.value = 1;
     }
   }
@@ -871,26 +985,21 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
       if (mounted) setState(() => _isSelected = false);
     } else if (title == 'Recent Subscriptions') {
       widget.controller.selectedSubscription.value = item;
-      // Keep highlighted while panel is open; reset when closed
-      ever(widget.controller.selectedSubscription, (val) {
-        if (val == null && mounted) setState(() => _isSelected = false);
-      });
     } else if (title == 'Recent Service Requests') {
       if (mounted) setState(() => _isSelected = false);
       _showServiceChatDialog(context, item);
     }
   }
 
-  void _showServiceChatDialog(
-    BuildContext context,
-    Map<String, dynamic> item,
-  ) {
+  void _showServiceChatDialog(BuildContext context, Map<String, dynamic> item) {
     final messages =
         (item['chatMessages'] as List<dynamic>? ?? [])
             .cast<Map<String, dynamic>>();
     final String propertyName = item['propertyName'] ?? item['title'] ?? '';
-    final String issue =
-        (item['detail'] as String? ?? '').replaceAll('Issue: ', '');
+    final String issue = (item['detail'] as String? ?? '').replaceAll(
+      'Issue: ',
+      '',
+    );
     final String status = item['status'] ?? 'Pending';
     final String tenantName = item['tenantName'] ?? '';
     final String landlordName = item['landlordName'] ?? '';
@@ -898,7 +1007,7 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
 
     showDialog(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.45),
+      barrierColor: const Color(0xFF1565C0).withValues(alpha: 0.15),
       builder:
           (_) => Dialog(
             backgroundColor: Colors.transparent,
@@ -914,7 +1023,7 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.18),
+                    color: const Color(0xFF1565C0).withValues(alpha: 0.12),
                     blurRadius: 32,
                     offset: const Offset(0, 8),
                   ),
@@ -1058,10 +1167,7 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                     ),
                   ),
 
-                  Container(
-                    height: 1,
-                    color: const Color(0xFFE0E0E0),
-                  ),
+                  Container(height: 1, color: const Color(0xFFE0E0E0)),
 
                   // ── Chat Messages ────────────────────────────────────────
                   Expanded(
@@ -1108,17 +1214,11 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                               ),
                             )
                             : ListView.builder(
-                              padding: const EdgeInsets.fromLTRB(
-                                16,
-                                16,
-                                16,
-                                8,
-                              ),
+                              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                               itemCount: messages.length,
                               itemBuilder: (ctx, idx) {
                                 final msg = messages[idx];
-                                final isTenant =
-                                    msg['sender'] == 'tenant';
+                                final isTenant = msg['sender'] == 'tenant';
                                 return _buildChatBubble(
                                   message: msg['message'] as String,
                                   senderName: msg['senderName'] as String,
@@ -1322,7 +1422,8 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                         color: Color(0xFF9E9E9E),
                       ),
                     ),
-                    if (!isTenant) ...[  // Show read status for landlord msgs
+                    if (!isTenant) ...[
+                      // Show read status for landlord msgs
                       const SizedBox(width: 4),
                       Icon(
                         isRead ? Icons.done_all : Icons.done,
@@ -1354,14 +1455,12 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
       child: Icon(
         isTenant ? Icons.person : Icons.business_center,
         size: 16,
-        color:
-            isTenant ? const Color(0xFF1E88E5) : const Color(0xFF43A047),
+        color: isTenant ? const Color(0xFF1E88E5) : const Color(0xFF43A047),
       ),
     );
   }
 
   Widget _buildPropertyThumbnails(Map<String, dynamic> item) {
-
     final List<String> images =
         (item['propertyImages'] as List<dynamic>?)
             ?.cast<String>()
@@ -1840,465 +1939,348 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
-    final title = widget.title;
+    final title =
+        (widget.title == 'Search Results')
+            ? (item['type'] == 'property'
+                ? 'Property'
+                : item['type'] == 'rent'
+                ? 'Recent Rent Collections'
+                : item['type'] == 'subscription'
+                ? 'Recent Subscriptions'
+                : item['type'] == 'service'
+                ? 'Recent Service Requests'
+                : item['type'] == 'document'
+                ? 'Document'
+                : item['type'] == 'support'
+                ? 'Support'
+                : widget.title)
+            : widget.title;
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovering = true),
-      onExit: (_) => setState(() => _isHovering = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: (_isSelected || _isHovering) ? Colors.white : AppTheme.bgCard,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color:
-                (_isSelected || _isHovering)
-                    ? const Color(0xFF2196F3)
-                    : AppTheme.border,
-            width: (_isSelected || _isHovering) ? 1.5 : 1.0,
-          ),
-          boxShadow:
-              (_isSelected || _isHovering)
-                  ? [
-                    BoxShadow(
-                      color: const Color(0xFF2196F3).withValues(alpha: 0.12),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                  : [],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          child: InkWell(
-            onTap: _handleTap,
+    return Obx(() {
+      // Accessing the value first ensures GetX registers the dependency even if the
+      // title check would otherwise short-circuit the expression.
+      final currentSub = widget.controller.selectedSubscription.value;
+      final isSubSelected =
+          title == 'Recent Subscriptions' && currentSub == item;
+      final isSelected = _isSelected || isSubSelected;
+
+      return MouseRegion(
+        onEnter: (_) => setState(() => _isHovering = true),
+        onExit: (_) => setState(() => _isHovering = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: (isSelected || _isHovering) ? Colors.white : AppTheme.bgCard,
             borderRadius: BorderRadius.circular(12),
-            hoverColor: Colors.transparent,
-            splashColor: const Color(0xFF2196F3).withValues(alpha: 0.08),
-            highlightColor: const Color(0xFF2196F3).withValues(alpha: 0.04),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // ── Left: Main Info ──────────────────────────────────────────
-                  Expanded(
-                    flex: 4,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (title == 'Recent Rent Collections') ...[
-                          Text(
-                            item['title']!,
-                            style: AppTheme.bodyText.copyWith(
-                              color: Colors.black,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 15,
+            border: Border.all(
+              color:
+                  (isSelected || _isHovering)
+                      ? const Color(0xFF2196F3)
+                      : AppTheme.border,
+              width: (isSelected || _isHovering) ? 1.5 : 1.0,
+            ),
+            boxShadow:
+                (_isSelected || _isHovering)
+                    ? [
+                      BoxShadow(
+                        color: const Color(0xFF2196F3).withValues(alpha: 0.12),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                    : [],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              onTap: _handleTap,
+              borderRadius: BorderRadius.circular(12),
+              hoverColor: Colors.transparent,
+              splashColor: const Color(0xFF2196F3).withValues(alpha: 0.08),
+              highlightColor: const Color(0xFF2196F3).withValues(alpha: 0.04),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // ── Left: Main Info ──────────────────────────────────────────
+                    Expanded(
+                      flex: 4,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (title == 'Recent Rent Collections') ...[
+                            Text(
+                              item['title']!,
+                              style: AppTheme.bodyText.copyWith(
+                                color: AppTheme.textPrimary,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 10),
-                          widget.buildLabelValue(
-                            'Landlord',
-                            item['landlordName'] ?? '',
-                            Colors.black,
-                          ),
-                          const SizedBox(height: 2),
-                          widget.buildLabelValue(
-                            'Tenant',
-                            item['tenantName'] ?? '',
-                            Colors.black,
-                          ),
-                        ] else if (title == 'Recent Service Requests') ...[
-                          Text(
-                            item['propertyName'] ?? '',
-                            style: AppTheme.bodyText.copyWith(
-                              color: Colors.black,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14,
+                            const SizedBox(height: 10),
+                            widget.buildLabelValue(
+                              'Landlord',
+                              item['landlordName'] ?? '',
+                              Colors.black,
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          widget.buildLabelValue(
-                            'Landlord: ',
-                            item['landlordName'] ?? '',
-                            AppTheme.landlordFill,
-                          ),
-                          const SizedBox(height: 2),
-                          widget.buildLabelValue(
-                            'Tenant: ',
-                            item['tenantName'] ?? '',
-                            AppTheme.tenantFill,
-                          ),
-                        ] else if (title == 'Recent Subscriptions') ...[
-                          Text(
-                            item['title']!,
-                            style: AppTheme.bodyText.copyWith(
-                              color: Colors.black,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 15,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Plan: ${item['detail']!.replaceAll('Subscription', '').replaceAll('Plan:', '').trim()}',
-                            style: AppTheme.bodyText.copyWith(
-                              color: AppTheme.textSecondary,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ] else if (title == 'Property') ...[
-                          Text(
-                            item['title']!,
-                            style: AppTheme.bodyText.copyWith(
-                              color: Colors.black,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 15,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 4),
-                          widget.buildLabelValue(
-                            'Landlord',
-                            item['landlordName'] ?? '',
-                            AppTheme.landlordFill,
-                          ),
-                          if (item['status'] == 'Rented') ...[
                             const SizedBox(height: 2),
                             widget.buildLabelValue(
                               'Tenant',
-                              item['tenantName'] ?? 'Akash Roy',
+                              item['tenantName'] ?? '',
+                              Colors.black,
+                            ),
+                          ] else if (title == 'Recent Service Requests') ...[
+                            Text(
+                              item['propertyName'] ?? '',
+                              style: AppTheme.bodyText.copyWith(
+                                color: Colors.black,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            widget.buildLabelValue(
+                              'Landlord: ',
+                              item['landlordName'] ?? '',
+                              AppTheme.landlordFill,
+                            ),
+                            const SizedBox(height: 2),
+                            widget.buildLabelValue(
+                              'Tenant: ',
+                              item['tenantName'] ?? '',
                               AppTheme.tenantFill,
                             ),
-                          ],
-                        ] else if (title == 'Document') ...[
-                          Text(
-                            item['propertyName'] ?? 'Green Villa',
-                            style: AppTheme.bodyText.copyWith(
-                              color: Colors.black,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 15,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 4),
-                          widget.buildLabelValue(
-                            'Landlord',
-                            item['landlordName'] ?? 'John Doe',
-                            AppTheme.landlordFill,
-                          ),
-                        ] else if (title == 'Support') ...[
-                          Text(
-                            item['title']!,
-                            style: AppTheme.bodyText.copyWith(
-                              color: Colors.black,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 15,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          widget.buildLabelValue(
-                            'Category',
-                            item['category'] ?? '',
-                            AppTheme.textSecondary,
-                          ),
-                          const SizedBox(height: 2),
-                          widget.buildLabelValue(
-                            'Message',
-                            item['message'] ?? '',
-                            AppTheme.textSecondary,
-                          ),
-                        ] else ...[
-                          Text(
-                            item['title'] ?? title,
-                            style: AppTheme.bodyText.copyWith(
-                              color: Colors.black,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 15,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            item['detail'] ?? '',
-                            style: AppTheme.caption.copyWith(
-                              color: AppTheme.textSecondary,
-                              fontWeight: FontWeight.w400,
-                              height: 1.5,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(width: 16),
-
-                  // ── Right: Metadata + Chips ──────────────────────────────────
-                  Expanded(
-                    flex: 6,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        if (title == 'Recent Rent Collections') ...[
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  SizedBox(
-                                    width: 140,
-                                    child: Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(color: AppTheme.accentBlue.withValues(alpha: 0.8), width: 1.2),
-                                      ),
-                                      child: Text(
-                                        'Advance: ${item['advanceAmount']}',
-                                        textAlign: TextAlign.center,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: Colors.black,
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  SizedBox(
-                                    width: 140,
-                                    child: Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(color: AppTheme.accentBlue.withValues(alpha: 0.8), width: 1.2),
-                                      ),
-                                      child: Text(
-                                        'Rent: ${item['rentAmount']}',
-                                        textAlign: TextAlign.center,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: Colors.black,
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                          ] else if (title == 'Recent Subscriptions') ...[
+                            Text(
+                              item['title']!,
+                              style: AppTheme.bodyText.copyWith(
+                                color: AppTheme.textPrimary,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
                               ),
-                              const SizedBox(width: 12),
-                              SizedBox(
-                                width: 130,
-                                child: Column(
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Plan: ${item['detail']!.replaceAll('Subscription', '').replaceAll('Plan:', '').trim()}',
+                              style: AppTheme.bodyText.copyWith(
+                                color: AppTheme.textSecondary,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ] else if (title == 'Property') ...[
+                            Text(
+                              item['title']!,
+                              style: AppTheme.bodyText.copyWith(
+                                color: AppTheme.textPrimary,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            widget.buildLabelValue(
+                              'Landlord',
+                              item['landlordName'] ?? '',
+                              AppTheme.landlordFill,
+                            ),
+                            if (item['status'] == 'Rented') ...[
+                              const SizedBox(height: 2),
+                              widget.buildLabelValue(
+                                'Tenant',
+                                item['tenantName'] ?? 'Akash Roy',
+                                AppTheme.tenantFill,
+                              ),
+                            ],
+                          ] else if (title == 'Document') ...[
+                            Text(
+                              item['propertyName'] ?? 'Green Villa',
+                              style: AppTheme.bodyText.copyWith(
+                                color: AppTheme.textPrimary,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            widget.buildLabelValue(
+                              'Landlord',
+                              item['landlordName'] ?? 'John Doe',
+                              AppTheme.landlordFill,
+                            ),
+                          ] else if (title == 'Support') ...[
+                            Text(
+                              item['title']!,
+                              style: AppTheme.bodyText.copyWith(
+                                color: AppTheme.textPrimary,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            widget.buildLabelValue(
+                              'Category',
+                              item['category'] ?? '',
+                              AppTheme.textSecondary,
+                            ),
+                            const SizedBox(height: 2),
+                            widget.buildLabelValue(
+                              'Message',
+                              item['message'] ?? '',
+                              AppTheme.textSecondary,
+                            ),
+                          ] else ...[
+                            Text(
+                              item['title'] ?? title,
+                              style: AppTheme.bodyText.copyWith(
+                                color: AppTheme.textPrimary,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              item['detail'] ?? '',
+                              style: AppTheme.caption.copyWith(
+                                color: AppTheme.textSecondary,
+                                fontWeight: FontWeight.w400,
+                                height: 1.5,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(width: 16),
+
+                    // ── Right: Metadata + Chips ──────────────────────────────────
+                    Expanded(
+                      flex: 6,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          if (title == 'Recent Rent Collections') ...[
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
-                                    widget.buildMetadataRow(
-                                      Icons.location_on_outlined,
-                                      item['location'] ?? '',
+                                    SizedBox(
+                                      width: 140,
+                                      child: Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          border: Border.all(
+                                            color: AppTheme.accentBlue
+                                                .withValues(alpha: 0.8),
+                                            width: 1.2,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          'Advance: ${item['advanceAmount']}',
+                                          textAlign: TextAlign.center,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: Colors.black,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                     const SizedBox(height: 6),
-                                    widget.buildMetadataRow(
-                                      Icons.calendar_today_outlined,
-                                      'Joined: ${item['joinedDate']}',
+                                    SizedBox(
+                                      width: 140,
+                                      child: Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          border: Border.all(
+                                            color: AppTheme.accentBlue
+                                                .withValues(alpha: 0.8),
+                                            width: 1.2,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          'Rent: ${item['rentAmount']}',
+                                          textAlign: TextAlign.center,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: Colors.black,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
-                              ),
-                            ],
-                          ),
-                        ] else if (title == 'Recent Service Requests') ...[
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  SizedBox(
-                                    width: 140,
-                                    child: widget.buildOutlinedChip(
-                                      item['detail']!.replaceAll('Issue: ', ''),
-                                      AppTheme.accentCyan,
-                                    ),
+                                const SizedBox(width: 12),
+                                SizedBox(
+                                  width: 180,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      widget.buildMetadataRow(
+                                        Icons.location_on_outlined,
+                                        item['location'] ?? '',
+                                      ),
+                                      const SizedBox(height: 6),
+                                      widget.buildMetadataRow(
+                                        Icons.calendar_today_outlined,
+                                        'Joined: ${item['joinedDate']}',
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 10),
-                                  SizedBox(
-                                    width: 170,
-                                    child: Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.location_on_outlined,
-                                          size: 14,
-                                          color: Colors.black,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Expanded(
-                                          child: Text(
-                                            item['location'] ?? '',
-                                            style: AppTheme.caption.copyWith(
-                                              fontSize: 10.5,
-                                              color: Colors.black,
-                                            ),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 1),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  SizedBox(
-                                    width: 140,
-                                    child: widget.buildOutlinedChip(
-                                      item['status'] ?? 'Pending',
-                                      item['status'] == 'Solved'
-                                          ? AppTheme.accentBlue
-                                          : Colors.red,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  SizedBox(
-                                    width: 170,
-                                    child: Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.calendar_today_outlined,
-                                          size: 14,
-                                          color: Colors.black,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Expanded(
-                                          child: Text(
-                                            'Raised: ${item['raisedDate']}',
-                                            style: AppTheme.caption.copyWith(
-                                              fontSize: 10.5,
-                                              color: Colors.black,
-                                            ),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (item['status'] == 'Solved' &&
-                                  item['resolvedDate'] != null) ...[
-                                const SizedBox(
-                                  height: 2,
-                                ), // Further reduced vertical gap
+                                ),
+                              ],
+                            ),
+                          ] else if (title == 'Recent Service Requests') ...[
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
-                                    const SizedBox(
+                                    SizedBox(
                                       width: 140,
-                                    ), // Spacer for chip column
+                                      child: widget.buildOutlinedChip(
+                                        item['detail']!.replaceAll(
+                                          'Issue: ',
+                                          '',
+                                        ),
+                                        AppTheme.accentCyan,
+                                      ),
+                                    ),
                                     const SizedBox(width: 10),
                                     SizedBox(
                                       width: 170,
-                                      child: Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.check_circle_outline,
-                                            size: 14,
-                                            color:
-                                                Colors
-                                                    .black, // Changed to black
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Expanded(
-                                            child: Text(
-                                              'Solved: ${item['resolvedDate']}',
-                                              style: AppTheme.caption.copyWith(
-                                                fontSize: 10.5,
-                                                color:
-                                                    Colors
-                                                        .black, // Changed to black
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ],
-                          ),
-                        ] else if (title == 'Recent Subscriptions') ...[
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              if (item['status'] != null) ...[
-                                item['status'] == 'Active'
-                                    ? StatusBadge.active()
-                                    : StatusBadge.expired(),
-                                const SizedBox(width: 12),
-                              ],
-                              Icon(
-                                Icons.calendar_today_outlined,
-                                size: 14,
-                                color: AppTheme.textMuted,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Joined: ${item['joinedDate'] ?? 'Jan 2024'}',
-                                style: AppTheme.caption.copyWith(fontSize: 11),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          widget.buildUsageIndicator(item),
-                        ] else if (title == 'Property') ...[
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              // Chip + Location Row (Ensures horizontal alignment)
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  Flexible(
-                                    flex: 2,
-                                    child: ConstrainedBox(
-                                      constraints: const BoxConstraints(
-                                        maxWidth: 152,
-                                      ),
-                                      child: _buildPropertyThumbnails(item),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  SizedBox(
-                                    width: 100,
-                                    child: widget.buildOutlinedChip(
-                                      item['status'] ?? 'Available',
-                                      item['status'] == 'Available'
-                                          ? AppTheme.statusAvailableText
-                                          : AppTheme.accentBlue,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Flexible(
-                                    flex: 3,
-                                    child: SizedBox(
-                                      width: 120,
                                       child: Row(
                                         children: [
                                           const Icon(
@@ -2311,159 +2293,216 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                                             child: Text(
                                               item['location'] ?? '',
                                               style: AppTheme.caption.copyWith(
-                                                fontSize: 10,
+                                                fontSize: 10.5,
                                                 color: Colors.black,
                                               ),
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-                                          const SizedBox(width: 4),
-                                          InkWell(
-                                            onTap: () {
-                                              // Placeholder for more options
-                                            },
-                                            child: const Icon(
-                                              Icons.more_vert,
-                                              size: 18,
-                                              color: AppTheme.textMuted,
-                                            ),
-                                          ),
                                         ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 1),
-                              // Joined Date Row
-                              SizedBox(
-                                width: 120,
-                                child: Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.calendar_today_outlined,
-                                      size: 14,
-                                      color: Colors.black,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text(
-                                        'Joined: ${item['joinedDate'] ?? 'Jan 2024'}',
-                                        style: AppTheme.caption.copyWith(
-                                          fontSize: 10.5,
-                                          color: Colors.black,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
-                            ],
-                          ),
-                        ] else if (title == 'Support') ...[
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  SizedBox(
-                                    width: 140,
-                                    child: widget.buildOutlinedChip(
-                                      item['status'] ?? 'Pending',
-                                      _getStatusColor(item['status']),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  SizedBox(
-                                    width: 170,
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        widget.buildMetadataRow(
-                                          Icons.calendar_today_outlined,
-                                          'Raised: ${item['date'] ?? ''}',
-                                        ),
-                                        if (item['status'] == 'Solved') ...[
-                                          const SizedBox(height: 6),
-                                          widget.buildMetadataRow(
-                                            Icons.check_circle_outline,
-                                            'Solved: ${item['resolvedDate'] ?? ''}',
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ] else if (title == 'Document') ...[
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  Flexible(
-                                    flex: 2,
-                                    child: ConstrainedBox(
-                                      constraints: const BoxConstraints(
-                                        maxWidth: 152,
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    SizedBox(
+                                      width: 140,
+                                      child: widget.buildOutlinedChip(
+                                        item['status'] ?? 'Pending',
+                                        item['status'] == 'Solved'
+                                            ? AppTheme.accentBlue
+                                            : Colors.red,
                                       ),
-                                      child: _buildDocumentThumbnails(item),
                                     ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  const SizedBox(
-                                    width: 100,
-                                  ), // Spacer for alignment
-                                  const SizedBox(width: 8),
-                                  Flexible(
-                                    flex: 3,
-                                    child: SizedBox(
-                                      width: 120,
+                                    const SizedBox(width: 10),
+                                    SizedBox(
+                                      width: 170,
                                       child: Row(
                                         children: [
                                           const Icon(
-                                            Icons.location_on_outlined,
+                                            Icons.calendar_today_outlined,
                                             size: 14,
                                             color: Colors.black,
                                           ),
                                           const SizedBox(width: 4),
                                           Expanded(
                                             child: Text(
-                                              item['location'] ??
-                                                  'Not specified',
+                                              'Raised: ${item['raisedDate']}',
                                               style: AppTheme.caption.copyWith(
-                                                fontSize: 10,
+                                                fontSize: 10.5,
                                                 color: Colors.black,
                                               ),
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
-                                          const SizedBox(width: 4),
-                                          InkWell(
-                                            onTap: () {},
-                                            child: const Icon(
-                                              Icons.more_vert,
-                                              size: 18,
-                                              color: AppTheme.textMuted,
-                                            ),
-                                          ),
                                         ],
                                       ),
                                     ),
+                                  ],
+                                ),
+                                if (item['status'] == 'Solved' &&
+                                    item['resolvedDate'] != null) ...[
+                                  const SizedBox(
+                                    height: 2,
+                                  ), // Further reduced vertical gap
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      const SizedBox(
+                                        width: 140,
+                                      ), // Spacer for chip column
+                                      const SizedBox(width: 10),
+                                      SizedBox(
+                                        width: 170,
+                                        child: Row(
+                                          children: [
+                                            const Icon(
+                                              Icons.check_circle_outline,
+                                              size: 14,
+                                              color:
+                                                  Colors
+                                                      .black, // Changed to black
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                              child: Text(
+                                                'Solved: ${item['resolvedDate']}',
+                                                style: AppTheme.caption.copyWith(
+                                                  fontSize: 10.5,
+                                                  color:
+                                                      Colors
+                                                          .black, // Changed to black
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
-                              ),
-                              const SizedBox(height: 1),
-                              // Date Row
-                              SizedBox(
-                                width: 120,
-                                child: Row(
+                              ],
+                            ),
+                          ] else if (title == 'Recent Subscriptions') ...[
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                if (item['status'] != null) ...[
+                                  item['status'] == 'Active'
+                                      ? StatusBadge.active()
+                                      : StatusBadge.expired(),
+                                  const SizedBox(width: 12),
+                                ],
+                                Icon(
+                                  Icons.calendar_today_outlined,
+                                  size: 14,
+                                  color: AppTheme.textMuted,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Joined: ${item['joinedDate'] ?? 'Jan 2024'}',
+                                  style: AppTheme.caption.copyWith(
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            widget.buildUsageIndicator(item),
+                          ] else if (title == 'Property') ...[
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                // Chip + Location Row (Ensures horizontal alignment)
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    Flexible(
+                                      flex: 2,
+                                      child: ConstrainedBox(
+                                        constraints: const BoxConstraints(
+                                          maxWidth: 152,
+                                        ),
+                                        child: _buildPropertyThumbnails(item),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    SizedBox(
+                                      width: 100,
+                                      child: widget.buildOutlinedChip(
+                                        item['status'] ?? 'Available',
+                                        (item['status']
+                                                    ?.toString()
+                                                    .toLowerCase()
+                                                    .contains('maintenance') ==
+                                                true)
+                                            ? AppTheme.brandRed
+                                            : (item['status']
+                                                    ?.toString()
+                                                    .toLowerCase()
+                                                    .contains('unknown') ==
+                                                true)
+                                            ? AppTheme.accentBlue
+                                            : (item['status']
+                                                    ?.toString()
+                                                    .toLowerCase()
+                                                    .contains('available') ==
+                                                true)
+                                            ? AppTheme.statusAvailableText
+                                            : const Color(0xFF27AE60),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      flex: 3,
+                                      child: SizedBox(
+                                        width: 120,
+                                        child: Row(
+                                          children: [
+                                            const Icon(
+                                              Icons.location_on_outlined,
+                                              size: 14,
+                                              color: Colors.black,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                              child: Text(
+                                                item['location'] ?? '',
+                                                style: AppTheme.caption
+                                                    .copyWith(
+                                                      fontSize: 10,
+                                                      color: Colors.black,
+                                                    ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            InkWell(
+                                              onTap: () {
+                                                // Placeholder for more options
+                                              },
+                                              child: const Icon(
+                                                Icons.more_vert,
+                                                size: 18,
+                                                color: AppTheme.textMuted,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 1),
+                                // Joined Date Row
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
                                     const Icon(
                                       Icons.calendar_today_outlined,
@@ -2471,36 +2510,854 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                                       color: Colors.black,
                                     ),
                                     const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text(
-                                        'Added: ${item['date'] ?? 'Jan 2024'}',
-                                        style: AppTheme.caption.copyWith(
-                                          fontSize: 10.5,
-                                          color: Colors.black,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
+                                    Text(
+                                      'Joined: ${item['joinedDate'] ?? 'Jan 2024'}',
+                                      style: AppTheme.caption.copyWith(
+                                        fontSize: 10.5,
+                                        color: Colors.black,
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
-                            ],
-                          ),
-                        ] else ...[
-                          if (item['date'] != null)
-                            widget.buildMetadataRow(
-                              Icons.calendar_today_outlined,
-                              item['date']!,
+                              ],
                             ),
+                          ] else if (title == 'Support') ...[
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    SizedBox(
+                                      width: 140,
+                                      child: widget.buildOutlinedChip(
+                                        item['status'] ?? 'Pending',
+                                        _getStatusColor(item['status']),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    SizedBox(
+                                      width: 170,
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          widget.buildMetadataRow(
+                                            Icons.calendar_today_outlined,
+                                            'Raised: ${item['date'] ?? ''}',
+                                          ),
+                                          if (item['status'] == 'Solved') ...[
+                                            const SizedBox(height: 6),
+                                            widget.buildMetadataRow(
+                                              Icons.check_circle_outline,
+                                              'Solved: ${item['resolvedDate'] ?? ''}',
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ] else if (title == 'Document') ...[
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    Flexible(
+                                      flex: 2,
+                                      child: ConstrainedBox(
+                                        constraints: const BoxConstraints(
+                                          maxWidth: 152,
+                                        ),
+                                        child: _buildDocumentThumbnails(item),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    const SizedBox(
+                                      width: 100,
+                                    ), // Spacer for alignment
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      flex: 3,
+                                      child: SizedBox(
+                                        width: 120,
+                                        child: Row(
+                                          children: [
+                                            const Icon(
+                                              Icons.location_on_outlined,
+                                              size: 14,
+                                              color: Colors.black,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Expanded(
+                                              child: Text(
+                                                item['location'] ??
+                                                    'Not specified',
+                                                style: AppTheme.caption
+                                                    .copyWith(
+                                                      fontSize: 10,
+                                                      color: Colors.black,
+                                                    ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            InkWell(
+                                              onTap: () {},
+                                              child: const Icon(
+                                                Icons.more_vert,
+                                                size: 18,
+                                                color: AppTheme.textMuted,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 1),
+                                // Date Row
+                                SizedBox(
+                                  width: 120,
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.calendar_today_outlined,
+                                        size: 14,
+                                        color: Colors.black,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          'Added: ${item['date'] ?? 'Jan 2024'}',
+                                          style: AppTheme.caption.copyWith(
+                                            fontSize: 10.5,
+                                            color: Colors.black,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ] else ...[
+                            if (item['date'] != null)
+                              widget.buildMetadataRow(
+                                Icons.calendar_today_outlined,
+                                item['date']!,
+                              ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
         ),
+      );
+    });
+  }
+}
+
+class _HomeServiceRequestCard extends StatelessWidget {
+  final Map<String, dynamic> item;
+  final dynamic rawModel;
+
+  const _HomeServiceRequestCard({required this.item, this.rawModel});
+
+  @override
+  Widget build(BuildContext context) {
+    final status = item['status']?.toString().toLowerCase() ?? 'pending';
+    final dateStr = item['raisedDate'] ?? '';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.border, width: 1),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: () {
+            if (rawModel != null) {
+              _showServiceChatDialog(context, rawModel);
+            }
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 5,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2083D5),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item['propertyName'] ?? 'Unknown Property',
+                        style: AppTheme.heading3.copyWith(fontSize: 16),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.person_outline_rounded,
+                            size: 14,
+                            color: AppTheme.textMuted,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            item['tenantName'] != null &&
+                                    item['tenantName'] != 'N/A'
+                                ? 'By ${item['tenantName']}'
+                                : 'No Tenant',
+                            style: AppTheme.caption.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        _buildSmallChip(
+                          item['detail']?.toString().replaceFirst(
+                                'Issue: ',
+                                '',
+                              ) ??
+                              'No Description',
+                          AppTheme.accentCyan,
+                        ),
+                        const SizedBox(width: 10),
+                        _buildDateRow(
+                          Icons.calendar_today_outlined,
+                          'Requested: $dateStr',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        _buildSmallChip(
+                          (item['status']?.toString() ?? 'PENDING')
+                              .replaceAll('_', ' ')
+                              .toUpperCase(),
+                          _getStatusColor(status),
+                        ),
+                        const SizedBox(width: 10),
+                        if (item['resolvedDate'] != null)
+                          _buildDateRow(
+                            Icons.check_circle_outline,
+                            'Solved: ${item['resolvedDate']}',
+                          )
+                        else
+                          const SizedBox(width: 170), // Maintain alignment
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSmallChip(String label, Color color) {
+    return SizedBox(
+      width: 140,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withValues(alpha: 0.5), width: 1),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDateRow(IconData icon, String text) {
+    return SizedBox(
+      width: 170,
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: Colors.black),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              text,
+              style: AppTheme.caption.copyWith(
+                fontSize: 10.5,
+                color: Colors.black,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getStatusColor(String status) {
+    status = status.toLowerCase();
+    if (status == 'solved' || status == 'completed') return AppTheme.accentBlue;
+    if (status == 'pending') return AppTheme.brandRed;
+    if (status == 'in_progress') return AppTheme.accentGreen;
+    return AppTheme.accentCyan;
+  }
+
+  void _showServiceChatDialog(BuildContext context, dynamic req) {
+    final String propertyName = req.propertyName;
+    final String issue = req.description;
+    final String status =
+        (req.status ?? 'Pending')
+            .toString()
+            .replaceAll('_', ' ')
+            .capitalizeFirst ??
+        req.status.toString();
+    final List<dynamic> messages = req.chatMessages;
+    final String tenantName = req.tenantName;
+    final String landlordName = req.landlordName;
+    final String location = req.location;
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      builder:
+          (_) => Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 32,
+            ),
+            child: LayoutBuilder(
+              builder: (ctx, constraints) {
+                final dialogWidth = constraints.maxWidth.clamp(320.0, 560.0);
+                return Container(
+                  width: dialogWidth,
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.80,
+                    maxWidth: dialogWidth,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7F9FC),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.18),
+                        blurRadius: 32,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Chat Header
+                      Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Color(0xFF1565C0), Color(0xFF1E88E5)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(20),
+                            topRight: Radius.circular(20),
+                          ),
+                        ),
+                        child: Stack(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                20,
+                                18,
+                                56,
+                                18,
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.2,
+                                      ),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.home_work_outlined,
+                                      color: Colors.white,
+                                      size: 22,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          propertyName,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 15,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          issue,
+                                          style: TextStyle(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.85,
+                                            ),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color:
+                                                status == 'Solved'
+                                                    ? const Color(0xFF43A047)
+                                                    : const Color(0xFFE53935),
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            status,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          location,
+                                          style: TextStyle(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.75,
+                                            ),
+                                            fontSize: 10,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Positioned(
+                              top: 10,
+                              right: 10,
+                              child: InkWell(
+                                onTap: () => Navigator.pop(context),
+                                borderRadius: BorderRadius.circular(20),
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.15),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.close,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Participants Bar
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 10,
+                        ),
+                        color: Colors.white,
+                        child: Row(
+                          children: [
+                            _chatParticipantChip(
+                              Icons.person_outlined,
+                              'Tenant',
+                              tenantName,
+                              const Color(0xFF1E88E5),
+                            ),
+                            const SizedBox(width: 12),
+                            _chatParticipantChip(
+                              Icons.business_center_outlined,
+                              'Landlord',
+                              landlordName,
+                              const Color(0xFF43A047),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      Container(height: 1, color: const Color(0xFFE0E0E0)),
+
+                      // Chat Messages
+                      Expanded(
+                        child:
+                            messages.isEmpty
+                                ? Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(20),
+                                        decoration: BoxDecoration(
+                                          color: const Color(
+                                            0xFF1E88E5,
+                                          ).withValues(alpha: 0.08),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.chat_bubble_outline_rounded,
+                                          size: 40,
+                                          color: Color(0xFF1E88E5),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      const Text(
+                                        'No messages yet',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          color: Color(0xFF212121),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      const Text(
+                                        'The tenant and landlord haven\'t\nchatted about this issue yet.',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 12.5,
+                                          color: Color(0xFF757575),
+                                          height: 1.6,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                                : ListView.builder(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    16,
+                                    16,
+                                    8,
+                                  ),
+                                  itemCount: messages.length,
+                                  itemBuilder: (ctx, idx) {
+                                    final msg = messages[idx];
+                                    final isTenant = msg['sender'] == 'tenant';
+                                    return _buildChatBubble(
+                                      message: msg['message'] as String,
+                                      senderName: msg['senderName'] as String,
+                                      time: msg['time'] as String,
+                                      isTenant: isTenant,
+                                      isRead: msg['isRead'] as bool? ?? true,
+                                    );
+                                  },
+                                ),
+                      ),
+
+                      // Footer
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.only(
+                            bottomLeft: Radius.circular(20),
+                            bottomRight: Radius.circular(20),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.info_outline,
+                              size: 14,
+                              color: Color(0xFF9E9E9E),
+                            ),
+                            const SizedBox(width: 6),
+                            const Expanded(
+                              child: Text(
+                                'Chat is read-only. Admin can view conversation history.',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF9E9E9E),
+                                ),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                backgroundColor: const Color(
+                                  0xFF1E88E5,
+                                ).withValues(alpha: 0.1),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              child: const Text(
+                                'Close',
+                                style: TextStyle(
+                                  color: Color(0xFF1E88E5),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+    );
+  }
+
+  Widget _chatParticipantChip(
+    IconData icon,
+    String role,
+    String name,
+    Color color,
+  ) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 14,
+              backgroundColor: color.withValues(alpha: 0.15),
+              child: Icon(icon, size: 14, color: color),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    role,
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      color: color,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF212121),
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChatBubble({
+    required String message,
+    required String senderName,
+    required String time,
+    required bool isTenant,
+    required bool isRead,
+  }) {
+    final Color bubbleColor =
+        isTenant ? const Color(0xFFE3F2FD) : const Color(0xFFE8F5E9);
+    final Color nameColor =
+        isTenant ? const Color(0xFF1565C0) : const Color(0xFF2E7D32);
+    final CrossAxisAlignment crossAlign =
+        isTenant ? CrossAxisAlignment.start : CrossAxisAlignment.end;
+    final MainAxisAlignment rowAlign =
+        isTenant ? MainAxisAlignment.start : MainAxisAlignment.end;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        mainAxisAlignment: rowAlign,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (isTenant) ...[_avatarCircle(isTenant), const SizedBox(width: 8)],
+          Flexible(
+            child: Column(
+              crossAxisAlignment: crossAlign,
+              children: [
+                Text(
+                  senderName,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: nameColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  constraints: const BoxConstraints(maxWidth: 320),
+                  decoration: BoxDecoration(
+                    color: bubbleColor,
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(16),
+                      topRight: const Radius.circular(16),
+                      bottomLeft: Radius.circular(isTenant ? 4 : 16),
+                      bottomRight: Radius.circular(isTenant ? 16 : 4),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    message,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF212121),
+                      height: 1.45,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      time,
+                      style: const TextStyle(
+                        fontSize: 9.5,
+                        color: Color(0xFF9E9E9E),
+                      ),
+                    ),
+                    if (!isTenant) ...[
+                      const SizedBox(width: 4),
+                      Icon(
+                        isRead ? Icons.done_all : Icons.done,
+                        size: 12,
+                        color:
+                            isRead
+                                ? const Color(0xFF1E88E5)
+                                : const Color(0xFF9E9E9E),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (!isTenant) ...[const SizedBox(width: 8), _avatarCircle(isTenant)],
+        ],
+      ),
+    );
+  }
+
+  Widget _avatarCircle(bool isTenant) {
+    return CircleAvatar(
+      radius: 16,
+      backgroundColor:
+          isTenant
+              ? const Color(0xFF1E88E5).withValues(alpha: 0.15)
+              : const Color(0xFF43A047).withValues(alpha: 0.15),
+      child: Icon(
+        isTenant ? Icons.person : Icons.business_center,
+        size: 16,
+        color: isTenant ? const Color(0xFF1E88E5) : const Color(0xFF43A047),
       ),
     );
   }

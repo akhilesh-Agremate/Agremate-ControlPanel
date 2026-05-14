@@ -20,7 +20,7 @@ class PropertyDetailPanel extends StatefulWidget {
 }
 
 class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
-  late String _currentImageUrl;
+  String? _currentImageUrl;
 
   @override
   void initState() {
@@ -38,11 +38,10 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
       decimalDigits: 0,
     );
 
-    // Visibility logic based on status
+    // Show tenant card if the API returned tenant data, regardless of status
     final showTenant =
-        widget.property.status == PropertyStatus.rented ||
-        widget.property.status == PropertyStatus.booked ||
-        widget.property.status == PropertyStatus.requested;
+        widget.property.primaryTenantName != null &&
+        widget.property.primaryTenantName!.isNotEmpty;
 
     Widget statusBadge;
     switch (widget.property.status) {
@@ -61,11 +60,9 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
       case PropertyStatus.maintenance:
         statusBadge = StatusBadge.maintenance();
         break;
-      default:
-        statusBadge = StatusBadge(
-          label: widget.property.statusLabel,
-          color: AppTheme.accentGreen,
-        );
+      case PropertyStatus.unknown:
+        statusBadge = StatusBadge.unknown();
+        break;
     }
 
     return Container(
@@ -85,6 +82,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                       nav.currentIndex.value = pc.returnTabIndex.value!;
                       pc.returnTabIndex.value = null;
                     }
+                    pc.search(''); // Clear search filter
                     pc.selectedProperty.value = null;
                   },
                   icon: const Icon(
@@ -121,52 +119,99 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                           children: [
                             ClipRRect(
                               borderRadius: BorderRadius.circular(20),
-                              child: Image.network(
-                                _currentImageUrl,
-                                height: 280,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                                loadingBuilder: (context, child, loadingProgress) {
-                                  if (loadingProgress == null) return child;
-                                  return Container(
-                                    height: 280,
-                                    width: double.infinity,
-                                    color: Colors.grey.shade100,
-                                    child: Center(
-                                      child: CircularProgressIndicator(
-                                        value: loadingProgress.expectedTotalBytes != null
-                                            ? loadingProgress.cumulativeBytesLoaded /
-                                                loadingProgress.expectedTotalBytes!
-                                            : null,
-                                        color: AppTheme.accentGreen,
-                                      ),
-                                    ),
-                                  );
-                                },
-                                errorBuilder: (context, error, stackTrace) => Container(
-                                  height: 280,
-                                  width: double.infinity,
-                                  color: Colors.grey.shade100,
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.image_not_supported_rounded,
-                                        color: Colors.grey.shade300,
-                                        size: 48,
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Text(
-                                        'Property Image Not Available',
-                                        style: AppTheme.bodyText.copyWith(
-                                          color: Colors.grey.shade400,
-                                          fontSize: 14,
+                              child:
+                                  _currentImageUrl != null
+                                      ? Image.network(
+                                        _currentImageUrl!,
+                                        height: 280,
+                                        width: double.infinity,
+                                        fit: BoxFit.cover,
+                                        loadingBuilder: (
+                                          context,
+                                          child,
+                                          loadingProgress,
+                                        ) {
+                                          if (loadingProgress == null)
+                                            return child;
+                                          return Container(
+                                            height: 280,
+                                            width: double.infinity,
+                                            color: Colors.grey.shade100,
+                                            child: Center(
+                                              child: CircularProgressIndicator(
+                                                value:
+                                                    loadingProgress
+                                                                .expectedTotalBytes !=
+                                                            null
+                                                        ? loadingProgress
+                                                                .cumulativeBytesLoaded /
+                                                            loadingProgress
+                                                                .expectedTotalBytes!
+                                                        : null,
+                                                color: AppTheme.accentGreen,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                        errorBuilder:
+                                            (
+                                              context,
+                                              error,
+                                              stackTrace,
+                                            ) => Container(
+                                              height: 280,
+                                              width: double.infinity,
+                                              color: Colors.grey.shade100,
+                                              child: Column(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    Icons
+                                                        .image_not_supported_rounded,
+                                                    color: Colors.grey.shade300,
+                                                    size: 48,
+                                                  ),
+                                                  const SizedBox(height: 12),
+                                                  Text(
+                                                    'Property Image Not Available',
+                                                    style: AppTheme.bodyText
+                                                        .copyWith(
+                                                          color:
+                                                              Colors
+                                                                  .grey
+                                                                  .shade400,
+                                                          fontSize: 14,
+                                                        ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                      )
+                                      : Container(
+                                        height: 280,
+                                        width: double.infinity,
+                                        color: Colors.grey.shade100,
+                                        child: Column(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.image_not_supported_rounded,
+                                              color: Colors.grey.shade300,
+                                              size: 48,
+                                            ),
+                                            const SizedBox(height: 12),
+                                            Text(
+                                              'No Image Available',
+                                              style: AppTheme.bodyText.copyWith(
+                                                color: Colors.grey.shade400,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                ),
-                              ),
                             ),
                             if (widget.property.images.isNotEmpty) ...[
                               const SizedBox(height: 12),
@@ -176,20 +221,29 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                                   scrollDirection: Axis.horizontal,
                                   itemCount: widget.property.images.length,
                                   itemBuilder: (context, index) {
-                                    final imgUrl = widget.property.images[index];
-                                    final isSelected = _currentImageUrl == imgUrl;
+                                    final imgUrl =
+                                        widget.property.images[index];
+                                    final isSelected =
+                                        _currentImageUrl == imgUrl;
                                     return GestureDetector(
                                       onTap: () {
-                                        setState(() => _currentImageUrl = imgUrl);
+                                        setState(
+                                          () => _currentImageUrl = imgUrl,
+                                        );
                                         _showImageGallery(context, index);
                                       },
                                       child: Container(
                                         width: 60,
                                         margin: const EdgeInsets.only(right: 8),
                                         decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                           border: Border.all(
-                                            color: isSelected ? AppTheme.accentGreen : Colors.transparent,
+                                            color:
+                                                isSelected
+                                                    ? AppTheme.accentGreen
+                                                    : Colors.transparent,
                                             width: 2,
                                           ),
                                           image: DecorationImage(
@@ -221,7 +275,9 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              'Premium ${widget.property.propertyType} located in the heart of ${widget.property.city}. Featuring modern architecture and top-tier security systems for a comfortable living experience.',
+                              widget.property.description?.isNotEmpty == true
+                                  ? widget.property.description!
+                                  : 'Premium ${widget.property.propertyType} located in the heart of ${widget.property.city}. Featuring modern architecture and top-tier security systems for a comfortable living experience.',
                               style: AppTheme.bodyText.copyWith(
                                 height: 1.6,
                                 color: Colors.black87,
@@ -229,6 +285,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                             ),
                             const SizedBox(height: 24),
                             Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Icon(
                                   Icons.location_on_rounded,
@@ -236,11 +293,13 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                                   size: 20,
                                 ),
                                 const SizedBox(width: 8),
-                                Text(
-                                  '${widget.property.address.address}, ${widget.property.city}',
-                                  style: AppTheme.bodyText.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black,
+                                Expanded(
+                                  child: Text(
+                                    '${widget.property.address.address}, ${widget.property.city}',
+                                    style: AppTheme.bodyText.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -267,37 +326,100 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                               Colors.black,
                             ),
                             const SizedBox(height: 20),
-                            Row(
-                              children: [
-                                _buildFeatureIcon(Icons.wifi, 'Fast WiFi'),
-                                _buildFeatureIcon(Icons.pool, 'Pool'),
-                                _buildFeatureIcon(Icons.fitness_center, 'Gym'),
-                                _buildFeatureIcon(Icons.park, 'Garden'),
-                                _buildFeatureIcon(
-                                  Icons.security_rounded,
-                                  '24/7 Security',
-                                ),
-                              ],
+                            Builder(
+                              builder: (context) {
+                                // Build features dynamically from API fields
+                                final features = <Map<String, dynamic>>[];
+                                if (widget.property.bedrooms > 0)
+                                  features.add({
+                                    'icon': Icons.bed_rounded,
+                                    'label':
+                                        '${widget.property.bedrooms} Bedroom${widget.property.bedrooms > 1 ? 's' : ''}',
+                                  });
+                                if (widget.property.bathrooms > 0)
+                                  features.add({
+                                    'icon': Icons.bathroom_rounded,
+                                    'label':
+                                        '${widget.property.bathrooms} Bathroom${widget.property.bathrooms > 1 ? 's' : ''}',
+                                  });
+                                if (widget.property.kitchen > 0)
+                                  features.add({
+                                    'icon': Icons.kitchen_rounded,
+                                    'label':
+                                        '${widget.property.kitchen} Kitchen${widget.property.kitchen > 1 ? 's' : ''}',
+                                  });
+                                if (widget.property.builtYear > 0)
+                                  features.add({
+                                    'icon': Icons.calendar_today_rounded,
+                                    'label':
+                                        'Built ${widget.property.builtYear}',
+                                  });
+                                final raw = widget.property.rawJson;
+                                if (raw['hasElectricity'] == true)
+                                  features.add({
+                                    'icon': Icons.bolt_rounded,
+                                    'label': 'Electricity',
+                                  });
+                                if (raw['hasWater'] == true)
+                                  features.add({
+                                    'icon': Icons.water_drop_rounded,
+                                    'label': 'Water',
+                                  });
+                                if (raw['hasGas'] == true)
+                                  features.add({
+                                    'icon': Icons.local_fire_department_rounded,
+                                    'label': 'Gas',
+                                  });
+
+                                if (features.isEmpty) {
+                                  return Text(
+                                    'No features data available',
+                                    style: AppTheme.bodyText.copyWith(
+                                      color: Colors.black38,
+                                      fontSize: 13,
+                                    ),
+                                  );
+                                }
+
+                                return Wrap(
+                                  spacing: 16,
+                                  runSpacing: 12,
+                                  children:
+                                      features
+                                          .map(
+                                            (f) => _buildFeatureIcon(
+                                              f['icon'] as IconData,
+                                              f['label'] as String,
+                                            ),
+                                          )
+                                          .toList(),
+                                );
+                              },
                             ),
                             const SizedBox(height: 32),
                             _buildSectionHeader('Amenities', Colors.black),
                             const SizedBox(height: 20),
-                            Wrap(
-                              spacing: 16,
-                              runSpacing: 16,
-                              children: [
-                                _buildAmenityBox('Bakery', Icons.bakery_dining),
-                                _buildAmenityBox(
-                                  'Laundry',
-                                  Icons.local_laundry_service,
+                            widget.property.amenitiesList.isNotEmpty
+                                ? Wrap(
+                                  spacing: 16,
+                                  runSpacing: 16,
+                                  children:
+                                      widget.property.amenitiesList
+                                          .map(
+                                            (a) => _buildAmenityBox(
+                                              a['name'] ?? '',
+                                              _amenityIcon(a['name'] ?? ''),
+                                            ),
+                                          )
+                                          .toList(),
+                                )
+                                : Text(
+                                  'No amenities data available',
+                                  style: AppTheme.bodyText.copyWith(
+                                    color: Colors.black38,
+                                    fontSize: 13,
+                                  ),
                                 ),
-                                _buildAmenityBox(
-                                  'Parking',
-                                  Icons.local_parking,
-                                ),
-                                _buildAmenityBox('Balcony', Icons.balcony),
-                              ],
-                            ),
                             const SizedBox(height: 32),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -344,7 +466,10 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                                 Expanded(
                                   child: _buildFinanceCard(
                                     'Monthly Rent',
-                                    fmt.format(widget.property.rentAmount),
+                                    fmt.format(
+                                      widget.property.agreementRentAmount ??
+                                          widget.property.rentAmount,
+                                    ),
                                     Colors.black,
                                   ),
                                 ),
@@ -358,6 +483,33 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                                 ),
                               ],
                             ),
+                            if (widget.property.agreementStartDate != null) ...[
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildFinanceCard(
+                                      'Agreement Start',
+                                      DateFormat('dd MMM yyyy').format(
+                                        widget.property.agreementStartDate!,
+                                      ),
+                                      Colors.black,
+                                    ),
+                                  ),
+                                  if (widget.property.agreementPeriodMonths !=
+                                      null) ...[
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: _buildFinanceCard(
+                                        'Agreement Period',
+                                        '${widget.property.agreementPeriodMonths} months',
+                                        Colors.black,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -370,19 +522,46 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                             _buildContactCard(
                               title: 'Landlord',
                               name: widget.property.landlordName,
-                              phone: widget.property.landlordPhone ?? 'N/A',
-                              email: widget.property.landlordEmail ?? 'N/A',
-                              address: 'Landlord Office, Block A, Mumbai',
+                              phone:
+                                  widget.property.landlordPhone?.isNotEmpty ==
+                                          true
+                                      ? widget.property.landlordPhone!
+                                      : 'N/A',
+                              email:
+                                  widget.property.landlordEmail?.isNotEmpty ==
+                                          true
+                                      ? widget.property.landlordEmail!
+                                      : 'N/A',
+                              address: 'N/A',
                               accentColor: AppTheme.accentBlue,
                             ),
                             const SizedBox(height: 24),
                             showTenant
                                 ? _buildContactCard(
                                   title: 'Tenant',
-                                  name: widget.property.primaryTenantName ?? 'N/A',
-                                  phone: widget.property.primaryTenantPhone ?? 'N/A',
-                                  email: widget.property.primaryTenantEmail ?? 'N/A',
-                                  address: widget.property.address.address,
+                                  name:
+                                      widget.property.primaryTenantName ??
+                                      'N/A',
+                                  phone:
+                                      widget
+                                                  .property
+                                                  .primaryTenantPhone
+                                                  ?.isNotEmpty ==
+                                              true
+                                          ? widget.property.primaryTenantPhone!
+                                          : 'N/A',
+                                  email:
+                                      widget
+                                                  .property
+                                                  .primaryTenantEmail
+                                                  ?.isNotEmpty ==
+                                              true
+                                          ? widget.property.primaryTenantEmail!
+                                          : 'N/A',
+                                  address:
+                                      widget.property.tenancyStartDate != null
+                                          ? 'Since: ${DateFormat('dd MMM yyyy').format(widget.property.tenancyStartDate!)}'
+                                          : widget.property.address.address,
                                   accentColor: AppTheme.accentGreen,
                                 )
                                 : Container(
@@ -411,28 +590,6 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                                     ],
                                   ),
                                 ),
-                            const SizedBox(height: 24),
-                            _buildSectionHeader('Documents', Colors.black),
-                            const SizedBox(height: 16),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: _buildDocumentSection(
-                                    'Landlord Docs',
-                                    ['Ownership_Deed.pdf', 'Tax_Reciept.pdf'],
-                                    AppTheme.accentBlue,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: _buildDocumentSection('Tenant Docs', [
-                                    'Agreement.pdf',
-                                    'ID_Proof.pdf',
-                                  ], AppTheme.accentGreen),
-                                ),
-                              ],
-                            ),
                           ],
                         ),
                       ),
@@ -465,21 +622,81 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
   }
 
   Widget _buildFeatureIcon(IconData icon, String label) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 20),
-      child: Tooltip(
-        message: label,
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.black12),
+    return Container(
+      margin: const EdgeInsets.only(right: 12, bottom: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.black12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.black87, size: 20),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: AppTheme.bodyText.copyWith(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
           ),
-          child: Icon(icon, color: Colors.black87, size: 24),
-        ),
+        ],
       ),
     );
+  }
+
+  IconData _amenityIcon(String name) {
+    switch (name.toLowerCase()) {
+      case 'balcony':
+        return Icons.balcony;
+      case 'parking':
+        return Icons.local_parking;
+      case 'laundry':
+        return Icons.local_laundry_service;
+      case 'bakery':
+        return Icons.bakery_dining;
+      case 'gym':
+        return Icons.fitness_center;
+      case 'pool':
+      case 'swimming pool':
+        return Icons.pool;
+      case 'wifi':
+      case 'fast wifi':
+        return Icons.wifi;
+      case 'garden':
+      case 'park':
+        return Icons.park;
+      case 'security':
+        return Icons.security_rounded;
+      case 'elevator':
+      case 'lift':
+        return Icons.elevator;
+      case 'ac':
+      case 'air conditioning':
+        return Icons.ac_unit;
+      case 'large room':
+        return Icons.king_bed_rounded;
+      case 'washroom':
+      case 'bathroom':
+        return Icons.bathroom_rounded;
+      case 'kitchen':
+        return Icons.kitchen;
+      case 'storage':
+        return Icons.inventory_2_rounded;
+      case 'cctv':
+        return Icons.videocam_rounded;
+      case 'power backup':
+        return Icons.battery_charging_full_rounded;
+      case 'gas':
+        return Icons.local_fire_department_rounded;
+      case 'water':
+        return Icons.water_drop_rounded;
+      default:
+        return Icons.star_rounded;
+    }
   }
 
   Widget _buildAmenityBox(String label, IconData icon) {
@@ -638,55 +855,6 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
     );
   }
 
-  Widget _buildDocumentSection(String label, List<String> docs, Color color) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: AppTheme.caption.copyWith(
-            fontWeight: FontWeight.bold,
-            color: Colors.black54,
-          ),
-        ),
-        const SizedBox(height: 12),
-        ...docs.map(
-          (doc) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.black12),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.picture_as_pdf_rounded,
-                    color: AppTheme.accentRed,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      doc,
-                      style: AppTheme.caption.copyWith(
-                        fontSize: 11,
-                        color: Colors.black87,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   void _showImageGallery(BuildContext context, int initialIndex) {
     showDialog(
       context: context,
@@ -712,8 +880,15 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white, size: 48),
-                        onPressed: currentIndex > 0 ? () => setDialogState(() => currentIndex--) : null,
+                        icon: const Icon(
+                          Icons.arrow_back_ios_rounded,
+                          color: Colors.white,
+                          size: 48,
+                        ),
+                        onPressed:
+                            currentIndex > 0
+                                ? () => setDialogState(() => currentIndex--)
+                                : null,
                       ),
                       Expanded(
                         child: ClipRRect(
@@ -725,10 +900,15 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 48),
-                        onPressed: currentIndex < widget.property.images.length - 1 
-                            ? () => setDialogState(() => currentIndex++) 
-                            : null,
+                        icon: const Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          color: Colors.white,
+                          size: 48,
+                        ),
+                        onPressed:
+                            currentIndex < widget.property.images.length - 1
+                                ? () => setDialogState(() => currentIndex++)
+                                : null,
                       ),
                     ],
                   ),
@@ -736,7 +916,11 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                     top: 40,
                     right: 40,
                     child: IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white, size: 32),
+                      icon: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 32,
+                      ),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ),
@@ -744,7 +928,11 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                     bottom: 40,
                     child: Text(
                       '${currentIndex + 1} / ${widget.property.images.length}',
-                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
