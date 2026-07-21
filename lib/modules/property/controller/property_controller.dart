@@ -95,6 +95,7 @@ class PropertyController extends GetxController {
                 p.landlordName.toLowerCase().contains(
                   searchQuery.value.toLowerCase(),
                 ) ||
+                (p.primaryTenantName?.toLowerCase().contains(searchQuery.value.toLowerCase()) ?? false) ||
                 p.address.address.toLowerCase().contains(
                   searchQuery.value.toLowerCase(),
                 ),
@@ -212,6 +213,7 @@ class PropertyController extends GetxController {
           (p) =>
               p.name.toLowerCase().contains(query.toLowerCase()) ||
               p.landlordName.toLowerCase().contains(query.toLowerCase()) ||
+              (p.primaryTenantName?.toLowerCase().contains(query.toLowerCase()) ?? false) ||
               p.address.address.toLowerCase().contains(query.toLowerCase()),
         ),
       );

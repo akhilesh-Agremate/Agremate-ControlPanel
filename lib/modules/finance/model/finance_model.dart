@@ -13,6 +13,8 @@ class RentPaymentModel {
   final DateTime dueDate;
   final DateTime? paidDate;
   final String? transactionId;
+  final String? paymentMethod; // gpay, netbanking, etc.
+  final String? proofUrl;
 
   RentPaymentModel({
     required this.id,
@@ -29,6 +31,8 @@ class RentPaymentModel {
     this.status = 'paid',
     this.paidDate,
     this.transactionId,
+    this.paymentMethod,
+    this.proofUrl,
   });
 }
 
