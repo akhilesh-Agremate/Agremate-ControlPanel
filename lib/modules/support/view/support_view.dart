@@ -17,7 +17,6 @@ class SupportView extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Contact cards
             Row(
               children: [
                 Expanded(child: _ContactCard(icon: Icons.email_rounded, title: 'Email', value: 'contact@agremate.com', color: AppTheme.accentCyan)),
@@ -29,7 +28,6 @@ class SupportView extends StatelessWidget {
             ),
             const SizedBox(height: 32),
 
-            // FAQ Header with Add Button
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -76,7 +74,6 @@ class SupportView extends StatelessWidget {
             )),
             const SizedBox(height: 32),
 
-            // Support ticket form
             Text('Submit a Ticket', style: AppTheme.heading2),
             const SizedBox(height: 16),
             GlassCard(

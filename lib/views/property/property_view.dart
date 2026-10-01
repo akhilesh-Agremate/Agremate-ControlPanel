@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:agremate_admin/core/theme/theme.dart';
 import 'package:agremate_admin/core/widgets/glass_card.dart';
 import 'package:agremate_admin/core/widgets/kpi_card.dart';
@@ -7,6 +9,8 @@ import 'package:agremate_admin/modules/property/controller/property_controller.d
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+
+import '../../modules/property/model/property_model.dart';
 
 class PropertyView extends StatelessWidget {
   const PropertyView({super.key});
@@ -18,7 +22,6 @@ class PropertyView extends StatelessWidget {
     final fmt = NumberFormat.compactCurrency(symbol: '₹', locale: 'en_IN');
 
     return Obx(() {
-      // Apply search from top bar
       if (nav.searchQuery.value != pc.searchQuery.value) {
         pc.search(nav.searchQuery.value);
       }
@@ -28,7 +31,6 @@ class PropertyView extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // KPI Row
             Row(
               children: [
                 Expanded(
@@ -38,7 +40,7 @@ class PropertyView extends StatelessWidget {
                     icon: Icons.person_rounded,
                     accentColor: AppTheme.accentOrange,
                     subtitle:
-                        '${pc.landlords.where((l) => l.isActive).length} active',
+                        '${pc.landlords.where((l) => l?.isActive == true).length} active',
                     sparkData: [3, 5, 4, 7, 6, 8, 9, 7, 10, 12, 11, 15],
                   ),
                 ),
@@ -83,8 +85,6 @@ class PropertyView extends StatelessWidget {
             const SizedBox(height: 28),
 
             const SizedBox(height: 16),
-
-            // Property list header with Add/Delete
             Row(
               children: [
                 Text('Properties', style: AppTheme.heading2),
@@ -102,8 +102,6 @@ class PropertyView extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-
-            // Property cards grid
             Wrap(
               spacing: 16,
               runSpacing: 16,
@@ -114,7 +112,6 @@ class PropertyView extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // Pagination
             if (pc.totalPages > 1) _Pagination(pc: pc),
           ],
         ),
@@ -188,75 +185,19 @@ class PropertyView extends StatelessWidget {
   }
 }
 
-// class _LoginTile extends StatelessWidget {
-//   final Map<String, dynamic> login;
-//   const _LoginTile({required this.login});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     final isLandlord = login['type'] == 'landlord';
-//     final time = login['time'] as DateTime;
-//     final diff = DateTime.now().difference(time);
-//     String ago;
-//     if (diff.inMinutes < 60) { ago = '${diff.inMinutes}m ago'; }
-//     else if (diff.inHours < 24) { ago = '${diff.inHours}h ago'; }
-//     else { ago = '${diff.inDays}d ago'; }
-
-//     return InkWell(
-//       onTap: () => _showDetail(context),
-//       borderRadius: BorderRadius.circular(8),
-//       child: Container(
-//         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-//         child: Row(
-//           children: [
-//             CircleAvatar(
-//               radius: 16,
-//               backgroundColor: (isLandlord ? AppTheme.accentOrange : AppTheme.accentCyan).withValues(alpha: 0.15),
-//               child: Icon(isLandlord ? Icons.person : Icons.person_outline, color: isLandlord ? AppTheme.accentOrange : AppTheme.accentCyan, size: 16),
-//             ),
-//             const SizedBox(width: 10),
-//             Expanded(
-//               child: Column(
-//                 crossAxisAlignment: CrossAxisAlignment.start,
-//                 children: [
-//                   Text(login['name'] as String, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13, fontWeight: FontWeight.w500)),
-//                   Text(ago, style: AppTheme.caption),
-//                 ],
-//               ),
-//             ),
-//             isLandlord ? StatusBadge.landlord() : StatusBadge.tenant(),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-
-//   void _showDetail(BuildContext context) {
-//     final isLandlord = login['type'] == 'landlord';
-//     showDialog(
-//       context: context,
-//       builder: (ctx) => AlertDialog(
-//         backgroundColor: AppTheme.bgCard,
-//         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-//         title: Row(children: [
-//           isLandlord ? StatusBadge.landlord() : StatusBadge.tenant(),
-//           const SizedBox(width: 12),
-//           Text(login['name'] as String, style: const TextStyle(color: AppTheme.textPrimary)),
-//         ]),
-//         content: Text(
-//           isLandlord ? 'Properties owned: ${login['count']}' : 'Renting: ${login['property']}',
-//           style: const TextStyle(color: AppTheme.textSecondary),
-//         ),
-//         actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
-//       ),
-//     );
-//   }
-// }
-
 class _PropertyCard extends StatelessWidget {
-  final dynamic prop;
+  final PropertyModel prop;
   final PropertyController pc;
-  const _PropertyCard({required this.prop, required this.pc});
+  final double width;
+  final bool isSelected;
+  const _PropertyCard({
+    required this.prop,
+    required this.pc,
+    this.width = 300,
+    this.isSelected = false,
+  });
+
+  static const double _cardHeight = 280;
 
   @override
   Widget build(BuildContext context) {
@@ -265,133 +206,233 @@ class _PropertyCard extends StatelessWidget {
       locale: 'en_IN',
       decimalDigits: 0,
     );
+
+    final showTenant =
+        prop.primaryTenantName != null && prop.primaryTenantName!.isNotEmpty;
+    final hasImage = prop.imageUrl != null && prop.imageUrl!.trim().isNotEmpty;
+
+    Widget statusBadge;
+    Color statusColor;
+    switch (prop.status) {
+      case PropertyStatus.rented:
+        statusBadge = StatusBadge.rented();
+        statusColor = AppTheme.statusRentedText;
+        break;
+      case PropertyStatus.available:
+        statusBadge = StatusBadge.available();
+        statusColor = AppTheme.statusAvailableText;
+        break;
+      case PropertyStatus.booked:
+        statusBadge = StatusBadge.booked();
+        statusColor = AppTheme.accentPurple;
+        break;
+      case PropertyStatus.requested:
+        statusBadge = StatusBadge.requested();
+        statusColor = AppTheme.statusRequestedText;
+        break;
+      case PropertyStatus.maintenance:
+        statusBadge = StatusBadge.maintenance();
+        statusColor = AppTheme.statusMaintenanceText;
+        break;
+      case PropertyStatus.unknown:
+        statusBadge = StatusBadge.unknown();
+        statusColor = const Color(0xFF9E9E9E);
+        break;
+    }
+
     return SizedBox(
-      width: 300,
+      width: width,
       child: GlassCard(
-        glowColor: AppTheme.accentOrange.withValues(alpha: 0.5),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                'https://images.unsplash.com/photo-1568605114967-8130f3a36994?q=80&w=300&h=150&auto=format&fit=crop',
-                height: 120,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder:
-                    (c, e, s) => Container(
-                      height: 120,
-                      width: double.infinity,
-                      color: AppTheme.bgCardLight,
-                      child: const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.image_not_supported_rounded,
-                            color: AppTheme.textMuted,
-                            size: 28,
+        glowColor: isSelected
+            ? AppTheme.accentGreen
+            : statusColor.withValues(alpha: 0.2),
+        padding: EdgeInsets.zero,
+        onTap: () => pc.selectedProperty.value = prop,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: SizedBox(
+            height: _cardHeight,
+            width: double.infinity,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (hasImage)
+                  Image.network(
+                    prop.imageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (c, e, s) => _placeholder(),
+                  )
+                else
+                  _placeholder(),
+
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  height: 90,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.35),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 150,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.75),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                Positioned(
+                  top: 12,
+                  left: 12,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.55),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.5),
                           ),
-                          SizedBox(height: 6),
-                          Text(
-                            'Image Not Available',
-                            style: TextStyle(
-                              color: AppTheme.textMuted,
-                              fontSize: 12,
+                        ),
+                        child: Text(
+                          '${fmt.format(prop.rentAmount)}/ Month',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                Positioned(top: 12, right: 12, child: statusBadge),
+
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: 14,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        prop.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.location_on_rounded,
+                              color: Colors.white, size: 14),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              prop.address.address,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    prop.name,
-                    style: AppTheme.heading3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                PopupMenuButton<String>(
-                  icon: const Icon(
-                    Icons.more_vert,
-                    color: AppTheme.textMuted,
-                    size: 18,
-                  ),
-                  color: AppTheme.bgCardLight,
-                  onSelected: (v) {
-                    if (v == 'delete') {
-                      pc.deleteLandlord(prop.landlordId);
-                    }
-                  },
-                  itemBuilder:
-                      (_) => [
-                        const PopupMenuItem(
-                          value: 'delete',
-                          child: Text(
-                            'Delete Landlord',
-                            style: TextStyle(color: AppTheme.accentRed),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _personLabel(
+                              icon: Icons.person_rounded,
+                              text: 'Landlord: ${prop.landlordName}',
+                            ),
                           ),
-                        ),
-                      ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              prop.address,
-              style: AppTheme.caption,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                StatusBadge(
-                  label: prop.propertyType,
-                  color: AppTheme.accentPurple,
-                ),
-                const Spacer(),
-                Text(
-                  fmt.format(prop.rentAmount),
-                  style: TextStyle(
-                    color: AppTheme.accentGreen,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
+                          if (showTenant) ...[
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _personLabel(
+                                icon: Icons.person_outline_rounded,
+                                text: 'Tenant: ${prop.primaryTenantName}',
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                Text('/mo', style: AppTheme.caption),
               ],
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Icon(
-                  Icons.person_rounded,
-                  color: AppTheme.textMuted,
-                  size: 14,
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    prop.landlordName,
-                    style: AppTheme.caption,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Text(
-                  '${prop.occupiedUnits}/${prop.totalUnits} units',
-                  style: AppTheme.caption,
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _placeholder() {
+    return Image.asset(
+      'assets/images/placer.png',
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      errorBuilder: (c, e, s) => Container(color: AppTheme.bgCardLight),
+    );
+  }
+
+  Widget _personLabel({required IconData icon, required String text}) {
+    return Row(
+      children: [
+        Icon(icon, color: Colors.white70, size: 14),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

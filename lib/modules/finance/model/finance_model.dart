@@ -9,11 +9,11 @@ class RentPaymentModel {
   final double amount;
   final String month;
   final int year;
-  final String status; // paid, pending, overdue
+  final String status;
   final DateTime dueDate;
   final DateTime? paidDate;
   final String? transactionId;
-  final String? paymentMethod; // gpay, netbanking, etc.
+  final String? paymentMethod;
   final String? proofUrl;
 
   RentPaymentModel({

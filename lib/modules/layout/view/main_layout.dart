@@ -13,12 +13,29 @@ import 'package:agremate_admin/modules/support/view/support_view.dart';
 import 'package:agremate_admin/modules/user/view/user_view.dart';
 import 'package:agremate_admin/modules/account/view/account_view.dart';
 import 'package:agremate_admin/modules/tenant/view/tenant_detail_view.dart';
+import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
+import 'package:agremate_admin/routes/app_routes.dart';
 
 class MainLayout extends StatelessWidget {
   const MainLayout({super.key});
 
   @override
   Widget build(BuildContext context) {
+    if (!Get.isRegistered<AuthController>()) {
+      Get.put(AuthController(), permanent: true);
+    }
+    final auth = Get.find<AuthController>();
+    if (!auth.isLoggedIn.value) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (Get.currentRoute != AppRoutes.login) {
+          Get.offAllNamed(AppRoutes.login);
+        }
+      });
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final nav = Get.find<NavigationController>();
     final pages = [
       const HomeView(),
@@ -44,7 +61,6 @@ class MainLayout extends StatelessWidget {
                 Expanded(
                   child: Obx(() {
                     final index = nav.currentIndex.value;
-                    // Safety check to prevent RangeError
                     if (index >= pages.length) {
                       return const Center(child: Text('Page not found'));
                     }

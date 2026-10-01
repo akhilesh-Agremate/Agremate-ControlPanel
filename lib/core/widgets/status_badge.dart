@@ -22,7 +22,6 @@ class StatusBadge extends StatelessWidget {
     this.fixedWidth,
   });
 
-  // Payment status factories
   factory StatusBadge.landlord() => const StatusBadge(
     label: 'Landlord',
     color: AppTheme.landlordFill,
@@ -54,7 +53,6 @@ class StatusBadge extends StatelessWidget {
     textColor: AppTheme.brandRed,
   );
 
-  // Property status factories
   factory StatusBadge.rented() => const StatusBadge(
     label: 'Rented',
     color: AppTheme.statusRentedText,
@@ -92,7 +90,6 @@ class StatusBadge extends StatelessWidget {
     textColor: Color(0xFF757575),
   );
 
-  // Subscription status factories
   factory StatusBadge.active() => const StatusBadge(
     label: 'Active',
     color: AppTheme.accentBlue,

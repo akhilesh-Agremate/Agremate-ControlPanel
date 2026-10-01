@@ -41,13 +41,12 @@ class PropertyModel {
   final List<dynamic> documents;
   final List<String> images;
   final String? imageUrl;
-
-  // Fields for backward compatibility and UI usage
   final String city;
   final String landlordId;
   final String landlordName;
   final String? landlordPhone;
   final String? landlordEmail;
+  final String? landlordAddress;
   final List<String> tenantIds;
   final String? primaryTenantName;
   final String? primaryTenantPhone;
@@ -88,6 +87,7 @@ class PropertyModel {
     this.landlordName = 'N/A',
     this.landlordPhone,
     this.landlordEmail,
+    this.landlordAddress,
     this.tenantIds = const <String>[],
     this.primaryTenantName,
     this.primaryTenantPhone,
@@ -110,14 +110,17 @@ class PropertyModel {
 
   factory PropertyModel.fromJson(Map<String, dynamic> json) {
     try {
-      // Address can be a JSON-encoded string (new API) or a direct map (old API)
       PropertyAddress addr;
       final rawAddr = json['address'];
       if (rawAddr is String) {
         try {
           addr = PropertyAddress.fromJson(jsonDecode(rawAddr) as Map<String, dynamic>);
         } catch (_) {
-          addr = PropertyAddress(address: rawAddr, latitude: 0, longitude: 0);
+          addr = PropertyAddress(
+            address: rawAddr,
+            latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
+            longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
+          );
         }
       } else if (rawAddr is Map<String, dynamic>) {
         addr = PropertyAddress.fromJson(rawAddr);
@@ -127,23 +130,27 @@ class PropertyModel {
         );
       }
 
-      // Nested landlord object (new API)
       final landlordObj = json['landlord'] as Map<String, dynamic>?;
       final landlordId   = landlordObj?['id']?.toString() ?? json['landlordId']?.toString() ?? '';
       final landlordName = landlordObj?['name']?.toString() ?? json['landlordName']?.toString() ?? json['ownerName']?.toString() ?? 'N/A';
       final landlordPhone = landlordObj?['phone']?.toString() ?? json['landlordPhone']?.toString();
       final landlordEmail = landlordObj?['email']?.toString() ?? json['landlordEmail']?.toString();
-
-      // Nested tenant object (new API)
+      final landlordAddress = landlordObj?['address']?.toString();
       final tenantObj = json['tenant'] as Map<String, dynamic>?;
+      final tenantId = tenantObj?['id']?.toString() ?? json['tenantId']?.toString() ?? '';
+      final tenantIds = json['tenantIds'] is List
+          ? List<String>.from((json['tenantIds'] as List).map((e) => e.toString()))
+          : (tenantId.isNotEmpty ? <String>[tenantId] : <String>[]);
       final tenantName  = tenantObj?['name']?.toString() ?? json['tenantName']?.toString() ?? json['primaryTenantName']?.toString();
-      final tenantPhone = tenantObj?['phoneNumber']?.toString() ?? json['primaryTenantPhone']?.toString();
+      final tenantPhone = tenantObj?['phoneNumber']?.toString() ??
+          tenantObj?['phone']?.toString() ??
+          json['primaryTenantPhone']?.toString();
+      final tenantEmail = tenantObj?['email']?.toString() ?? json['primaryTenantEmail']?.toString();
       DateTime? tenancyStart;
       if (tenantObj?['tenancyStartDate'] != null) {
         tenancyStart = DateTime.tryParse(tenantObj!['tenancyStartDate'].toString());
       }
 
-      // Amenities list (new API)
       final rawAmenities = json['amenities'] as List<dynamic>?;
       final amenitiesList = rawAmenities
           ?.map((a) => {
@@ -153,16 +160,21 @@ class PropertyModel {
               })
           .toList() ?? <Map<String, String>>[];
 
-      // Agreement (new API)
       final agreementObj = json['agreement'] as Map<String, dynamic>?;
       final agreementId          = agreementObj?['id']?.toString();
       final agreementStartDate   = agreementObj?['startDate'] != null ? DateTime.tryParse(agreementObj!['startDate'].toString()) : null;
       final agreementPeriodMonths = (agreementObj?['periodMonths'] as num?)?.toInt();
       final agreementRentAmount   = (agreementObj?['rentAmount'] as num?)?.toDouble();
 
+      final thumbnailUrl = _resolveMediaUrl(json['thumbnailUrl']?.toString());
       final images = json['images'] != null
-          ? List<String>.from(json['images'] as List)
+          ? List<String>.from((json['images'] as List).map((e) => _resolveMediaUrl(e.toString())))
+              .where((url) => url.isNotEmpty)
+              .toList()
           : <String>[];
+      if (thumbnailUrl.isNotEmpty && !images.contains(thumbnailUrl)) {
+        images.insert(0, thumbnailUrl);
+      }
 
       return PropertyModel(
         id: json['propertyId']?.toString() ?? json['id']?.toString() ?? '',
@@ -193,8 +205,11 @@ class PropertyModel {
         landlordName: landlordName,
         landlordPhone: landlordPhone,
         landlordEmail: landlordEmail,
+        landlordAddress: landlordAddress,
+        tenantIds: tenantIds,
         primaryTenantName: tenantName,
         primaryTenantPhone: tenantPhone,
+        primaryTenantEmail: tenantEmail,
         tenantJoinedDate: tenancyStart,
         rawJson: json,
         amenitiesList: amenitiesList,
@@ -209,6 +224,16 @@ class PropertyModel {
       print(stack);
       rethrow;
     }
+  }
+
+  static const String _mediaBaseUrl =
+      'https://amplify-agremate-dev-76a83-deployment.s3.ap-south-1.amazonaws.com/';
+
+  static String _resolveMediaUrl(String? path) {
+    final value = path?.trim() ?? '';
+    if (value.isEmpty || value.toLowerCase() == 'null') return '';
+    if (value.startsWith('http://') || value.startsWith('https://')) return value;
+    return '$_mediaBaseUrl${value.startsWith('/') ? value.substring(1) : value}';
   }
 
   static PropertyStatus _parseStatus(String? status) {
@@ -229,6 +254,21 @@ class PropertyModel {
   }
 
   bool get isRented => status == PropertyStatus.rented;
+
+  String get propertyTypeLabel {
+    switch (propertyType.trim()) {
+      case '0':
+        return 'Apartment';
+      case '1':
+        return 'House';
+      case '2':
+        return 'Villa';
+      case '3':
+        return 'PG';
+      default:
+        return propertyType.isEmpty ? 'Apartment' : propertyType;
+    }
+  }
 
   String get statusLabel {
     switch (status) {

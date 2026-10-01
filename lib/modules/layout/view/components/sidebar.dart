@@ -16,59 +16,45 @@ class Sidebar extends StatelessWidget {
     return Container(
       width: 260,
       decoration: const BoxDecoration(
-        gradient: AppTheme.sidebarGradient,
-        border: Border(right: BorderSide(color: AppTheme.border, width: 1)),
+        color: Colors.white,
+        border: Border(right: BorderSide(color: Color(0xFFE3EEF9), width: 1)),
       ),
       child: Column(
         children: [
-          // Logo
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 28, 20, 8),
-            child: Row(
+          Container(
+            height: 70,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            alignment: Alignment.centerLeft,
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: AppTheme.border, width: 1),
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF4A90D9).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFF4A90D9).withValues(alpha: 0.2),
-                    ),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.asset(
-                      'assets/images/agremate_logo.jpg',
-                      width: 44,
-                      height: 44,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
+                Image.asset(
+                  'assets/images/logo_agremate.jpg',
+                  width: 170,
+                  fit: BoxFit.contain,
                 ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'AGREMATE',
-                      style: GoogleFonts.syne(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
-                        letterSpacing: 2,
-                      ),
+                const SizedBox(height: 4),
+                Obx(
+                  () => Text(
+                    auth.role.value.isNotEmpty ? auth.role.value : 'Super Admin',
+                    style: AppTheme.caption.copyWith(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF7B9CCB),
                     ),
-                    Text(
-                      'Super Admin',
-                      style: AppTheme.caption.copyWith(fontSize: 11),
-                    ),
-                  ],
+                  ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 12),
-          Divider(color: AppTheme.border.withValues(alpha: 0.5), height: 1),
-          const SizedBox(height: 12),
+
           // Nav items
           Expanded(
             child: ListView(
@@ -76,8 +62,8 @@ class Sidebar extends StatelessWidget {
               children: [
                 for (final item in AppConstants.navItems)
                   Obx(
-                    () => _NavItem(
-                      icon: item['icon'] as IconData,
+                        () => _NavItem(
+                      icon: _outlinedIcon(item['label'] as String, item['icon'] as IconData),
                       label: item['label'] as String,
                       isActive: nav.currentIndex.value == item['index'],
                       onTap: () => nav.changePage(item['index'] as int),
@@ -120,6 +106,25 @@ class Sidebar extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  IconData _outlinedIcon(String label, IconData fallback) {
+    switch (label) {
+      case 'Home':
+        return Icons.home_outlined;
+      case 'Property':
+        return Icons.apartment_outlined;
+      case 'Services':
+        return Icons.business_center_outlined;
+      case 'Finance':
+        return Icons.account_balance_wallet_outlined;
+      case 'Documents':
+        return Icons.folder_outlined;
+      case 'User':
+        return Icons.people_outline;
+      default:
+        return fallback;
+    }
   }
 
   void _showLogoutDialog(BuildContext context, AuthController auth) {
@@ -189,75 +194,52 @@ class _NavItem extends StatefulWidget {
 }
 
 class _NavItemState extends State<_NavItem> {
-  bool _hovering = false;
+
+  static const _blue = Color(0xFF2F6BFF);
+  static const _muted = Color(0xFF7B9CCB);
 
   @override
   Widget build(BuildContext context) {
-    final color =
-        widget.isLogout
-            ? AppTheme.accentRed
-            : (widget.isActive ? AppTheme.accentBlue : AppTheme.textMuted);
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovering = true),
-      onExit: (_) => setState(() => _hovering = false),
-      child: GestureDetector(
+    final Color fg = widget.isActive
+        ? Colors.white
+        : (widget.isLogout ? AppTheme.accentRed : _muted);
+
+    return GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          margin: const EdgeInsets.symmetric(vertical: 2),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           decoration: BoxDecoration(
-            color:
-                widget.isActive
-                    ? Colors.white
-                    : (_hovering ? AppTheme.bgCardLight : Colors.transparent),
-            borderRadius: BorderRadius.circular(12),
-            border:
-                widget.isActive
-                    ? Border.all(
-                      color: AppTheme.accentBlue.withValues(alpha: 0.5),
-                      width: 1,
-                    )
-                    : null,
-            boxShadow:
-                widget.isActive
-                    ? [
-                      BoxShadow(
-                        color: AppTheme.accentBlue.withValues(alpha: 0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
-                    : null,
+            color: widget.isActive ? _blue : Colors.transparent,
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: widget.isActive
+                ? [
+              BoxShadow(
+                color: _blue.withValues(alpha: 0.28),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ]
+                : null,
           ),
           child: Row(
             children: [
-              Icon(widget.icon, color: color, size: 20),
+              Icon(widget.icon, color: fg, size: 20),
               const SizedBox(width: 14),
               Expanded(
                 child: Text(
                   widget.label,
                   style: TextStyle(
-                    color: widget.isActive ? AppTheme.textPrimary : color,
+                    color: fg,
                     fontSize: 14,
-                    fontWeight:
-                        widget.isActive ? FontWeight.w600 : FontWeight.w400,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              if (widget.isActive)
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: AppTheme.accentBlue,
-                    shape: BoxShape.circle,
-                  ),
-                ),
             ],
           ),
         ),
-      ),
     );
   }
 }

@@ -1,6 +1,8 @@
 class ServiceMessage {
   final String id;
   final String senderUserId;
+  final String senderName;
+  final String senderRole;
   final String message;
   final bool isSeen;
   final DateTime sentAt;
@@ -8,6 +10,8 @@ class ServiceMessage {
   ServiceMessage({
     required this.id,
     required this.senderUserId,
+    this.senderName = '',
+    this.senderRole = '',
     required this.message,
     required this.isSeen,
     required this.sentAt,
@@ -16,10 +20,33 @@ class ServiceMessage {
   factory ServiceMessage.fromJson(Map<String, dynamic> json) {
     return ServiceMessage(
       id: json['id']?.toString() ?? '',
-      senderUserId: json['senderUserId']?.toString() ?? '',
-      message: json['message']?.toString() ?? '',
-      isSeen: json['isSeen'] as bool? ?? false,
-      sentAt: DateTime.tryParse(json['sentAt']?.toString() ?? '') ?? DateTime.now(),
+      senderUserId:
+          json['senderUserId']?.toString() ??
+          json['senderId']?.toString() ??
+          json['userId']?.toString() ??
+          '',
+      senderName:
+          json['senderName']?.toString() ?? json['name']?.toString() ?? '',
+      senderRole:
+          json['senderRole']?.toString() ??
+          json['role']?.toString() ??
+          json['senderType']?.toString() ??
+          json['sender']?.toString() ??
+          '',
+      message:
+          json['message']?.toString() ??
+          json['text']?.toString() ??
+          json['content']?.toString() ??
+          '',
+      isSeen: json['isSeen'] as bool? ?? json['isRead'] as bool? ?? false,
+      sentAt:
+          DateTime.tryParse(
+            json['sentAt']?.toString() ??
+                json['createdAt']?.toString() ??
+                json['time']?.toString() ??
+                '',
+          ) ??
+          DateTime.now(),
     );
   }
 }
@@ -31,17 +58,17 @@ class ServiceRequestModel {
   final String propertyAddress;
   final String tenantName;
   final String tenantId;
-  final String serviceType;   // maps from 'category'
+  final String serviceType;
   final String description;
-  final String status;        // pending, in_progress, completed, solved
-  final DateTime requestDate; // maps from 'raisedDate'
+  final String status;
+  final DateTime requestDate;
   final DateTime? completedDate;
   final DateTime? preferredVisitDate;
   final String priority;
   final String landlordName;
   final String location;
-  final List<Map<String, dynamic>> chatMessages; // kept for view compatibility
-  final List<ServiceMessage> messages;           // parsed from API
+  final List<Map<String, dynamic>> chatMessages;
+  final List<ServiceMessage> messages;
 
   ServiceRequestModel({
     required this.id,
@@ -67,80 +94,157 @@ class ServiceRequestModel {
   bool get isCompleted => status == 'completed' || status == 'solved';
 
   factory ServiceRequestModel.fromJson(Map<String, dynamic> json) {
-    // Parse nested property object
     final propObj = json['property'] as Map<String, dynamic>?;
-    final propertyId = propObj?['id']?.toString() ?? '';
-    final propertyName = propObj?['name']?.toString() ?? 'Unknown Property';
+    final tenantObj = json['tenant'] as Map<String, dynamic>?;
 
-    // Parse address from nested JSON string
+    final propertyId =
+        json['propertyId']?.toString() ?? propObj?['id']?.toString() ?? '';
+    final propertyName =
+        json['propertyName']?.toString() ??
+        propObj?['name']?.toString() ??
+        'Unknown Property';
+
     String propertyAddress = '';
     final rawAddr = propObj?['address'];
     if (rawAddr is String && rawAddr.isNotEmpty) {
-      try {
-        // Try to extract Address from JSON-encoded string
-        final addrMap = _tryParseAddress(rawAddr);
-        propertyAddress = addrMap ?? rawAddr;
-      } catch (_) {
-        propertyAddress = rawAddr;
+      propertyAddress = _tryParseAddress(rawAddr) ?? rawAddr;
+    }
+
+    final tenantName =
+        json['tenantName']?.toString() ?? tenantObj?['name']?.toString() ?? '';
+    final tenantId =
+        json['tenantId']?.toString() ?? tenantObj?['id']?.toString() ?? '';
+    final landlordName =
+        json['landlordName']?.toString().isNotEmpty == true
+            ? json['landlordName'].toString()
+            : 'N/A';
+
+    final tenantMessage = json['tenantMessage']?.toString().trim() ?? '';
+    final landlordMessage = json['landlordMessage']?.toString().trim() ?? '';
+
+    final rawMessages = json['messages'] as List<dynamic>? ?? [];
+    final messages = rawMessages
+        .whereType<Map>()
+        .map((m) => ServiceMessage.fromJson(Map<String, dynamic>.from(m)))
+        .toList();
+
+    final chatMessages = <Map<String, dynamic>>[];
+    if (messages.isNotEmpty) {
+      for (final m in messages) {
+        if (m.message.trim().isEmpty) continue;
+        final isTenant =
+            _isTenantMessage(
+              senderUserId: m.senderUserId,
+              senderName: m.senderName,
+              senderRole: m.senderRole,
+              tenantId: tenantId,
+              tenantName: tenantName,
+              landlordName: landlordName,
+            ) ||
+            (tenantMessage.isNotEmpty &&
+                m.message.trim().toLowerCase() == tenantMessage.toLowerCase());
+        chatMessages.add({
+          'sender': isTenant ? 'tenant' : 'landlord',
+          'senderName': isTenant
+              ? (m.senderName.isNotEmpty
+                  ? m.senderName
+                  : (tenantName.isNotEmpty ? tenantName : 'Tenant'))
+              : (m.senderName.isNotEmpty
+                  ? m.senderName
+                  : (landlordName != 'N/A' ? landlordName : 'Landlord')),
+          'message': m.message,
+          'time': _formatTime(m.sentAt),
+          'isRead': m.isSeen,
+          'senderUserId': m.senderUserId,
+          'sentAt': m.sentAt,
+        });
       }
     }
 
-    // Parse tenant
-    final tenantObj = json['tenant'] as Map<String, dynamic>?;
-    final tenantName = tenantObj?['name']?.toString() ?? '';
-    final tenantId = tenantObj?['id']?.toString() ?? '';
-
-    // Parse messages
-    final rawMessages = json['messages'] as List<dynamic>? ?? [];
-    final messages = rawMessages
-        .map((m) => ServiceMessage.fromJson(m as Map<String, dynamic>))
-        .toList();
-
-    // Build chatMessages list for view compatibility
-    // Determine sender role: if senderUserId == tenant id → tenant, else → landlord
-    final chatMessages = messages.map((m) {
-      final isTenant = tenantId.isNotEmpty && m.senderUserId == tenantId;
-      return <String, dynamic>{
-        'sender': isTenant ? 'tenant' : 'landlord',
-        'senderName': isTenant
-            ? (tenantName.isNotEmpty ? tenantName : 'Tenant')
-            : 'Landlord',
-        'message': m.message,
-        'time': _formatTime(m.sentAt),
-        'isRead': m.isSeen,
-        'senderUserId': m.senderUserId,
-        'sentAt': m.sentAt,
-      };
-    }).toList();
+    final hasTenantChat = chatMessages.any((m) => m['sender'] == 'tenant');
+    if (tenantMessage.isNotEmpty && !hasTenantChat) {
+      chatMessages.insert(0, {
+        'sender': 'tenant',
+        'senderName': tenantName.isNotEmpty ? tenantName : 'Tenant',
+        'message': tenantMessage,
+        'time': '',
+        'isRead': true,
+      });
+    }
+    final existingTexts = chatMessages
+        .map((m) => (m['message'] as String).trim().toLowerCase())
+        .toSet();
+    if (landlordMessage.isNotEmpty &&
+        !existingTexts.contains(landlordMessage.toLowerCase())) {
+      chatMessages.add({
+        'sender': 'landlord',
+        'senderName': landlordName != 'N/A' ? landlordName : 'Landlord',
+        'message': landlordMessage,
+        'time': '',
+        'isRead': true,
+      });
+    }
 
     return ServiceRequestModel(
-      id: json['id']?.toString() ?? '',
+      id: json['id']?.toString() ??
+          json['maintenanceRequestId']?.toString() ??
+          '',
       propertyId: propertyId,
       propertyName: propertyName,
       propertyAddress: propertyAddress,
       tenantName: tenantName,
       tenantId: tenantId,
-      serviceType: _normalizeCategory(json['category']?.toString()),
-      description: json['description']?.toString() ?? '',
+      serviceType: normalizeCategory(json['category']?.toString()),
+      description:
+          json['description']?.toString() ??
+          json['issueTitle']?.toString() ??
+          '',
       status: _normalizeStatus(json['status']?.toString()),
-      requestDate: DateTime.tryParse(json['raisedDate']?.toString() ?? '') ?? DateTime.now(),
-      completedDate: json['solvedDate'] != null
-          ? DateTime.tryParse(json['solvedDate'].toString())
-          : null,
+      requestDate:
+          DateTime.tryParse(
+            json['requestedDate']?.toString() ??
+                json['raisedDate']?.toString() ??
+                '',
+          ) ??
+          DateTime.now(),
+      completedDate: DateTime.tryParse(
+        json['closedDate']?.toString() ?? json['solvedDate']?.toString() ?? '',
+      ),
       preferredVisitDate: json['preferredVisitDate'] != null
           ? DateTime.tryParse(json['preferredVisitDate'].toString())
           : null,
       priority: json['priority']?.toString() ?? 'unknown',
-      landlordName: 'N/A',
+      landlordName: landlordName,
       location: propertyAddress,
       chatMessages: chatMessages,
       messages: messages,
     );
   }
 
+  static bool _isTenantMessage({
+    required String senderUserId,
+    required String senderName,
+    required String senderRole,
+    required String tenantId,
+    required String tenantName,
+    required String landlordName,
+  }) {
+    final role = senderRole.toLowerCase();
+    if (role.contains('tenant')) return true;
+    if (role.contains('landlord')) return false;
+    if (tenantId.isNotEmpty && senderUserId == tenantId) return true;
+    final name = senderName.trim().toLowerCase();
+    final tenant = tenantName.trim().toLowerCase();
+    if (tenant.isNotEmpty && name == tenant) return true;
+    final landlord = landlordName.trim().toLowerCase();
+    if (landlord.isNotEmpty && landlord != 'n/a' && name == landlord) {
+      return false;
+    }
+    return false;
+  }
+
   static String? _tryParseAddress(String raw) {
     try {
-      // Simple key extraction without dart:convert to stay import-free
       final match = RegExp(r'"Address"\s*:\s*"([^"]+)"').firstMatch(raw);
       return match?.group(1);
     } catch (_) {
@@ -156,30 +260,41 @@ class ServiceRequestModel {
     return '${months[dt.month - 1]} ${dt.day}, ${dt.year} · $hour:$min $ampm';
   }
 
-  static String _normalizeCategory(String? raw) {
-    if (raw == null) return 'Others';
-    // Map API categories to AppConstants.serviceTypes
+  static String normalizeCategory(String? raw) {
+    if (raw == null || raw.isEmpty) return 'Others';
+    final key = raw.toLowerCase().replaceAll(' ', '').replaceAll('_', '');
     const map = {
       'plumbing': 'Plumbing',
       'electricity': 'Electricity',
-      'electrical': 'Electricity', // Add this mapping
-      'pest control': 'Pest Control',
+      'electrical': 'Electricity',
+      'pestcontrol': 'Pest Control',
       'community': 'Community',
       'mechanical': 'Mechanical',
       'maintenance': 'Maintenance',
       'security': 'Security',
+      'securityandaccess': 'Security',
+      'other': 'Others',
+      'others': 'Others',
     };
-    return map[raw.toLowerCase()] ?? 'Others';
+    return map[key] ?? 'Others';
   }
 
   static String _normalizeStatus(String? raw) {
     switch (raw?.toLowerCase()) {
-      case 'pending':   return 'pending';
+      case 'pending':
+        return 'pending';
+      case 'accepted':
+        return 'accepted';
+      case 'rejected':
+        return 'rejected';
       case 'in_progress':
-      case 'inprogress': return 'in_progress';
+      case 'inprogress':
+        return 'in_progress';
       case 'completed':
-      case 'solved':    return 'completed';
-      default:          return raw ?? 'pending';
+      case 'solved':
+        return 'completed';
+      default:
+        return (raw ?? 'pending').toLowerCase();
     }
   }
 }

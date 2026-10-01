@@ -23,7 +23,6 @@ class SubscriptionDetailPanel extends StatelessWidget {
       color: AppTheme.brandPaleSky,
       child: Column(
         children: [
-          // Header
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
             child: Row(
@@ -208,7 +207,6 @@ class SubscriptionDetailPanel extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Row 1: Property Name
                                 Row(
                                   children: [
                                     const Icon(
@@ -229,10 +227,8 @@ class SubscriptionDetailPanel extends StatelessWidget {
                                   ],
                                 ),
                                 const SizedBox(height: 12),
-                                // Row 2: Tenant | Status | Location
                                 Row(
                                   children: [
-                                    // Tenant
                                     Expanded(
                                       flex: 3,
                                       child:
@@ -266,7 +262,6 @@ class SubscriptionDetailPanel extends StatelessWidget {
                                               )
                                               : const SizedBox(),
                                     ),
-                                    // Middle: Status Chip (Filled)
                                     Expanded(
                                       flex: 2,
                                       child: Center(
@@ -296,7 +291,6 @@ class SubscriptionDetailPanel extends StatelessWidget {
                                         ),
                                       ),
                                     ),
-                                    // Right: Location Icon + Name
                                     Expanded(
                                       flex: 3,
                                       child: Row(

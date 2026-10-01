@@ -3,32 +3,50 @@ import 'package:agremate_admin/network_utils/app_end_points.dart';
 import 'package:agremate_admin/modules/service_request/model/service_request_model.dart';
 
 class ServicesRepository {
-  Future<List<ServiceRequestModel>> getAllMaintenanceRequests() async {
-    try {
-      final response = await DioClient.instance.get(AppEndpoints.allMaintenanceRequests);
-      print('ServicesRepository response: ${response.data}');
+  Future<Map<String, dynamic>> getDashboardServices() async {
+    final response =
+        await DioClient.instance.get(AppEndpoints.adminDashboardServices);
+    final data = response.data;
+    if (data is! Map) {
+      return {
+        'counts': <String, int>{},
+        'requests': <ServiceRequestModel>[],
+      };
+    }
 
-      final List<dynamic> result;
-      if (response.data is List) {
-        result = response.data as List<dynamic>;
-      } else if (response.data is Map && response.data['result'] != null) {
-        result = response.data['result'] as List<dynamic>;
-      } else if (response.data is Map) {
-        // Handle single object response by wrapping it in a list
-        result = [response.data];
-      } else {
-        result = [];
+    final result = data['result'];
+    final counts = <String, int>{};
+    final requests = <ServiceRequestModel>[];
+
+    if (result is Map) {
+      final rawCounts = result['categoryCounts'];
+      if (rawCounts is List) {
+        for (final item in rawCounts) {
+          if (item is! Map) continue;
+          final name = ServiceRequestModel.normalizeCategory(
+            item['category']?.toString(),
+          );
+          final count = item['count'];
+          counts[name] = count is int ? count : int.tryParse('$count') ?? 0;
+        }
       }
 
-      print('ServicesRepository: ${result.length} records');
-      return result
-          .where((e) => e != null)
-          .map((json) => ServiceRequestModel.fromJson(json as Map<String, dynamic>))
-          .toList();
-    } catch (e, stack) {
-      print('ServicesRepository error: $e');
-      print(stack);
-      rethrow;
+      final rawRequests = result['serviceRequests'];
+      if (rawRequests is List) {
+        for (final item in rawRequests) {
+          if (item is! Map) continue;
+          requests.add(
+            ServiceRequestModel.fromJson(Map<String, dynamic>.from(item)),
+          );
+        }
+      }
     }
+
+    return {'counts': counts, 'requests': requests};
+  }
+
+  Future<List<ServiceRequestModel>> getAllMaintenanceRequests() async {
+    final data = await getDashboardServices();
+    return List<ServiceRequestModel>.from(data['requests'] as List);
   }
 }

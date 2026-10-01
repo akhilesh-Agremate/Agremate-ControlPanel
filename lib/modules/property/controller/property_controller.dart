@@ -5,7 +5,9 @@ import 'package:get/get.dart';
 import 'package:agremate_admin/modules/property/model/landlord_model.dart';
 import 'package:agremate_admin/modules/tenant/model/tenant_model.dart';
 import 'package:agremate_admin/modules/tenant/model/tenant_details_model.dart';
+import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
 import 'package:agremate_admin/modules/property/model/property_model.dart';
+import 'package:agremate_admin/modules/property/model/property_stats_model.dart';
 import 'package:agremate_admin/modules/property/repository/property_repository.dart';
 import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
 
@@ -22,8 +24,11 @@ class PropertyController extends GetxController {
   final isLoading = true.obs;
   final isRefreshing = false.obs;
   final selectedProperty = Rxn<PropertyModel>();
+  final isDetailLoading = false.obs;
   final selectedTenantDetails = Rxn<TenantDetailsModel>();
   final returnTabIndex = Rxn<int>();
+  final stats = Rxn<PropertyStatsModel>();
+  final kpiStats = PropertyStatsModel.empty().obs;
 
   final scrollController = ScrollController();
   static const int perPage = 30;
@@ -31,11 +36,10 @@ class PropertyController extends GetxController {
   Timer? _autoRefreshTimer;
 
   int get totalPages {
-    if (filteredProperties.isEmpty) return 1; // always show at least page 1
+    if (filteredProperties.isEmpty) return 1;
     return (filteredProperties.length / perPage).ceil();
   }
 
-  /// Computes the slice for the current page directly — no caching, no stale state.
   List<PropertyModel> get currentPageProperties {
     final total = filteredProperties.length;
     if (total == 0) return [];
@@ -51,13 +55,9 @@ class PropertyController extends GetxController {
   void onInit() {
     super.onInit();
     fetchProperties();
-
-    // Auto-refresh every 30 seconds so new landlord properties appear
     _autoRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       refreshProperties();
     });
-
-    // Scroll to top when page changes
     ever(currentPage, (_) {
       if (scrollController.hasClients) {
         scrollController.animateTo(
@@ -67,22 +67,18 @@ class PropertyController extends GetxController {
         );
       }
     });
-
-    // Sync search from nav bar
     final nav = Get.find<NavigationController>();
     ever(nav.searchQuery, (String query) {
       if (nav.currentIndex.value == 1) search(query);
     });
   }
 
-  /// Manual refresh — silently re-fetches without showing the full loading spinner.
   Future<void> refreshProperties() async {
     try {
       isRefreshing.value = true;
       final fetched = await _repository.getAllProperties();
       final prevCount = properties.length;
       properties.assignAll(fetched);
-      // Re-apply current search filter
       if (searchQuery.value.isEmpty) {
         filteredProperties.assignAll(fetched);
       } else {
@@ -103,9 +99,10 @@ class PropertyController extends GetxController {
         );
       }
       _buildDependentLists();
+      await fetchStats();
       await fetchTenants();
       await fetchLandlords();
-      // Clamp page if new total is fewer pages
+      _refreshKpiStats();
       if (currentPage.value > totalPages) currentPage.value = totalPages;
       if (fetched.length > prevCount) {
         Get.snackbar(
@@ -115,7 +112,6 @@ class PropertyController extends GetxController {
         );
       }
     } catch (_) {
-      // Silently ignore auto-refresh errors
     } finally {
       isRefreshing.value = false;
     }
@@ -124,13 +120,15 @@ class PropertyController extends GetxController {
   Future<void> fetchProperties() async {
     try {
       isLoading.value = true;
-      currentPage.value = 1; // always reset on fresh fetch
+      currentPage.value = 1;
       final fetched = await _repository.getAllProperties();
       properties.assignAll(fetched);
       filteredProperties.assignAll(fetched);
       _buildDependentLists();
+      await fetchStats();
       await fetchTenants();
       await fetchLandlords();
+      _refreshKpiStats();
     } catch (e) {
       Get.snackbar('Error', 'Failed to fetch properties: $e');
     } finally {
@@ -139,53 +137,106 @@ class PropertyController extends GetxController {
   }
 
   void _buildDependentLists() {
-    final lList = <LandlordModel>[];
-    final tList = <TenantModel>[];
-    for (final prop in properties) {
-      if (!lList.any((l) => l.id == prop.landlordId)) {
-        lList.add(
-          LandlordModel(
-            id: prop.landlordId,
-            name: prop.landlordName,
-            phone: prop.landlordPhone ?? '',
-            email: prop.landlordEmail ?? '',
-            lastLogin: DateTime.now(),
-          ),
-        );
+  }
+
+  Future<void> fetchStats() async {
+    try {
+      stats.value = await _repository.getPropertyStats();
+    } catch (e) {
+      print('Error fetching property stats: $e');
+    }
+  }
+
+  bool get _isLandlordOrTenant {
+    if (!Get.isRegistered<AuthController>()) return false;
+    return Get.find<AuthController>().isRestrictedRole;
+  }
+
+  void _refreshKpiStats() {
+    if (_isLandlordOrTenant) {
+      final fromProps = _statsFromAssociatedProperties();
+      kpiStats.value = PropertyStatsModel(
+        totalProperties: fromProps.totalProperties,
+        rentedCount: fromProps.rentedCount,
+        availableCount: fromProps.availableCount,
+        maintenanceCount: fromProps.maintenanceCount,
+        totalLandlords: landlords.length,
+        activeLandlordCount: landlords.where((l) => l.isActive).length,
+        totalTenants: tenants.length,
+        tenantsAcrossProperties: fromProps.tenantsAcrossProperties,
+        totalRevenue: fromProps.totalRevenue,
+      );
+      return;
+    }
+
+    final api = stats.value ?? PropertyStatsModel.empty();
+    kpiStats.value = PropertyStatsModel(
+      totalProperties: api.totalProperties,
+      rentedCount: api.rentedCount,
+      availableCount: api.availableCount,
+      maintenanceCount: api.maintenanceCount,
+      totalLandlords: landlords.length,
+      activeLandlordCount: landlords.where((l) => l.isActive).length,
+      totalTenants: tenants.length,
+      tenantsAcrossProperties: api.tenantsAcrossProperties,
+      totalRevenue: api.totalRevenue,
+    );
+  }
+
+  PropertyStatsModel get displayStats => kpiStats.value;
+
+  PropertyStatsModel _statsFromAssociatedProperties() {
+    final uniqueLandlords = <String>{};
+    final uniqueTenants = <String>{};
+    var rented = 0;
+    var available = 0;
+    var maintenance = 0;
+    var tenantsAcross = 0;
+    num revenue = 0;
+
+    for (final p in properties) {
+      if (p.isRented) rented++;
+      if (p.status == PropertyStatus.available) available++;
+      if (p.status == PropertyStatus.maintenance) maintenance++;
+      revenue += p.rentAmount;
+
+      final landlordKey =
+          p.landlordId.isNotEmpty ? p.landlordId : p.landlordName.trim();
+      if (landlordKey.isNotEmpty) uniqueLandlords.add(landlordKey.toLowerCase());
+
+      final tenantKey = (p.tenantIds.isNotEmpty
+              ? p.tenantIds.first
+              : (p.primaryTenantName ?? '').trim());
+      if (tenantKey.isNotEmpty) {
+        uniqueTenants.add(tenantKey.toLowerCase());
+        tenantsAcross++;
       }
-      if (prop.primaryTenantName != null &&
-          !tList.any((t) => t.name == prop.primaryTenantName)) {
-        tList.add(
-          TenantModel(
-            id: 'T-${prop.id}',
-            name: prop.primaryTenantName!,
-            phone: prop.primaryTenantPhone ?? '',
-            email: prop.primaryTenantEmail ?? '',
-            propertyId: prop.id,
-            propertyName: prop.name,
-            rentAmount: prop.rentAmount,
-            lastLogin: DateTime.now(),
-          ),
-        );
-      }
     }
-    // landlords.assignAll(lList);
-    if (landlords.isEmpty) {
-      landlords.assignAll(lList);
-    }
-    // Only add tenants from properties if they are not already in the list (or just keep API tenants as primary)
-    // For now, let's keep the API tenants as the primary list if available
-    if (tenants.isEmpty) {
-      tenants.assignAll(tList);
-    }
+
+    return PropertyStatsModel(
+      totalProperties: properties.length,
+      rentedCount: rented,
+      availableCount: available,
+      maintenanceCount: maintenance,
+      totalLandlords: uniqueLandlords.length,
+      activeLandlordCount: uniqueLandlords.length,
+      totalTenants: uniqueTenants.length,
+      tenantsAcrossProperties: tenantsAcross,
+      totalRevenue: revenue,
+    );
   }
 
   Future<void> fetchTenants() async {
     try {
-      final fetchedTenants = await _repository.getAllTenants();
-      if (fetchedTenants.isNotEmpty) {
-        tenants.assignAll(fetchedTenants);
+      var fetchedTenants = await _repository.getAllTenants();
+      if (Get.isRegistered<AuthController>() &&
+          Get.find<AuthController>().isLandlord) {
+        final names = properties.map((p) => p.name.toLowerCase()).toSet();
+        fetchedTenants = fetchedTenants
+            .where((t) => names.contains(t.propertyName.toLowerCase()))
+            .toList();
       }
+      tenants.assignAll(fetchedTenants);
     } catch (e) {
       print('Error fetching tenants: $e');
     }
@@ -193,10 +244,19 @@ class PropertyController extends GetxController {
 
   Future<void> fetchLandlords() async {
     try {
-      final fetchedLandlords = await _repository.getAllLandlords();
-      if (fetchedLandlords.isNotEmpty) {
-        landlords.assignAll(fetchedLandlords);
+      var fetchedLandlords = await _repository.getAllLandlords();
+      if (Get.isRegistered<AuthController>() &&
+          Get.find<AuthController>().isTenant) {
+        final names = properties.map((p) => p.landlordName.toLowerCase()).toSet();
+        final ids = properties.map((p) => p.landlordId).toSet();
+        fetchedLandlords = fetchedLandlords
+            .where(
+              (l) =>
+                  ids.contains(l.id) || names.contains(l.name.toLowerCase()),
+            )
+            .toList();
       }
+      landlords.assignAll(fetchedLandlords);
     } catch (e) {
       print('Error fetching landlords: $e');
     }
@@ -204,7 +264,7 @@ class PropertyController extends GetxController {
 
   void search(String query) {
     searchQuery.value = query;
-    currentPage.value = 1; // reset page on search
+    currentPage.value = 1;
     if (query.isEmpty) {
       filteredProperties.assignAll(properties);
     } else {
@@ -221,7 +281,27 @@ class PropertyController extends GetxController {
   }
 
   void goToPage(int page) {
-    if (page >= 1) currentPage.value = page; // allow navigating to any page
+    if (page >= 1) currentPage.value = page;
+  }
+
+  Future<void> openPropertyDetails(PropertyModel property) async {
+    selectedProperty.value = property;
+    try {
+      isDetailLoading.value = true;
+      final detail = await _repository.getPropertyById(property.id);
+      if (selectedProperty.value?.id == property.id) {
+        selectedProperty.value = detail;
+      }
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to load property details');
+    } finally {
+      isDetailLoading.value = false;
+    }
+  }
+
+  void closePropertyDetails() {
+    selectedProperty.value = null;
+    isDetailLoading.value = false;
   }
 
   void deleteLandlord(String id) {
@@ -237,7 +317,7 @@ class PropertyController extends GetxController {
       name: name,
       phone: phone,
       email: email,
-      lastLogin: DateTime.now(),
+      address: '',
     );
     landlords.insert(0, newLandlord);
     Get.snackbar(
@@ -256,7 +336,7 @@ class PropertyController extends GetxController {
       selectedTenantDetails.value = details;
       final nav = Get.find<NavigationController>();
       nav.currentIndex.value =
-          8; // Assuming 8 is the new TenantDetailView index
+          8;
     } catch (e) {
       Get.snackbar('Error', 'Failed to fetch tenant details: $e');
     } finally {

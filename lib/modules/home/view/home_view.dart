@@ -2,12 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:agremate_admin/core/theme/theme.dart';
 import 'package:agremate_admin/modules/home/controller/home_controller.dart';
-import 'package:agremate_admin/core/widgets/glass_card.dart';
 import 'package:agremate_admin/modules/home/view/components/subscription_detail_panel.dart';
+import 'package:agremate_admin/modules/home/view/components/rent_collection_detail_view.dart';
+import 'package:agremate_admin/modules/home/view/components/pending_payment_detail_view.dart';
 import 'package:agremate_admin/modules/property/controller/property_controller.dart';
 import 'package:agremate_admin/modules/property/model/property_model.dart';
 import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
 import 'package:agremate_admin/core/widgets/status_badge.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:agremate_admin/core/widgets/web_network_image.dart';
+import '../../../core/utils/app_logger.dart';
+import '../../../core/widgets/dashboard_kpi_card.dart';
+import '../../../core/widgets/full_pdf_page.dart';
 
 class HomeView extends StatelessWidget {
   const HomeView({super.key});
@@ -17,26 +23,10 @@ class HomeView extends StatelessWidget {
     final controller = Get.find<HomeController>();
 
     final metricCards = [
-      {
-        'label': 'Total Rent Collections',
-        'topColor': AppTheme.kpiRentBorder,
-        'numberColor': AppTheme.kpiRentNumber,
-      },
-      {
-        'label': 'Pending Payments',
-        'topColor': AppTheme.kpiPendingBorder,
-        'numberColor': AppTheme.kpiPendingNumber,
-      },
-      {
-        'label': 'Total Subscriptions',
-        'topColor': AppTheme.kpiSubsBorder,
-        'numberColor': AppTheme.kpiSubsNumber,
-      },
-      {
-        'label': 'Subscription Expired',
-        'topColor': AppTheme.kpiExpiredBorder,
-        'numberColor': AppTheme.kpiExpiredNumber,
-      },
+      {'label': 'Total Rent Collections',  'numberColor': const Color(0xFF2183D5)},
+      {'label': 'Pending Payments',        'numberColor': const Color(0xFF0D4C8C)},
+      {'label': 'Total Subscriptions',     'numberColor': const Color(0xFF2183D5)},
+      {'label': 'Subscription Expired',    'numberColor': const Color(0xFFE5484D)},
     ];
 
     final listData = [
@@ -77,162 +67,142 @@ class HomeView extends StatelessWidget {
       final nav = Get.find<NavigationController>();
       final query = nav.searchQuery.value;
 
-      // Update home controller search when query changes
       controller.search(query);
 
-      return Stack(
+      if (controller.showRentCollectionDetails.value) {
+        return const RentCollectionDetailView();
+      }
+
+      if (controller.showPendingPaymentDetails.value) {
+        return const PendingPaymentDetailView();
+      }
+
+      return ColoredBox(
+        color: const Color(0xFFF8FAFD),
+          child: Stack(
         children: [
           SingleChildScrollView(
             padding: const EdgeInsets.all(28),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Dashboard Overview', style: AppTheme.heading1),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Real-time analytics and performance metrics.',
-                            style: AppTheme.bodyText,
-                          ),
-                        ],
-                      ),
-                      _buildGlobalSelector(context, controller),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ...metricCards.map((c) {
-                        final label = c['label'] as String;
-                        final topColor = c['topColor'] as Color;
-                        final numberColor = c['numberColor'] as Color;
-                        final periodVar = controller.getPeriodVar(label);
-
-                        return Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(right: 20),
-                            child: SizedBox(
-                              height: 150,
-                              child: GlassCard(
-                                topBarColor: null,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 20,
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            label,
-                                            style: const TextStyle(
-                                              color: AppTheme.textSecondary,
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 24),
-                                    Obx(
-                                      () => Text(
-                                        controller.getAmount(
-                                          label,
-                                          periodVar.value,
-                                        ),
-                                        style: AppTheme.kpiValue.copyWith(
-                                          fontSize: 32,
-                                          color: numberColor,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Dashboard Overview', style: AppTheme.heading1),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Real-time analytics and performance metrics.',
+                          style: AppTheme.bodyText,
+                        ),
+                      ],
+                    ),
+                    _buildGlobalSelector(context, controller),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ...metricCards.map((c) {
+                      final label = c['label'] as String;
+                      final periodVar = controller.getPeriodVar(label);
+                      return Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 20),
+                          child: SizedBox(
+                            height: 140,
+                            child: DashboardKpiCard(
+                              label: label,
+                              onTap: label == 'Total Rent Collections'
+                                  ? () {
+                                AppLogger.i('HomeView', 'Open rent collection details');
+                                      controller.openRentCollectionDetails();
+                                    }
+                                  : label == 'Pending Payments'
+                                  ? () {
+                                AppLogger.i('HomeView', 'Open pending payment details');
+                                      controller.openPendingPaymentDetails();
+                                    }
+                                  : null,
+                              value: Obx(
+                                    () => Text(
+                                  controller.getAmount(label, periodVar.value),
+                                  style: AppTheme.kpiValue.copyWith(fontSize: 32, color: const Color(0xFF2F6BFF)),
                                 ),
                               ),
                             ),
                           ),
-                        );
-                      }),
-                    ],
-                  ),
-                  const SizedBox(height: 48),
-                  // Recent Activities
-                  Text('Recent Activity', style: AppTheme.heading2),
-                  const SizedBox(height: 24),
-                  ...listData.map((list) {
-                    final title = list['title'] as String;
-                    final isService = title == 'Recent Service Requests';
-                    final isRent = title == 'Recent Rent Collections';
-                    final isSubs = title == 'Recent Subscriptions';
-
-                    return Obx(() {
-                      // Explicitly read from the matching RxList so GetX
-                      // always has a registered observable dependency.
-                      final List<Map<String, dynamic>> rawData;
-                      if (isRent) {
-                        rawData = List<Map<String, dynamic>>.from(
-                          controller.recentRent,
-                        );
-                      } else if (isService) {
-                        rawData = List<Map<String, dynamic>>.from(
-                          controller.recentServices,
-                        );
-                      } else if (isSubs) {
-                        rawData = List<Map<String, dynamic>>.from(
-                          controller.recentSubs,
-                        );
-                      } else if (title == 'Property') {
-                        rawData = List<Map<String, dynamic>>.from(
-                          controller.propertyList,
-                        );
-                      } else if (title == 'Document') {
-                        rawData = List<Map<String, dynamic>>.from(
-                          controller.documentList,
-                        );
-                      } else {
-                        rawData = List<Map<String, dynamic>>.from(
-                          controller.supportList,
-                        );
-                      }
-
-                      final List<Map<String, dynamic>> data =
-                          controller.getFilteredData(rawData, query);
-
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 24),
-                        child: _ActivityListCard(
-                          title: title,
-                          data: data,
-                          color: list['color'] as Color,
-                          controller: controller,
-                          isService: isService,
-                          emptyMessage:
-                              isService
-                                  ? 'No recent service requests found.'
-                                  : isRent && data.isEmpty
-                                  ? 'Loading rent collections...'
-                                  : null,
                         ),
                       );
-                    });
-                  }).toList(),
-                ],
-              ),
+                    }),
+                  ],
+                ),
+                const SizedBox(height: 48),
+                Text('Recent Activity', style: AppTheme.heading2),
+                const SizedBox(height: 24),
+                ...listData.map((list) {
+                  final title = list['title'] as String;
+                  final isService = title == 'Recent Service Requests';
+                  final isRent = title == 'Recent Rent Collections';
+                  final isSubs = title == 'Recent Subscriptions';
+
+                  return Obx(() {
+                    final List<Map<String, dynamic>> rawData;
+                    if (isRent) {
+                      rawData = List<Map<String, dynamic>>.from(
+                        controller.recentRent,
+                      );
+                    } else if (isService) {
+                      rawData = List<Map<String, dynamic>>.from(
+                        controller.recentServices,
+                      );
+                    } else if (isSubs) {
+                      rawData = List<Map<String, dynamic>>.from(
+                        controller.recentSubs,
+                      );
+                    } else if (title == 'Property') {
+                      rawData = List<Map<String, dynamic>>.from(
+                        controller.propertyList,
+                      );
+                    } else if (title == 'Document') {
+                      rawData = List<Map<String, dynamic>>.from(
+                        controller.documentList,
+                      );
+                    } else {
+                      rawData = List<Map<String, dynamic>>.from(
+                        controller.supportList,
+                      );
+                    }
+
+                    final List<Map<String, dynamic>> data = controller
+                        .getFilteredData(rawData, query);
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 24),
+                      child: _ActivityListCard(
+                        title: title,
+                        data: data,
+                        color: list['color'] as Color,
+                        controller: controller,
+                        isService: isService,
+                        emptyMessage:
+                            isService
+                                ? 'No recent service requests found.'
+                                : isRent && data.isEmpty
+                                ? 'Loading rent collections...'
+                                : null,
+                      ),
+                    );
+                  });
+                }).toList(),
+              ],
             ),
+          ),
           if (selectedSub != null) ...[
             GestureDetector(
               onTap: () => controller.selectedSubscription.value = null,
@@ -251,6 +221,7 @@ class HomeView extends StatelessWidget {
             ),
           ],
         ],
+      ),
       );
     });
   }
@@ -304,6 +275,7 @@ class HomeView extends StatelessWidget {
                     }).toList(),
               ).then((String? newValue) {
                 if (newValue != null) {
+                  AppLogger.i('HomeView', 'Period changed to $newValue');
                   controller.updateGlobalPeriod(newValue);
                 }
               });
@@ -362,19 +334,23 @@ class _ActivityListCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      // Accessing length ensures GetX registers this as an observable dependency
-      // even if the specific key doesn't exist yet in the RxMap.
       controller.expandedLists.length;
       final isExpanded = controller.expandedLists[title] ?? false;
       return Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
-          color: isExpanded ? Colors.white : AppTheme.bgCard,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isExpanded ? const Color(0xFF2196F3) : AppTheme.border,
-            width: isExpanded ? 1.5 : 1.0,
-          ),
+          border: isExpanded
+              ? Border.all(color: const Color(0xFF2196F3), width: 1.5)
+              : null,
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF1565C0).withValues(alpha: 0.09),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Material(
           color: Colors.transparent,
@@ -477,12 +453,15 @@ class _ActivityListCard extends StatelessWidget {
                             ]
                             : data
                                 .take(10)
+                                .toList()
+                                .asMap()
+                                .entries
                                 .map(
-                                  (item) => _ActivityItemCard(
+                                  (entry) => _ActivityItemCard(
                                     key: ValueKey(
-                                      item['title'] ?? item.hashCode,
+                                      '${entry.value['type']}_${entry.value['id']}_${entry.value['title']}_${entry.key}',
                                     ),
-                                    item: item,
+                                    item: entry.value,
                                     title: title,
                                     controller: controller,
                                     onNavigateToProperty: _navigateToProperty,
@@ -510,7 +489,9 @@ class _ActivityListCard extends StatelessWidget {
         text.startsWith('Joined:') ||
         text.startsWith('Raised:') ||
         text.startsWith('Solved:') ||
-        text.startsWith('Added:');
+        text.startsWith('Added:') ||
+        text.startsWith('Paid:') ||
+        text.startsWith('Created:');
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
@@ -692,8 +673,6 @@ class _ActivityListCard extends StatelessWidget {
       });
     }
 
-    // If still not found (common for dashboard mock data), create a synthetic property model
-    // as a base instead of falling back to the first available property.
     property ??= PropertyModel(
       id: 'synth-${propName.hashCode}',
       name: propName,
@@ -764,7 +743,7 @@ class _ActivityListCard extends StatelessWidget {
       );
 
       pc.returnTabIndex.value = 0;
-      pc.selectedProperty.value = matchedProperty;
+      pc.openPropertyDetails(matchedProperty);
       nav.searchQuery.value = '';
       nav.currentIndex.value = 1;
     }
@@ -837,7 +816,7 @@ class _ActivityListCard extends StatelessWidget {
             ),
             title: Text('Service Request Details', style: AppTheme.heading2),
             content: SizedBox(
-              width: 400,
+              width: 320,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -930,7 +909,6 @@ class _ActivityListCard extends StatelessWidget {
   }
 }
 
-// ── Individual Activity Item Card with selected-state ─────────────────────────
 class _ActivityItemCard extends StatefulWidget {
   final Map<String, dynamic> item;
   final String title;
@@ -966,13 +944,11 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
   final Set<String> _brokenImages = {};
 
   Future<void> _handleTap() async {
-    // Show blue highlight immediately
     setState(() => _isSelected = true);
 
     final title = widget.title;
     final item = widget.item;
 
-    // Short delay so the blue border is visibly seen before any transition
     await Future.delayed(const Duration(milliseconds: 180));
 
     if (!mounted) return;
@@ -984,7 +960,8 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
       widget.onNavigateToProperty(item);
       if (mounted) setState(() => _isSelected = false);
     } else if (title == 'Recent Subscriptions') {
-      widget.controller.selectedSubscription.value = item;
+      if (mounted) setState(() => _isSelected = false);
+      return;
     } else if (title == 'Recent Service Requests') {
       if (mounted) setState(() => _isSelected = false);
       _showServiceChatDialog(context, item);
@@ -1031,7 +1008,6 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
               ),
               child: Column(
                 children: [
-                  // ── Chat Header ──────────────────────────────────────────
                   Container(
                     padding: const EdgeInsets.fromLTRB(20, 18, 16, 18),
                     decoration: const BoxDecoration(
@@ -1141,7 +1117,6 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                     ),
                   ),
 
-                  // ── Participants Bar ─────────────────────────────────────
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 20,
@@ -1169,7 +1144,6 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
 
                   Container(height: 1, color: const Color(0xFFE0E0E0)),
 
-                  // ── Chat Messages ────────────────────────────────────────
                   Expanded(
                     child:
                         messages.isEmpty
@@ -1230,7 +1204,6 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                             ),
                   ),
 
-                  // ── Footer ───────────────────────────────────────────────
                   Container(
                     padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
                     decoration: const BoxDecoration(
@@ -1350,7 +1323,6 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
     required bool isTenant,
     required bool isRead,
   }) {
-    // Tenant bubbles on LEFT (blue), Landlord bubbles on RIGHT (green)
     final Color bubbleColor =
         isTenant ? const Color(0xFFE3F2FD) : const Color(0xFFE8F5E9);
     final Color nameColor =
@@ -1423,7 +1395,6 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                       ),
                     ),
                     if (!isTenant) ...[
-                      // Show read status for landlord msgs
                       const SizedBox(width: 4),
                       Icon(
                         isRead ? Icons.done_all : Icons.done,
@@ -1711,11 +1682,55 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
     );
   }
 
+  void _openDocument(
+      BuildContext context,
+      Map<String, dynamic> item,
+      String type,
+      ) {
+    final isPdf = type.toLowerCase() == 'pdf';
+
+    if (isPdf) {
+      final fileUrl = _resolveDocUrl(
+        (item['relativePath'] ?? item['fileUrl'] ?? item['url'] ?? '')
+            .toString(),
+      );
+
+      if (fileUrl.isNotEmpty) {
+        Navigator.of(context, rootNavigator: true).push(
+          MaterialPageRoute(
+            builder: (_) => FullPdfPage(
+              url: fileUrl,
+              title: (item['title'] ?? 'Document').toString(),
+            ),
+          ),
+        );
+        return;
+      }
+    }
+    _showDocumentPreview(context, item, type);
+  }
+
+  String _resolveDocUrl(String path) {
+    final value = path.trim();
+    if (value.isEmpty || value.toLowerCase() == 'null') return '';
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      return value;
+    }
+    return 'https://amplify-agremate-dev-76a83-deployment.s3.ap-south-1.amazonaws.com/${value.startsWith('/') ? value.substring(1) : value}';
+  }
+
   void _showDocumentPreview(
     BuildContext context,
     Map<String, dynamic> item,
     String type,
   ) {
+    final String rawUrl = item['thumbnailUrl']?.toString().trim() ?? '';
+    final bool hasValidThumb =
+        rawUrl.isNotEmpty &&
+        rawUrl.toLowerCase() != 'null' &&
+        rawUrl.startsWith('http');
+    final String validUrl = hasValidThumb ? rawUrl : '';
+
     showDialog(
       context: context,
       builder:
@@ -1756,10 +1771,13 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                 ),
               ],
             ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+            content: SizedBox(
+              width: 600,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                 const Divider(),
                 const SizedBox(height: 12),
                 _buildPreviewRow(
@@ -1767,39 +1785,77 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                   item['propertyName'] ?? 'Green Villa',
                 ),
                 const SizedBox(height: 8),
-                _buildPreviewRow(
-                  'Landlord',
-                  item['landlordName'] ?? 'John Doe',
-                ),
+                _buildPreviewRow('Landlord', item['landlordName'] ?? 'N/A'),
                 const SizedBox(height: 8),
-                _buildPreviewRow('Status', 'Verified'),
+                _buildPreviewRow('Tenant', item['tenantName'] ?? 'N/A'),
                 const SizedBox(height: 8),
-                _buildPreviewRow('Uploaded', item['date'] ?? 'Oct 10, 2023'),
+                _buildPreviewRow('Uploaded', item['date'] ?? ''),
                 const SizedBox(height: 20),
                 Container(
-                  height: 120,
+                  height: 400,
                   width: double.infinity,
                   decoration: BoxDecoration(
                     color: AppTheme.bgCard,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: AppTheme.border),
                   ),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          _getFileIcon(type),
-                          size: 40,
-                          color: AppTheme.textSecondary.withValues(alpha: 0.5),
-                        ),
-                        const SizedBox(height: 8),
-                        Text('Preview not available', style: AppTheme.caption),
-                      ],
-                    ),
-                  ),
+                  child:
+                      hasValidThumb
+                          ? ClipRRect(
+                            borderRadius: BorderRadius.circular(11),
+                            child: WebNetworkImage(
+                              url: validUrl,
+                              fit: BoxFit.contain,
+                              loadingWidget: (context) => const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppTheme.accentBlue,
+                                ),
+                              ),
+                              errorWidget: (context) => Center(
+                                child: Column(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.broken_image,
+                                      size: 40,
+                                      color: AppTheme.textSecondary
+                                          .withValues(alpha: 0.5),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Image load failed',
+                                      style: AppTheme.caption,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          )
+                          : Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  _getFileIcon(type),
+                                  size: 40,
+                                  color: AppTheme.textSecondary.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Preview not available',
+                                  style: AppTheme.caption,
+                                ),
+                              ],
+                            ),
+                          ),
                 ),
               ],
+                ),
+              ),
             ),
             actions: [
               TextButton(
@@ -1812,15 +1868,42 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                 ),
               ),
               ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
                   Navigator.pop(context);
-                  Get.snackbar(
-                    'Downloading',
-                    'Downloading ${item['title']}...',
-                    backgroundColor: Colors.white,
-                    colorText: Colors.black,
-                    snackPosition: SnackPosition.BOTTOM,
-                  );
+                  final urlString =
+                      item['thumbnailUrl'] ?? item['relativePath'];
+                  if (urlString != null && urlString.toString().isNotEmpty) {
+                    final Uri url = Uri.parse(urlString);
+                    try {
+                      await downloadFileWeb(
+                        urlString,
+                        'document_${DateTime.now().millisecondsSinceEpoch}.${type.toLowerCase() == 'pdf' ? 'pdf' : 'jpg'}',
+                      );
+                    } catch (e) {
+                      if (await canLaunchUrl(url)) {
+                        await launchUrl(
+                          url,
+                          mode: LaunchMode.externalApplication,
+                        );
+                      } else {
+                        Get.snackbar(
+                          'Error',
+                          'Could not launch download link.',
+                          backgroundColor: Colors.red,
+                          colorText: Colors.white,
+                          snackPosition: SnackPosition.BOTTOM,
+                        );
+                      }
+                    }
+                  } else {
+                    Get.snackbar(
+                      'Error',
+                      'No valid download link found.',
+                      backgroundColor: Colors.red,
+                      colorText: Colors.white,
+                      snackPosition: SnackPosition.BOTTOM,
+                    );
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.accentBlue,
@@ -1874,6 +1957,13 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
         (item['fileTypes'] as List<dynamic>?)?.cast<String>() ?? [];
     if (types.isEmpty) return const SizedBox(width: 152);
 
+    final String rawUrl = item['thumbnailUrl']?.toString().trim() ?? '';
+    final bool hasValidThumb =
+        rawUrl.isNotEmpty &&
+        rawUrl.toLowerCase() != 'null' &&
+        rawUrl.startsWith('http');
+    final String validUrl = hasValidThumb ? rawUrl : '';
+
     return Container(
       width: 152,
       alignment: Alignment.centerLeft,
@@ -1897,6 +1987,9 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                   color = Colors.orange.shade400;
                   break;
                 case 'jpg':
+                case 'jpeg':
+                case 'png':
+                case 'image':
                   iconData = Icons.image;
                   color = Colors.blue.shade400;
                   break;
@@ -1905,7 +1998,7 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                   color = Colors.grey;
               }
               return InkWell(
-                onTap: () => _showDocumentPreview(context, item, type),
+                onTap: () => _openDocument(context, item, type),
                 child: Container(
                   width: 32,
                   height: 32,
@@ -1915,7 +2008,19 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                     borderRadius: BorderRadius.circular(4),
                     border: Border.all(color: color.withValues(alpha: 0.3)),
                   ),
-                  child: Icon(iconData, size: 16, color: color),
+                  child:
+                      hasValidThumb
+                          ? ClipRRect(
+                            borderRadius: BorderRadius.circular(3),
+                            child: Image.network(
+                              validUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder:
+                                  (_, __, ___) =>
+                                      Icon(iconData, size: 16, color: color),
+                            ),
+                          )
+                          : Icon(iconData, size: 16, color: color),
                 ),
               );
             }).toList(),
@@ -1928,9 +2033,9 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
       case 'Solved':
         return AppTheme.accentBlue;
       case 'In Progress':
-        return const Color(0xFF2196F3); // Blue
+        return const Color(0xFF2196F3);
       case 'Pending':
-        return const Color(0xFFF44336); // Red
+        return const Color(0xFFF44336);
       default:
         return AppTheme.textSecondary;
     }
@@ -1957,8 +2062,6 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
             : widget.title;
 
     return Obx(() {
-      // Accessing the value first ensures GetX registers the dependency even if the
-      // title check would otherwise short-circuit the expression.
       final currentSub = widget.controller.selectedSubscription.value;
       final isSubSelected =
           title == 'Recent Subscriptions' && currentSub == item;
@@ -2008,7 +2111,6 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // ── Left: Main Info ──────────────────────────────────────────
                     Expanded(
                       flex: 4,
                       child: Column(
@@ -2035,6 +2137,16 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                               item['tenantName'] ?? '',
                               Colors.black,
                             ),
+                            if ((item['status'] ?? '')
+                                .toString()
+                                .isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              widget.buildLabelValue(
+                                'Status',
+                                item['status'] ?? '',
+                                Colors.black,
+                              ),
+                            ],
                           ] else if (title == 'Recent Service Requests') ...[
                             Text(
                               item['propertyName'] ?? '',
@@ -2065,9 +2177,8 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                                 fontSize: 15,
                               ),
                             ),
-                            const SizedBox(height: 8),
                             Text(
-                              'Plan: ${item['detail']!.replaceAll('Subscription', '').replaceAll('Plan:', '').trim()}',
+                              item['detail']!,
                               style: AppTheme.bodyText.copyWith(
                                 color: AppTheme.textSecondary,
                                 fontWeight: FontWeight.w500,
@@ -2111,8 +2222,14 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                             const SizedBox(height: 4),
                             widget.buildLabelValue(
                               'Landlord',
-                              item['landlordName'] ?? 'John Doe',
+                              item['landlordName'] ?? '',
                               AppTheme.landlordFill,
+                            ),
+                            const SizedBox(height: 2),
+                            widget.buildLabelValue(
+                              'Tenant',
+                              item['tenantName'] ?? '',
+                              AppTheme.tenantFill,
                             ),
                           ] else if (title == 'Support') ...[
                             Text(
@@ -2160,7 +2277,6 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
 
                     const SizedBox(width: 16),
 
-                    // ── Right: Metadata + Chips ──────────────────────────────────
                     Expanded(
                       flex: 6,
                       child: Column(
@@ -2256,6 +2372,24 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                                         Icons.calendar_today_outlined,
                                         'Joined: ${item['joinedDate']}',
                                       ),
+                                      if ((item['paymentDate'] ?? '')
+                                          .toString()
+                                          .isNotEmpty) ...[
+                                        const SizedBox(height: 6),
+                                        widget.buildMetadataRow(
+                                          Icons.payments_outlined,
+                                          'Paid: ${item['paymentDate']}',
+                                        ),
+                                      ],
+                                      if ((item['createdDate'] ?? '')
+                                          .toString()
+                                          .isNotEmpty) ...[
+                                        const SizedBox(height: 6),
+                                        widget.buildMetadataRow(
+                                          Icons.home_outlined,
+                                          'Created: ${item['createdDate']}',
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ),
@@ -2347,13 +2481,13 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                                     item['resolvedDate'] != null) ...[
                                   const SizedBox(
                                     height: 2,
-                                  ), // Further reduced vertical gap
+                                  ),
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.end,
                                     children: [
                                       const SizedBox(
                                         width: 140,
-                                      ), // Spacer for chip column
+                                      ),
                                       const SizedBox(width: 10),
                                       SizedBox(
                                         width: 170,
@@ -2364,7 +2498,7 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                                               size: 14,
                                               color:
                                                   Colors
-                                                      .black, // Changed to black
+                                                      .black,
                                             ),
                                             const SizedBox(width: 4),
                                             Expanded(
@@ -2374,7 +2508,7 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                                                   fontSize: 10.5,
                                                   color:
                                                       Colors
-                                                          .black, // Changed to black
+                                                          .black,
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                                 overflow: TextOverflow.ellipsis,
@@ -2419,7 +2553,6 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                // Chip + Location Row (Ensures horizontal alignment)
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
@@ -2485,7 +2618,6 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                                             const SizedBox(width: 4),
                                             InkWell(
                                               onTap: () {
-                                                // Placeholder for more options
                                               },
                                               child: const Icon(
                                                 Icons.more_vert,
@@ -2500,7 +2632,6 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                                   ],
                                 ),
                                 const SizedBox(height: 1),
-                                // Joined Date Row
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
@@ -2579,33 +2710,16 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                                     const SizedBox(width: 4),
                                     const SizedBox(
                                       width: 100,
-                                    ), // Spacer for alignment
+                                    ),
                                     const SizedBox(width: 8),
                                     Flexible(
                                       flex: 3,
                                       child: SizedBox(
                                         width: 120,
                                         child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.end,
                                           children: [
-                                            const Icon(
-                                              Icons.location_on_outlined,
-                                              size: 14,
-                                              color: Colors.black,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Expanded(
-                                              child: Text(
-                                                item['location'] ??
-                                                    'Not specified',
-                                                style: AppTheme.caption
-                                                    .copyWith(
-                                                      fontSize: 10,
-                                                      color: Colors.black,
-                                                    ),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 4),
                                             InkWell(
                                               onTap: () {},
                                               child: const Icon(
@@ -2621,9 +2735,8 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                                   ],
                                 ),
                                 const SizedBox(height: 1),
-                                // Date Row
                                 SizedBox(
-                                  width: 120,
+                                  width: 160,
                                   child: Row(
                                     children: [
                                       const Icon(
@@ -2634,7 +2747,7 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                                       const SizedBox(width: 4),
                                       Expanded(
                                         child: Text(
-                                          'Added: ${item['date'] ?? 'Jan 2024'}',
+                                          'Added: ${item['date'] ?? ''}',
                                           style: AppTheme.caption.copyWith(
                                             fontSize: 10.5,
                                             color: Colors.black,
@@ -2730,8 +2843,28 @@ class _HomeServiceRequestCard extends StatelessWidget {
                           Text(
                             item['tenantName'] != null &&
                                     item['tenantName'] != 'N/A'
-                                ? 'By ${item['tenantName']}'
+                                ? 'Tenant: ${item['tenantName']}'
                                 : 'No Tenant',
+                            style: AppTheme.caption.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.business_center_outlined,
+                            size: 14,
+                            color: AppTheme.textMuted,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            item['landlordName'] != null &&
+                                    item['landlordName'] != 'N/A'
+                                ? 'Landlord: ${item['landlordName']}'
+                                : 'No Landlord',
                             style: AppTheme.caption.copyWith(
                               fontWeight: FontWeight.w600,
                             ),
@@ -2780,7 +2913,7 @@ class _HomeServiceRequestCard extends StatelessWidget {
                             'Solved: ${item['resolvedDate']}',
                           )
                         else
-                          const SizedBox(width: 170), // Maintain alignment
+                          const SizedBox(width: 170),
                       ],
                     ),
                   ],
@@ -2894,7 +3027,6 @@ class _HomeServiceRequestCard extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Chat Header
                       Container(
                         decoration: const BoxDecoration(
                           gradient: LinearGradient(
@@ -3038,7 +3170,6 @@ class _HomeServiceRequestCard extends StatelessWidget {
                         ),
                       ),
 
-                      // Participants Bar
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 20,
@@ -3066,7 +3197,6 @@ class _HomeServiceRequestCard extends StatelessWidget {
 
                       Container(height: 1, color: const Color(0xFFE0E0E0)),
 
-                      // Chat Messages
                       Expanded(
                         child:
                             messages.isEmpty
@@ -3132,7 +3262,6 @@ class _HomeServiceRequestCard extends StatelessWidget {
                                 ),
                       ),
 
-                      // Footer
                       Container(
                         padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
                         decoration: const BoxDecoration(

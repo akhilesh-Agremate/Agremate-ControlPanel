@@ -1,4 +1,6 @@
 import 'package:get/get.dart';
+import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
+import 'package:agremate_admin/modules/property/controller/property_controller.dart';
 import 'package:agremate_admin/modules/service_request/model/service_request_model.dart';
 import 'package:agremate_admin/modules/services/repository/services_repository.dart';
 import 'package:agremate_admin/core/constants/constants.dart';
@@ -10,14 +12,14 @@ class ServicesController extends GetxController {
   final recentRequests = <ServiceRequestModel>[].obs;
   final selectedServiceType = ''.obs;
   final filteredRequests = <ServiceRequestModel>[].obs;
+  final categoryCounts = <String, int>{}.obs;
   final isLoading = true.obs;
   final errorMessage = ''.obs;
 
-  // ── Computed counts from real API data ──────────────────────────────────
   Map<String, int> get serviceCounts {
     final counts = <String, int>{};
     for (final type in AppConstants.serviceTypes) {
-      counts[type] = serviceRequests.where((r) => r.serviceType == type).length;
+      counts[type] = categoryCounts[type] ?? 0;
     }
     return counts;
   }
@@ -43,26 +45,40 @@ class ServicesController extends GetxController {
     try {
       isLoading.value = true;
       errorMessage.value = '';
-      final data = await _repo.getAllMaintenanceRequests();
+      final data = await _repo.getDashboardServices();
+      final items = List<ServiceRequestModel>.from(data['requests'] as List);
+      items.sort((a, b) => b.requestDate.compareTo(a.requestDate));
 
-      // Sort by requestDate (descending)
-      data.sort((a, b) => b.requestDate.compareTo(a.requestDate));
+      if (_isRestricted() &&
+          Get.isRegistered<PropertyController>() &&
+          Get.find<PropertyController>().properties.isEmpty) {
+        await Get.find<PropertyController>().fetchProperties();
+      }
 
-      serviceRequests.value = data;
+      final visible = _visibleRequests(items);
+      serviceRequests.value = visible;
+      recentRequests.value = visible.take(10).toList();
 
-      // Get top 10 most recent
-      recentRequests.value = data.take(10).toList();
+      if (_isRestricted()) {
+        final counts = <String, int>{};
+        for (final type in AppConstants.serviceTypes) {
+          counts[type] = visible.where((r) => r.serviceType == type).length;
+        }
+        categoryCounts.assignAll(counts);
+      } else {
+        categoryCounts.assignAll(
+          Map<String, int>.from(data['counts'] as Map),
+        );
+      }
 
-      // Re-apply filter if a type is selected
       if (selectedServiceType.value.isNotEmpty) {
         filteredRequests.value =
-            data
+            visible
                 .where((r) => r.serviceType == selectedServiceType.value)
                 .toList();
       }
     } catch (e) {
       errorMessage.value = 'Failed to load service requests: $e';
-      print('ServicesController.fetchRequests error: $e');
     } finally {
       isLoading.value = false;
     }
@@ -95,7 +111,6 @@ class ServicesController extends GetxController {
       return;
     }
 
-    // Global search across all requests when a query is present
     filteredRequests.value =
         serviceRequests
             .where(
@@ -109,4 +124,44 @@ class ServicesController extends GetxController {
   }
 
   void refresh() => fetchRequests();
+
+  List<ServiceRequestModel> _visibleRequests(List<ServiceRequestModel> items) {
+    if (!Get.isRegistered<AuthController>()) return items;
+    final auth = Get.find<AuthController>();
+    if (!auth.isRestrictedRole) return items;
+
+    final ids = <String>{};
+    final names = <String>{};
+    if (Get.isRegistered<PropertyController>()) {
+      for (final p in Get.find<PropertyController>().properties) {
+        if (p.id.isNotEmpty) ids.add(p.id);
+        if (p.name.isNotEmpty) names.add(p.name.toLowerCase());
+      }
+    }
+
+    final userName = auth.userName.value.trim().toLowerCase();
+    return items.where((r) {
+      if (r.propertyId.isNotEmpty && ids.contains(r.propertyId)) return true;
+      if (r.propertyName.isNotEmpty &&
+          names.contains(r.propertyName.toLowerCase())) {
+        return true;
+      }
+      if (auth.isLandlord &&
+          userName.isNotEmpty &&
+          r.landlordName.trim().toLowerCase() == userName) {
+        return true;
+      }
+      if (auth.isTenant &&
+          userName.isNotEmpty &&
+          r.tenantName.trim().toLowerCase() == userName) {
+        return true;
+      }
+      return false;
+    }).toList();
+  }
+
+  bool _isRestricted() {
+    if (!Get.isRegistered<AuthController>()) return false;
+    return Get.find<AuthController>().isRestrictedRole;
+  }
 }

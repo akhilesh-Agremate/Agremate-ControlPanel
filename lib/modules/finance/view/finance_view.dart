@@ -37,7 +37,6 @@ class FinanceView extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Total Revenue KPI
             Row(
               children: [
                 Expanded(
@@ -128,7 +127,6 @@ class FinanceView extends StatelessWidget {
             ),
             const SizedBox(height: 28),
 
-            // Revenue trend chart
             GlassCard(
               glowColor: AppTheme.accentGreen,
               child: Column(
@@ -230,9 +228,7 @@ class FinanceView extends StatelessWidget {
             ),
             const SizedBox(height: 28),
 
-            // Rented properties list or payment detail
             if (fc.selectedPropertyName.value.isNotEmpty) ...[
-              // Payment detail
               Row(
                 children: [
                   IconButton(
@@ -246,7 +242,6 @@ class FinanceView extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              // Landlord/Tenant info
               if (fc.selectedPropertyPayments.isNotEmpty) ...[
                 GlassCard(
                   color: AppTheme.landlordBg,
@@ -286,7 +281,6 @@ class FinanceView extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 16),
-              // Monthly payments table
               Container(
                 width: double.infinity,
                 decoration: AppTheme.solidCardDecoration(),

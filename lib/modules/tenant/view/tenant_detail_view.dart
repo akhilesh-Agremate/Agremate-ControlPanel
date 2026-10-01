@@ -29,13 +29,12 @@ class TenantDetailView extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Back Button & Header
             Row(
               children: [
                 IconButton(
                   onPressed: () {
                     pc.selectedTenantDetails.value = null;
-                    nav.currentIndex.value = 6; // Back to User Management
+                    nav.currentIndex.value = 6;
                   },
                   icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
                 ),
@@ -65,7 +64,6 @@ class TenantDetailView extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Left Column: Profile & Personal Info
                 Expanded(
                   flex: 3,
                   child: Column(
@@ -97,7 +95,6 @@ class TenantDetailView extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      // Stats Row
                       Row(
                         children: [
                           Expanded(
@@ -114,7 +111,6 @@ class TenantDetailView extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 24),
-                      // Family Members
                       if (user.familyMembers.isNotEmpty)
                         GlassCard(
                           padding: const EdgeInsets.all(24),
@@ -152,7 +148,6 @@ class TenantDetailView extends StatelessWidget {
                       ),
                     ),
                       const SizedBox(height: 24),
-                      // Vehicles
                       if (user.vehicles.isNotEmpty)
                         GlassCard(
                           padding: const EdgeInsets.all(24),
@@ -201,7 +196,7 @@ class TenantDetailView extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 24),
-                // Right Column: Properties
+
                 Expanded(
                   flex: 5,
                   child: Column(

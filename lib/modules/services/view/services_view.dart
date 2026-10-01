@@ -16,7 +16,6 @@ class ServicesView extends StatelessWidget {
     final nav = Get.find<NavigationController>();
 
     return Obx(() {
-      // Loading state
       if (sc.isLoading.value) {
         return const Center(
           child: Column(
@@ -33,7 +32,6 @@ class ServicesView extends StatelessWidget {
         );
       }
 
-      // Error state
       if (sc.errorMessage.value.isNotEmpty) {
         return Center(
           child: Column(
@@ -81,10 +79,9 @@ class ServicesView extends StatelessWidget {
               style: AppTheme.caption,
             ),
             const SizedBox(height: 24),
-            // Service cards grid
             Wrap(
-              spacing: 16,
-              runSpacing: 16,
+              spacing: 12,
+              runSpacing: 12,
               children:
                   AppConstants.serviceTypes.map((type) {
                     final color =
@@ -95,7 +92,7 @@ class ServicesView extends StatelessWidget {
                     final isSelected = sc.selectedServiceType.value == type;
 
                     return SizedBox(
-                      width: 220,
+                      width: 140,
                       child: GlassCard(
                         color: Colors.white,
                         borderColor:
@@ -103,7 +100,7 @@ class ServicesView extends StatelessWidget {
                         glowColor:
                             isSelected ? color : color.withValues(alpha: 0.5),
                         onTap: () => sc.selectServiceType(type),
-                        padding: const EdgeInsets.all(20),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
                         child: SizedBox(
                           width: double.infinity,
                           child: Column(
@@ -144,8 +141,11 @@ class ServicesView extends StatelessWidget {
                                 type,
                                 style: AppTheme.heading3.copyWith(
                                   color: AppTheme.textPrimary,
+                                  fontSize: 14,
                                 ),
                                 textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: 6),
                               Text(
@@ -175,7 +175,6 @@ class ServicesView extends StatelessWidget {
                   }).toList(),
             ),
             const SizedBox(height: 32),
-            // Dynamic section: either Category results or Recent requests
             Obx(() {
               if (sc.searchQuery.value.isNotEmpty) {
                 return Column(
@@ -246,7 +245,6 @@ class ServicesView extends StatelessWidget {
                   ],
                 );
               } else {
-                // Default: Show Recent Service Requests
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -303,7 +301,7 @@ class ServicesView extends StatelessWidget {
                       width: 5,
                       height: 60,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2083D5), // Uniform Agremate Blue
+                        color: const Color(0xFF2083D5),
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -412,13 +410,7 @@ class ServicesView extends StatelessWidget {
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: (req.status == 'pending'
-                                            ? AppTheme.brandRed
-                                            : (req.status == 'in_progress'
-                                                ? AppTheme.accentGreen
-                                                : (req.status == 'completed'
-                                                    ? AppTheme.accentBlue
-                                                    : AppTheme.accentCyan)))
+                                    color: _statusColor(req.status)
                                         .withValues(alpha: 0.5),
                                     width: 1,
                                   ),
@@ -427,14 +419,7 @@ class ServicesView extends StatelessWidget {
                                 child: Text(
                                   req.status.replaceAll('_', ' ').toUpperCase(),
                                   style: TextStyle(
-                                    color:
-                                        req.status == 'pending'
-                                            ? AppTheme.brandRed
-                                            : (req.status == 'in_progress'
-                                                ? AppTheme.accentGreen
-                                                : (req.status == 'completed'
-                                                    ? AppTheme.accentBlue
-                                                    : AppTheme.accentCyan)),
+                                    color: _statusColor(req.status),
                                     fontSize: 11,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -487,7 +472,9 @@ class ServicesView extends StatelessWidget {
     final List<Map<String, dynamic>> messages = req.chatMessages;
     final String propertyName = req.propertyName;
     final String issue = req.description;
-    final String status = req.status == 'completed' ? 'Solved' : 'Pending';
+    final String status = req.status == 'completed'
+        ? 'Solved'
+        : req.status.replaceAll('_', ' ');
     final String tenantName = req.tenantName;
     final String landlordName = req.landlordName;
     final String location = req.location;
@@ -525,7 +512,6 @@ class ServicesView extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Chat Header
                       Container(
                         decoration: const BoxDecoration(
                           gradient: LinearGradient(
@@ -610,10 +596,7 @@ class ServicesView extends StatelessWidget {
                                             vertical: 4,
                                           ),
                                           decoration: BoxDecoration(
-                                            color:
-                                                status == 'Solved'
-                                                    ? const Color(0xFF43A047)
-                                                    : const Color(0xFFE53935),
+                                            color: _statusColor(req.status),
                                             borderRadius: BorderRadius.circular(
                                               20,
                                             ),
@@ -669,7 +652,6 @@ class ServicesView extends StatelessWidget {
                         ),
                       ),
 
-                      // Participants Bar
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 20,
@@ -697,7 +679,6 @@ class ServicesView extends StatelessWidget {
 
                       Container(height: 1, color: const Color(0xFFE0E0E0)),
 
-                      // Chat Messages
                       Expanded(
                         child:
                             messages.isEmpty
@@ -763,7 +744,6 @@ class ServicesView extends StatelessWidget {
                                 ),
                       ),
 
-                      // Footer
                       Container(
                         padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
                         decoration: const BoxDecoration(
@@ -991,5 +971,21 @@ class ServicesView extends StatelessWidget {
         color: isTenant ? const Color(0xFF1E88E5) : const Color(0xFF43A047),
       ),
     );
+  }
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'pending':
+        return AppTheme.brandRed;
+      case 'rejected':
+        return AppTheme.brandRed;
+      case 'accepted':
+      case 'in_progress':
+        return AppTheme.accentGreen;
+      case 'completed':
+        return AppTheme.accentBlue;
+      default:
+        return AppTheme.accentCyan;
+    }
   }
 }

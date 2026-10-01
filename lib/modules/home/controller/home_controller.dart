@@ -1,13 +1,25 @@
 import 'package:get/get.dart';
-import 'package:agremate_admin/modules/services/repository/services_repository.dart';
+import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
 import 'package:agremate_admin/modules/service_request/model/service_request_model.dart';
 import 'package:agremate_admin/modules/property/controller/property_controller.dart';
-import 'package:agremate_admin/modules/property/repository/property_repository.dart';
+
+import '../model/dashboard_overview_model.dart';
+import '../model/rent_collection_model.dart';
+import '../repository/dashboard_repository.dart';
 
 class HomeController extends GetxController {
-  final _servicesRepo = ServicesRepository();
-  final _propertyRepo = PropertyRepository();
   final isLoading = false.obs;
+  final _dashboardRepo = DashboardRepository();
+  final overview = Rxn<DashboardOverviewModel>();
+  final isOverviewLoading = false.obs;
+  final showRentCollectionDetails = false.obs;
+  final rentCollections = <RentCollectionModel>[].obs;
+  final isRentCollectionsLoading = false.obs;
+  final rentCollectionsError = ''.obs;
+  final showPendingPaymentDetails = false.obs;
+  final pendingPayments = <RentCollectionModel>[].obs;
+  final isPendingPaymentsLoading = false.obs;
+  final pendingPaymentsError = ''.obs;
 
   final List<String> periods = [
     'This Month',
@@ -17,7 +29,6 @@ class HomeController extends GetxController {
     'Last Year',
   ];
 
-  // Selected periods for each card
   var globalPeriod = 'This Month'.obs;
   var rentPeriod = 'This Month'.obs;
   var pendingPeriod = 'This Month'.obs;
@@ -32,7 +43,6 @@ class HomeController extends GetxController {
     subExpiredPeriod.value = newPeriod;
   }
 
-  // Search state
   final searchQuery = ''.obs;
   final filteredResults = <Map<String, dynamic>>[].obs;
 
@@ -46,7 +56,6 @@ class HomeController extends GetxController {
     final q = query.toLowerCase();
     final results = <Map<String, dynamic>>[];
 
-    // 1. Properties
     results.addAll(
       propertyList.where(
         (item) =>
@@ -56,7 +65,6 @@ class HomeController extends GetxController {
       ),
     );
 
-    // 2. Services
     results.addAll(
       recentServices.where(
         (item) =>
@@ -65,8 +73,6 @@ class HomeController extends GetxController {
             (item['description'] ?? '').toString().toLowerCase().contains(q),
       ),
     );
-
-    // 3. Rent
     results.addAll(
       recentRent.where(
         (item) =>
@@ -75,7 +81,6 @@ class HomeController extends GetxController {
       ),
     );
 
-    // 4. Subscriptions
     results.addAll(
       recentSubs.where(
         (item) =>
@@ -84,7 +89,6 @@ class HomeController extends GetxController {
       ),
     );
 
-    // Remove potential duplicates
     final seen = <String>{};
     filteredResults.assignAll(
       results.where((r) => seen.add('${r['id']}-${r['title']}')).toList(),
@@ -115,117 +119,249 @@ class HomeController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    fetchRecentServices();
-    fetchRecentRent();
-    fetchRecentProperties();
+    fetchOverview();
+    fetchRecentActivity();
   }
 
-  Future<void> fetchRecentServices() async {
+  Future<void> fetchOverview() async {
+    try {
+      print('fetchOverview: starting');
+      isOverviewLoading.value = true;
+      overview.value = await _dashboardRepo.getOverview();
+      print('fetchOverview: success ${overview.value?.totalRentCollections}');
+    } catch (e, st) {
+      print('HomeController.fetchOverview error: $e');
+      print(st);
+      overview.value = null;
+    } finally {
+      isOverviewLoading.value = false;
+    }
+  }
+
+  String _formatINR(num value) {
+    final s = value.round().abs().toString();
+    String grouped;
+    if (s.length <= 3) {
+      grouped = s;
+    } else {
+      final last3 = s.substring(s.length - 3);
+      var rest = s.substring(0, s.length - 3);
+      final parts = <String>[];
+      while (rest.length > 2) {
+        parts.insert(0, rest.substring(rest.length - 2));
+        rest = rest.substring(0, rest.length - 2);
+      }
+      if (rest.isNotEmpty) parts.insert(0, rest);
+      grouped = '${parts.join(',')},$last3';
+    }
+    return '${value < 0 ? '-' : ''}₹$grouped';
+  }
+
+  Future<void> fetchRecentActivity() async {
     try {
       isLoading.value = true;
-      final requests = await _servicesRepo.getAllMaintenanceRequests();
-      print(
-        'HomeController: Fetched ${requests.length} total service requests',
-      );
-
-      // 1. Remove duplicates by ID
-      final uniqueRequests = <String, ServiceRequestModel>{};
-      for (var r in requests) {
-        if (r.id.isNotEmpty) {
-          uniqueRequests[r.id] = r;
+      final result = await _dashboardRepo.getRecentActivity();
+      final createdDates = <String, String>{};
+      for (final item in _asMapList(result['recentProperties'])) {
+        final id = (item['propertyId'] ?? item['id'] ?? '').toString();
+        final created = _formatDateString(
+          item['createdDate'] ?? item['createdAt'],
+        );
+        if (id.isNotEmpty && created.isNotEmpty) {
+          createdDates[id] = created;
         }
       }
-      var processedList = uniqueRequests.values.toList();
 
-      // 2. Sort by date descending (newest first)
-      processedList.sort((a, b) => b.requestDate.compareTo(a.requestDate));
-
-      // 3. Take top 10 most recent
-      final top10 = processedList.take(10).toList();
-
-      // Try to get landlord info from PropertyController if available
-      final pc =
-          Get.isRegistered<PropertyController>()
-              ? Get.find<PropertyController>()
-              : null;
-
-      // Map to the format expected by HomeView
-      final mapped =
-          top10.map((r) {
-            String landlord = r.landlordName;
-            if (pc != null && landlord == 'N/A') {
-              final prop = pc.properties.firstWhereOrNull(
-                (p) => p.id == r.propertyId,
-              );
-              if (prop != null) {
-                landlord = prop.landlordName;
-              }
-            }
-
+      recentRent.assignAll(
+        _visibleActivityMaps(
+          _asMapList(result['recentRentCollections']).map((item) {
+            final propertyId = (item['propertyId'] ?? '').toString();
             return {
-              'id': r.id,
-              'title': r.propertyName,
-              'propertyName': r.propertyName,
-              'detail': 'Issue: ${r.description}',
-              'landlordName': landlord,
-              'tenantName': r.tenantName.isNotEmpty ? r.tenantName : 'N/A',
-              'location': r.location,
-              'raisedDate': _formatDate(r.requestDate),
-              'resolvedDate':
-                  r.completedDate != null
-                      ? _formatDate(r.completedDate!)
-                      : null,
-              'status': r.status,
-              'activeStatus':
-                  r.status == 'completed' || r.status == 'solved'
-                      ? 'Completed'
-                      : 'Active',
-              'chatMessages': r.chatMessages,
-              'type': 'service',
-              'rawModel': r, // Add the raw model for specialized rendering
+              'id': propertyId,
+              'title': item['propertyName'] ?? '',
+              'propertyName': item['propertyName'] ?? '',
+              'tenantName': item['tenantName'] ?? 'N/A',
+              'landlordName': item['landlordName'] ?? 'N/A',
+              'rentAmount': '₹${_formatAmount(item['rent'])}',
+              'advanceAmount': '₹${_formatAmount(item['advance'])}',
+              'status': item['status'] ?? '',
+              'location': item['location'] ?? '',
+              'joinedDate': _formatDateString(item['joinedDate']),
+              'paymentDate': _formatDateString(item['paymentDate']),
+              'createdDate': createdDates[propertyId] ?? '',
+              'type': 'rent',
             };
-          }).toList();
+          }).toList(),
+        ),
+      );
 
-      if (mapped.isEmpty) {
-        _provideMockServices();
-      } else {
-        recentServices.assignAll(mapped);
+      recentSubs.assignAll(
+        _visibleActivityMaps(
+          _asMapList(result['recentSubscriptions']).map((item) {
+            return {
+              'id': (item['id'] ?? item['landlordId'] ?? '').toString(),
+              'title': item['landlordName'] ?? 'Subscription',
+              'propertyName': item['planName'] ?? '',
+              'landlordName': item['landlordName'] ?? 'N/A',
+              'type': 'subscription',
+              'status': item['status'] ?? '',
+              'detail': item['planName'] ?? '',
+            };
+          }).toList(),
+        ),
+      );
+
+      recentServices.assignAll(
+        _visibleActivityMaps(
+          _asMapList(result['recentServiceRequests']).map((item) {
+            final model = ServiceRequestModel.fromJson(item);
+            return {
+              'id': model.id,
+              'title': model.propertyName,
+              'propertyName': model.propertyName,
+              'detail': 'Issue: ${model.description}',
+              'landlordName':
+                  model.landlordName.isNotEmpty ? model.landlordName : 'N/A',
+              'tenantName':
+                  model.tenantName.isNotEmpty ? model.tenantName : 'N/A',
+              'location': item['location'] ?? model.location,
+              'raisedDate': _formatDate(model.requestDate),
+              'resolvedDate': model.completedDate != null
+                  ? _formatDate(model.completedDate!)
+                  : null,
+              'status': item['status'] ?? model.status,
+              'chatMessages': model.chatMessages,
+              'type': 'service',
+              'rawModel': model,
+            };
+          }).toList(),
+        ),
+      );
+
+      propertyList.assignAll(
+        _visibleActivityMaps(
+          _asMapList(result['recentProperties']).map((item) {
+            return {
+              'id': (item['propertyId'] ?? item['id'] ?? '').toString(),
+              'title': item['propertyName'] ?? item['name'] ?? '',
+              'landlordName': item['landlordName'] ?? 'N/A',
+              'tenantName': item['tenantName'] ?? 'N/A',
+              'location': item['location'] ?? item['address'] ?? '',
+              'status': item['status'] ?? '',
+              'joinedDate': _formatDateString(item['createdDate']),
+              'propertyImages': item['thumbnailUrl'] != null &&
+                      item['thumbnailUrl'].toString().isNotEmpty
+                  ? [item['thumbnailUrl'].toString()]
+                  : <String>[],
+              'type': 'property',
+            };
+          }).toList(),
+        ),
+      );
+
+      final docs = _asMapList(result['recentDocuments']).map((item) {
+        final fileName =
+            (item['fileName'] ?? item['documentName'] ?? '').toString();
+        final ext = fileName.contains('.')
+            ? fileName.split('.').last.toLowerCase()
+            : 'pdf';
+        return <String, dynamic>{
+          'id': (item['documentId'] ?? item['id'] ?? '').toString(),
+          'title': fileName,
+          'propertyId': (item['propertyId'] ?? '').toString(),
+          'propertyName': item['propertyName'] ?? 'Unknown Property',
+          'tenantName': item['tenantName'] ?? 'N/A',
+          'landlordName': item['landlordName'] ?? 'N/A',
+          'fileTypes': [ext],
+          'date': _formatDateString(
+            item['uploadedDate'] ?? item['createdDate'],
+          ),
+          'sortDate': DateTime.tryParse(
+                (item['uploadedDate'] ?? item['createdDate'] ?? '').toString(),
+              ) ??
+              DateTime.fromMillisecondsSinceEpoch(0),
+          'type': 'document',
+          'thumbnailUrl': item['thumbnailUrl'] ?? '',
+          'relativePath': item['documentUrl'] ?? '',
+          'documentUrl': item['documentUrl'] ?? '',
+        };
+      }).toList();
+      docs.sort(
+        (a, b) => (b['sortDate'] as DateTime).compareTo(a['sortDate'] as DateTime),
+      );
+      final uniqueDocs = <String, Map<String, dynamic>>{};
+      for (final doc in docs) {
+        final key = (doc['propertyId'] as String).isNotEmpty
+            ? doc['propertyId'] as String
+            : doc['propertyName'] as String;
+        uniqueDocs.putIfAbsent(key, () => doc);
       }
+      documentList.assignAll(_visibleActivityMaps(uniqueDocs.values.toList()));
     } catch (e) {
-      print('HomeController.fetchRecentServices error: $e');
-      _provideMockServices();
+      recentRent.clear();
+      recentSubs.clear();
+      recentServices.clear();
+      propertyList.clear();
+      documentList.clear();
     } finally {
       isLoading.value = false;
     }
   }
 
-  void _provideMockServices() {
-    recentServices.assignAll([
-      {
-        'title': 'Leaking Tap',
-        'propertyName': 'Green Villa 101',
-        'detail': 'Issue: Water leaking from the kitchen tap.',
-        'landlordName': 'John Doe',
-        'tenantName': 'Alex Smith',
-        'location': 'Block A, Mumbai',
-        'raisedDate': 'May 12, 2024',
-        'status': 'Pending',
-        'activeStatus': 'Active',
-        'chatMessages': [],
-      },
-      {
-        'title': 'AC Maintenance',
-        'propertyName': 'Sunshine Apt 402',
-        'detail': 'Issue: AC not cooling properly.',
-        'landlordName': 'Mehta Singh',
-        'tenantName': 'Rahul Kumar',
-        'location': 'Block C, Pune',
-        'raisedDate': 'May 10, 2024',
-        'status': 'Solved',
-        'activeStatus': 'Completed',
-        'chatMessages': [],
-      },
-    ]);
+  List<Map<String, dynamic>> _asMapList(dynamic value) {
+    if (value is! List) return [];
+    return value
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+  }
+
+  String _formatDateString(dynamic value) {
+    final parsed = DateTime.tryParse(value?.toString() ?? '');
+    if (parsed == null) return '';
+    return _formatDate(parsed);
+  }
+
+  List<Map<String, dynamic>> _visibleActivityMaps(
+    List<Map<String, dynamic>> items,
+  ) {
+    if (!Get.isRegistered<AuthController>()) return items;
+    final auth = Get.find<AuthController>();
+    if (!auth.isRestrictedRole) return items;
+
+    final propertyIds = <String>{};
+    final propertyNames = <String>{};
+    if (Get.isRegistered<PropertyController>()) {
+      for (final p in Get.find<PropertyController>().properties) {
+        if (p.id.isNotEmpty) propertyIds.add(p.id);
+        if (p.name.isNotEmpty) propertyNames.add(p.name.toLowerCase());
+      }
+    }
+    final userName = auth.userName.value.trim().toLowerCase();
+    return items.where((item) {
+      final propertyId = (item['id'] ?? item['propertyId'] ?? '').toString();
+      final propertyName =
+          (item['propertyName'] ?? item['title'] ?? '').toString().toLowerCase();
+      if (propertyId.isNotEmpty && propertyIds.contains(propertyId)) {
+        return true;
+      }
+      if (propertyName.isNotEmpty && propertyNames.contains(propertyName)) {
+        return true;
+      }
+      if (auth.isLandlord &&
+          userName.isNotEmpty &&
+          (item['landlordName'] ?? '').toString().trim().toLowerCase() ==
+              userName) {
+        return true;
+      }
+      if (auth.isTenant &&
+          userName.isNotEmpty &&
+          (item['tenantName'] ?? '').toString().trim().toLowerCase() ==
+              userName) {
+        return true;
+      }
+      return false;
+    }).toList();
   }
 
   String _formatDate(DateTime dt) {
@@ -245,12 +381,9 @@ class HomeController extends GetxController {
     ];
     return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }
-
-  // Detail view state
   var selectedSubscription = Rxn<Map<String, dynamic>>();
 
-  // Mock data mapping
-  final Map<String, Map<String, String>> mockData = {
+   final Map<String, Map<String, String>> mockData = {
     'Total Rent Collections': {
       'This Month': '₹4,50,000',
       'Last Month': '₹4,20,000',
@@ -281,74 +414,13 @@ class HomeController extends GetxController {
     },
   };
 
-  // Expanded states for lists
   var expandedLists = <String, bool>{}.obs;
 
   void toggleList(String key) {
     expandedLists[key] = !(expandedLists[key] ?? false);
   }
 
-  // Rent collections — populated from PropertyController
   final recentRent = <Map<String, dynamic>>[].obs;
-
-  Future<void> fetchRecentRent() async {
-    try {
-      print('HomeController: fetchRecentRent starting...');
-      final props = await _propertyRepo.getAllProperties();
-      print('HomeController: fetchRecentRent got ${props.length} properties');
-
-      // 1. Filter: only properties that have a tenancyStartDate set
-      final withTenancy =
-          props.where((p) => p.tenancyStartDate != null).toList();
-
-      // 2. Sort by tenancyStartDate descending (most recently added tenant first)
-      withTenancy.sort(
-        (a, b) => b.tenancyStartDate!.compareTo(a.tenancyStartDate!),
-      );
-
-      // 3. Take top 10
-      final top10 = withTenancy.take(10).toList();
-
-      print(
-        'HomeController: fetchRecentRent — ${withTenancy.length} with tenancy, showing ${top10.length}',
-      );
-
-      final mapped =
-          top10.map((p) {
-            final rent = p.rentAmount;
-            final advance = p.advanceAmount;
-            final landlord = p.landlordName.isNotEmpty ? p.landlordName : 'N/A';
-            final tenant = p.primaryTenantName ?? '';
-            final location =
-                p.address.address.isNotEmpty
-                    ? p.address.address
-                    : 'Location N/A';
-            // Use tenancyStartDate as the "Joined" date
-            final joinedDate = _formatDate(p.tenancyStartDate!);
-
-            return <String, dynamic>{
-              'id': p.id,
-              'title': p.name,
-              'propertyName': p.name,
-              'detail':
-                  'Landlord: $landlord | Tenant: ${tenant.isNotEmpty ? tenant : 'N/A'}\nRent: ₹$rent',
-              'tenantName': tenant.isNotEmpty ? tenant : 'N/A',
-              'landlordName': landlord,
-              'rentAmount': '₹${_formatAmount(rent)}',
-              'advanceAmount': '₹${_formatAmount(advance)}',
-              'location': location,
-              'propertyStatus': p.statusLabel,
-              'type': 'rent',
-              'joinedDate': joinedDate,
-            };
-          }).toList();
-
-      print('HomeController: fetchRecentRent mapped ${mapped.length} items');
-      recentRent.assignAll(mapped);
-    } catch (e) {
-      print('HomeController.fetchRecentRent error: $e');
-    }
-  }
 
   String _formatAmount(dynamic amount) {
     if (amount == null) return '0';
@@ -389,136 +461,13 @@ class HomeController extends GetxController {
     'Jain',
   ];
 
-  late final recentSubs =
-      List.generate(10, (i) {
-        String name =
-            '${_indianNames[i % _indianNames.length]} ${_indianLastNames[(i + 2) % _indianLastNames.length]}';
-        int propertyCount =
-            (i % 5 == 0)
-                ? 12
-                : ((i % 3 == 0)
-                    ? 7
-                    : (i % 4) + 1); // Mix of 1-4, 7, 12 properties
-        String plan;
-        int maxProps;
-        if (propertyCount >= 10) {
-          plan = 'Custom Subscription';
-          maxProps = propertyCount + 5;
-        } else if (propertyCount >= 6) {
-          plan = '₹799 Subscription';
-          maxProps = 10;
-        } else {
-          plan = '₹299 Subscription';
-          maxProps = 5;
-        }
-
-        List<Map<String, String>> properties = List.generate(propertyCount, (
-          pIndex,
-        ) {
-          bool isBooked = (pIndex % 2 == 0); // Alternate booked/available
-          return {
-            'name': 'Property ${100 + i * 10 + pIndex}',
-            'location': 'Block ${String.fromCharCode(65 + pIndex)}, Mumbai',
-            'status': isBooked ? 'Booked' : 'Available',
-            'tenantName':
-                isBooked
-                    ? _indianNames[(i + pIndex) % _indianNames.length]
-                    : '',
-            'tenantPhone': isBooked ? '+91 98765${12345 + i + pIndex}' : '',
-            'tenantEmail':
-                isBooked
-                    ? '${_indianNames[(i + pIndex) % _indianNames.length].toLowerCase()}@example.com'
-                    : '',
-            'joinedDate': 'Jan 2024',
-          };
-        });
-
-        return {
-          'title': name,
-          'detail': 'Plan: $plan',
-          'propertyName': 'Multiple Properties ($propertyCount)',
-          'landlordName': name,
-          'subscriptionPlan': plan,
-          'propertyCount': propertyCount,
-          'maxProperties': maxProps,
-          'usedProperties': propertyCount,
-          'totalProperties': maxProps,
-          'landlordDetails':
-              'Email: ${name.toLowerCase().split(' ')[0]}@example.com\nPhone: +91 98765${43210 + i}',
-          'properties': properties,
-          'type': 'subscription',
-          'status': i % 4 == 0 ? 'Expired' : 'Active',
-        };
-      }).obs;
+  final recentSubs = <Map<String, dynamic>>[].obs;
 
   final recentServices = <Map<String, dynamic>>[].obs;
 
-  // Property list — populated from API (properties with active tenancy)
   final propertyList = <Map<String, dynamic>>[].obs;
 
-  Future<void> fetchRecentProperties() async {
-    try {
-      print('HomeController: fetchRecentProperties starting...');
-      final props = await _propertyRepo.getAllProperties();
-      print(
-        'HomeController: fetchRecentProperties got ${props.length} properties',
-      );
-
-      // 1. Take top 10 (no filtering by tenancyStartDate)
-      final top10 = props.take(10).toList();
-
-      print(
-        'HomeController: fetchRecentProperties showing ${top10.length} properties',
-      );
-
-      final mapped =
-          top10.map((p) {
-            final landlord = p.landlordName.isNotEmpty ? p.landlordName : 'N/A';
-            final tenant = p.primaryTenantName ?? '';
-            final location =
-                p.address.address.isNotEmpty
-                    ? p.address.address
-                    : 'Location N/A';
-
-            return <String, dynamic>{
-              'id': p.id,
-              'title': p.name,
-              'landlordName': landlord,
-              'tenantName': tenant.isNotEmpty ? tenant : 'N/A',
-              'location': location,
-              'status': p.statusLabel,
-              'joinedDate': 'Jan 2024',
-              'propertyImages': p.images.isNotEmpty ? p.images : <String>[],
-              'type': 'property',
-              'detail':
-                  'Landlord: $landlord | Location: $location\nStatus: ${p.statusLabel}',
-            };
-          }).toList();
-
-      if (mapped.isNotEmpty) {
-        propertyList.assignAll(mapped);
-      }
-    } catch (e) {
-      print('HomeController.fetchRecentProperties error: $e');
-    }
-  }
-
-  late final documentList =
-      List.generate(
-        10,
-        (i) => {
-          'title': 'Lease_Agreement_${i + 1}.pdf',
-          'propertyName': 'Green Villa ${i + 1}',
-          'landlordName':
-              _indianNames[i % _indianNames.length] +
-              ' ' +
-              _indianLastNames[(i + 1) % _indianLastNames.length],
-          'fileTypes': ['pdf', 'jpg', 'doc', 'svg'].take((i % 4) + 1).toList(),
-          'date': 'Oct ${10 + i}, 2023',
-          'type': 'document',
-          'detail': 'Landlord: John Doe | Tenant: Alex Smith',
-        },
-      ).obs;
+  final documentList = <Map<String, dynamic>>[].obs;
 
   late final supportList =
       List.generate(10, (i) {
@@ -546,7 +495,21 @@ class HomeController extends GetxController {
       }).obs;
 
   String getAmount(String label, String period) {
-    return mockData[label]?[period] ?? '0';
+    final o = overview.value;
+    if (o == null) return isOverviewLoading.value ? '...' : '--';
+
+    switch (label) {
+      case 'Total Rent Collections':
+        return _formatINR(o.totalRentCollections);
+      case 'Pending Payments':
+        return _formatINR(o.pendingPayments);
+      case 'Total Subscriptions':
+        return _formatINR(o.totalSubscriptions);
+      case 'Subscription Expired':
+        return o.subscriptionExpiredCount.toString();
+      default:
+        return '0';
+    }
   }
 
   void updatePeriod(String cardLabel, String period) {
@@ -561,5 +524,131 @@ class HomeController extends GetxController {
     if (cardLabel == 'Pending Payments') return pendingPeriod;
     if (cardLabel == 'Total Subscriptions') return subAmountPeriod;
     return subExpiredPeriod;
+  }
+
+  Future<void> openRentCollectionDetails() async {
+    showRentCollectionDetails.value = true;
+    await fetchRentCollections();
+  }
+
+  void closeRentCollectionDetails() {
+    showRentCollectionDetails.value = false;
+    rentCollectionsError.value = '';
+  }
+
+  Future<void> openPendingPaymentDetails() async {
+    showPendingPaymentDetails.value = true;
+    await fetchPendingPayments();
+  }
+
+  void closePendingPaymentDetails() {
+    showPendingPaymentDetails.value = false;
+    pendingPaymentsError.value = '';
+  }
+
+  Future<void> fetchPendingPayments() async {
+    try {
+      isPendingPaymentsLoading.value = true;
+      pendingPaymentsError.value = '';
+      final fetched = await _dashboardRepo.getPendingPayments();
+      pendingPayments.assignAll(_visibleRentCollections(fetched));
+    } catch (e) {
+      pendingPaymentsError.value = 'Failed to load pending payments.';
+      pendingPayments.clear();
+    } finally {
+      isPendingPaymentsLoading.value = false;
+    }
+  }
+
+  Future<void> fetchRentCollections() async {
+    try {
+      isRentCollectionsLoading.value = true;
+      rentCollectionsError.value = '';
+      final fetched = await _dashboardRepo.getRentCollections();
+      rentCollections.assignAll(_visibleRentCollections(fetched));
+    } catch (e) {
+      rentCollectionsError.value = 'Failed to load rent collections.';
+      rentCollections.clear();
+    } finally {
+      isRentCollectionsLoading.value = false;
+    }
+  }
+
+  List<ServiceRequestModel> _visibleServiceRequests(
+    List<ServiceRequestModel> items,
+  ) {
+    if (!Get.isRegistered<AuthController>()) return items;
+    final auth = Get.find<AuthController>();
+    if (!auth.isRestrictedRole) return items;
+
+    final propertyIds = <String>{};
+    final propertyNames = <String>{};
+    if (Get.isRegistered<PropertyController>()) {
+      for (final p in Get.find<PropertyController>().properties) {
+        if (p.id.isNotEmpty) propertyIds.add(p.id);
+        if (p.name.isNotEmpty) propertyNames.add(p.name.toLowerCase());
+      }
+    }
+
+    final userName = auth.userName.value.trim().toLowerCase();
+    return items.where((r) {
+      if (r.propertyId.isNotEmpty && propertyIds.contains(r.propertyId)) {
+        return true;
+      }
+      if (r.propertyName.isNotEmpty &&
+          propertyNames.contains(r.propertyName.toLowerCase())) {
+        return true;
+      }
+      if (auth.isLandlord &&
+          userName.isNotEmpty &&
+          r.landlordName.trim().toLowerCase() == userName) {
+        return true;
+      }
+      if (auth.isTenant &&
+          userName.isNotEmpty &&
+          r.tenantName.trim().toLowerCase() == userName) {
+        return true;
+      }
+      return false;
+    }).toList();
+  }
+
+  List<RentCollectionModel> _visibleRentCollections(
+    List<RentCollectionModel> items,
+  ) {
+    if (!Get.isRegistered<AuthController>()) return items;
+    final auth = Get.find<AuthController>();
+    if (!auth.isRestrictedRole) return items;
+
+    final propertyIds = <String>{};
+    final propertyNames = <String>{};
+    if (Get.isRegistered<PropertyController>()) {
+      for (final p in Get.find<PropertyController>().properties) {
+        if (p.id.isNotEmpty) propertyIds.add(p.id);
+        if (p.name.isNotEmpty) propertyNames.add(p.name.toLowerCase());
+      }
+    }
+
+    final userId = auth.userId.value;
+    final userName = auth.userName.value.trim().toLowerCase();
+    return items.where((item) {
+      if (propertyIds.contains(item.propertyId)) return true;
+      if (propertyNames.contains(item.propertyName.toLowerCase())) return true;
+      if (auth.isLandlord) {
+        if (userId.isNotEmpty && item.landlordId == userId) return true;
+        if (userName.isNotEmpty &&
+            item.landlordName.toLowerCase() == userName) {
+          return true;
+        }
+      }
+      if (auth.isTenant) {
+        if (userId.isNotEmpty && item.tenantId == userId) return true;
+        if (userName.isNotEmpty &&
+            item.tenantName.toLowerCase() == userName) {
+          return true;
+        }
+      }
+      return false;
+    }).toList();
   }
 }

@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:agremate_admin/core/theme/theme.dart';
-import 'package:agremate_admin/core/widgets/glass_card.dart';
+import 'package:agremate_admin/core/widgets/web_network_image.dart';
 import 'package:agremate_admin/core/widgets/status_badge.dart';
 import 'package:agremate_admin/modules/property/model/property_model.dart';
 import 'package:agremate_admin/modules/property/controller/property_controller.dart';
 import 'package:agremate_admin/modules/finance/controller/finance_controller.dart';
 import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
-import 'package:agremate_admin/modules/documents/controller/document_controller.dart';
+import '../../../../core/widgets/full_pdf_page.dart';
+import '../../../../core/widgets/pdf_iframe_view.dart';
 
 class PropertyDetailPanel extends StatefulWidget {
   final PropertyModel property;
@@ -21,11 +22,22 @@ class PropertyDetailPanel extends StatefulWidget {
 
 class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
   String? _currentImageUrl;
+  String? _openDocName;
+  String? _openDocUrl;
 
   @override
   void initState() {
     super.initState();
     _currentImageUrl = widget.property.imageUrl;
+  }
+
+  @override
+  void didUpdateWidget(covariant PropertyDetailPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.property.id != widget.property.id ||
+        oldWidget.property.imageUrl != widget.property.imageUrl) {
+      _currentImageUrl = widget.property.imageUrl;
+    }
   }
 
   @override
@@ -38,7 +50,6 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
       decimalDigits: 0,
     );
 
-    // Show tenant card if the API returned tenant data, regardless of status
     final showTenant =
         widget.property.primaryTenantName != null &&
         widget.property.primaryTenantName!.isNotEmpty;
@@ -65,36 +76,74 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
         break;
     }
 
+    final landlordCard = _buildContactCard(
+      title: 'Landlord',
+      name: widget.property.landlordName,
+      phone: widget.property.landlordPhone?.isNotEmpty == true
+          ? widget.property.landlordPhone!
+          : 'N/A',
+      email: widget.property.landlordEmail?.isNotEmpty == true
+          ? widget.property.landlordEmail!
+          : 'N/A',
+      address: widget.property.landlordAddress?.isNotEmpty == true
+          ? widget.property.landlordAddress!
+          : 'N/A',
+      accentColor: AppTheme.accentBlue,
+    );
+
+    final tenantCard = showTenant
+        ? _buildContactCard(
+            title: 'Tenant',
+            name: widget.property.primaryTenantName ?? 'N/A',
+            phone: widget.property.primaryTenantPhone?.isNotEmpty == true
+                ? widget.property.primaryTenantPhone!
+                : 'N/A',
+            email: widget.property.primaryTenantEmail?.isNotEmpty == true
+                ? widget.property.primaryTenantEmail!
+                : 'N/A',
+            address: widget.property.address.address.isNotEmpty
+                ? widget.property.address.address
+                : 'N/A',
+            accentColor: AppTheme.accentGreen,
+          )
+        : _buildEmptyTenantCard();
+
     return Container(
       width: double.infinity,
       height: double.infinity,
-      color: Colors.white, // Light theme background
+      color: const Color(0xFFF8FAFD),
       child: Column(
         children: [
-          // Header
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             child: Row(
               children: [
                 IconButton(
                   onPressed: () {
+                    if (_openDocName != null) {
+                      setState(() {
+                        _openDocName = null;
+                        _openDocUrl = null;
+                      });
+                      return;
+                    }
                     if (pc.returnTabIndex.value != null) {
                       nav.currentIndex.value = pc.returnTabIndex.value!;
                       pc.returnTabIndex.value = null;
                     }
-                    pc.search(''); // Clear search filter
-                    pc.selectedProperty.value = null;
+                    pc.search('');
+                    pc.closePropertyDetails();
                   },
                   icon: const Icon(
                     Icons.arrow_back_ios_new_rounded,
                     color: Colors.black,
                     size: 20,
                   ),
-                  tooltip: 'Back to List',
+                  tooltip: 'Back',
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'Property Detail',
+                  _openDocName ?? 'Property Detail',
                   style: AppTheme.heading2.copyWith(color: Colors.black),
                 ),
                 const Spacer(),
@@ -103,501 +152,40 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
             ),
           ),
           const Divider(color: Colors.black12, height: 1),
-
+          Obx(
+            () => pc.isDetailLoading.value
+                ? const LinearProgressIndicator(
+                    minHeight: 2,
+                    color: AppTheme.accentBlue,
+                    backgroundColor: Color(0xFFE8F1FB),
+                  )
+                : const SizedBox(height: 2),
+          ),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ROW 1: Image + Name/Desc
-                  Row(
+            child: _openDocName != null
+                ? _buildDocumentViewer()
+                : LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= 920;
+
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Column(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(20),
-                              child:
-                                  _currentImageUrl != null
-                                      ? Image.network(
-                                        _currentImageUrl!,
-                                        height: 280,
-                                        width: double.infinity,
-                                        fit: BoxFit.cover,
-                                        loadingBuilder: (
-                                          context,
-                                          child,
-                                          loadingProgress,
-                                        ) {
-                                          if (loadingProgress == null)
-                                            return child;
-                                          return Container(
-                                            height: 280,
-                                            width: double.infinity,
-                                            color: Colors.grey.shade100,
-                                            child: Center(
-                                              child: CircularProgressIndicator(
-                                                value:
-                                                    loadingProgress
-                                                                .expectedTotalBytes !=
-                                                            null
-                                                        ? loadingProgress
-                                                                .cumulativeBytesLoaded /
-                                                            loadingProgress
-                                                                .expectedTotalBytes!
-                                                        : null,
-                                                color: AppTheme.accentGreen,
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                        errorBuilder:
-                                            (
-                                              context,
-                                              error,
-                                              stackTrace,
-                                            ) => Container(
-                                              height: 280,
-                                              width: double.infinity,
-                                              color: Colors.grey.shade100,
-                                              child: Column(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                  Icon(
-                                                    Icons
-                                                        .image_not_supported_rounded,
-                                                    color: Colors.grey.shade300,
-                                                    size: 48,
-                                                  ),
-                                                  const SizedBox(height: 12),
-                                                  Text(
-                                                    'Property Image Not Available',
-                                                    style: AppTheme.bodyText
-                                                        .copyWith(
-                                                          color:
-                                                              Colors
-                                                                  .grey
-                                                                  .shade400,
-                                                          fontSize: 14,
-                                                        ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                      )
-                                      : Container(
-                                        height: 280,
-                                        width: double.infinity,
-                                        color: Colors.grey.shade100,
-                                        child: Column(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Icon(
-                                              Icons.image_not_supported_rounded,
-                                              color: Colors.grey.shade300,
-                                              size: 48,
-                                            ),
-                                            const SizedBox(height: 12),
-                                            Text(
-                                              'No Image Available',
-                                              style: AppTheme.bodyText.copyWith(
-                                                color: Colors.grey.shade400,
-                                                fontSize: 14,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                            ),
-                            if (widget.property.images.isNotEmpty) ...[
-                              const SizedBox(height: 12),
-                              SizedBox(
-                                height: 60,
-                                child: ListView.builder(
-                                  scrollDirection: Axis.horizontal,
-                                  itemCount: widget.property.images.length,
-                                  itemBuilder: (context, index) {
-                                    final imgUrl =
-                                        widget.property.images[index];
-                                    final isSelected =
-                                        _currentImageUrl == imgUrl;
-                                    return GestureDetector(
-                                      onTap: () {
-                                        setState(
-                                          () => _currentImageUrl = imgUrl,
-                                        );
-                                        _showImageGallery(context, index);
-                                      },
-                                      child: Container(
-                                        width: 60,
-                                        margin: const EdgeInsets.only(right: 8),
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                          border: Border.all(
-                                            color:
-                                                isSelected
-                                                    ? AppTheme.accentGreen
-                                                    : Colors.transparent,
-                                            width: 2,
-                                          ),
-                                          image: DecorationImage(
-                                            image: NetworkImage(imgUrl),
-                                            fit: BoxFit.cover,
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 48),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: 10),
-                            Text(
-                              widget.property.name,
-                              style: AppTheme.heading1.copyWith(
-                                fontSize: 36,
-                                color: Colors.black,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              widget.property.description?.isNotEmpty == true
-                                  ? widget.property.description!
-                                  : 'Premium ${widget.property.propertyType} located in the heart of ${widget.property.city}. Featuring modern architecture and top-tier security systems for a comfortable living experience.',
-                              style: AppTheme.bodyText.copyWith(
-                                height: 1.6,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            const SizedBox(height: 24),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(
-                                  Icons.location_on_rounded,
-                                  color: AppTheme.accentRed,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    '${widget.property.address.address}, ${widget.property.city}',
-                                    style: AppTheme.bodyText.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.black,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+                      _buildHeroRow(),
+                      const SizedBox(height: 20),
+                      _buildDetailsAndContacts(
+                        isWide: isWide,
+                        landlordCard: landlordCard,
+                        tenantCard: tenantCard,
+                        fmt: fmt,
+                        nav: nav,
                       ),
                     ],
                   ),
-
-                  const SizedBox(height: 32),
-
-                  // MAIN BODY: Two-Column Layout to prevent vertical gaps
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // LEFT COLUMN: Features, Amenities, Finance
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildSectionHeader(
-                              'Features & Facilities',
-                              Colors.black,
-                            ),
-                            const SizedBox(height: 20),
-                            Builder(
-                              builder: (context) {
-                                // Build features dynamically from API fields
-                                final features = <Map<String, dynamic>>[];
-                                if (widget.property.bedrooms > 0)
-                                  features.add({
-                                    'icon': Icons.bed_rounded,
-                                    'label':
-                                        '${widget.property.bedrooms} Bedroom${widget.property.bedrooms > 1 ? 's' : ''}',
-                                  });
-                                if (widget.property.bathrooms > 0)
-                                  features.add({
-                                    'icon': Icons.bathroom_rounded,
-                                    'label':
-                                        '${widget.property.bathrooms} Bathroom${widget.property.bathrooms > 1 ? 's' : ''}',
-                                  });
-                                if (widget.property.kitchen > 0)
-                                  features.add({
-                                    'icon': Icons.kitchen_rounded,
-                                    'label':
-                                        '${widget.property.kitchen} Kitchen${widget.property.kitchen > 1 ? 's' : ''}',
-                                  });
-                                if (widget.property.builtYear > 0)
-                                  features.add({
-                                    'icon': Icons.calendar_today_rounded,
-                                    'label':
-                                        'Built ${widget.property.builtYear}',
-                                  });
-                                final raw = widget.property.rawJson;
-                                if (raw['hasElectricity'] == true)
-                                  features.add({
-                                    'icon': Icons.bolt_rounded,
-                                    'label': 'Electricity',
-                                  });
-                                if (raw['hasWater'] == true)
-                                  features.add({
-                                    'icon': Icons.water_drop_rounded,
-                                    'label': 'Water',
-                                  });
-                                if (raw['hasGas'] == true)
-                                  features.add({
-                                    'icon': Icons.local_fire_department_rounded,
-                                    'label': 'Gas',
-                                  });
-
-                                if (features.isEmpty) {
-                                  return Text(
-                                    'No features data available',
-                                    style: AppTheme.bodyText.copyWith(
-                                      color: Colors.black38,
-                                      fontSize: 13,
-                                    ),
-                                  );
-                                }
-
-                                return Wrap(
-                                  spacing: 16,
-                                  runSpacing: 12,
-                                  children:
-                                      features
-                                          .map(
-                                            (f) => _buildFeatureIcon(
-                                              f['icon'] as IconData,
-                                              f['label'] as String,
-                                            ),
-                                          )
-                                          .toList(),
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 32),
-                            _buildSectionHeader('Amenities', Colors.black),
-                            const SizedBox(height: 20),
-                            widget.property.amenitiesList.isNotEmpty
-                                ? Wrap(
-                                  spacing: 16,
-                                  runSpacing: 16,
-                                  children:
-                                      widget.property.amenitiesList
-                                          .map(
-                                            (a) => _buildAmenityBox(
-                                              a['name'] ?? '',
-                                              _amenityIcon(a['name'] ?? ''),
-                                            ),
-                                          )
-                                          .toList(),
-                                )
-                                : Text(
-                                  'No amenities data available',
-                                  style: AppTheme.bodyText.copyWith(
-                                    color: Colors.black38,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                            const SizedBox(height: 32),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                _buildSectionHeader('Finance', Colors.black),
-                                TextButton.icon(
-                                  onPressed: () {
-                                    final fc = Get.find<FinanceController>();
-                                    fc.selectProperty(
-                                      widget.property.id,
-                                      widget.property.name,
-                                    );
-                                    nav.currentIndex.value = 3; // Finance tab
-                                  },
-                                  icon: const Icon(
-                                    Icons.info_outline_rounded,
-                                    size: 14,
-                                    color: AppTheme.accentGreen,
-                                  ),
-                                  label: const Text(
-                                    'More Details',
-                                    style: TextStyle(
-                                      color: AppTheme.accentGreen,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  style: TextButton.styleFrom(
-                                    backgroundColor: AppTheme.accentGreen
-                                        .withValues(alpha: 0.1),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 20),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildFinanceCard(
-                                    'Monthly Rent',
-                                    fmt.format(
-                                      widget.property.agreementRentAmount ??
-                                          widget.property.rentAmount,
-                                    ),
-                                    Colors.black,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: _buildFinanceCard(
-                                    'Advance',
-                                    fmt.format(widget.property.advanceAmount),
-                                    Colors.black,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (widget.property.agreementStartDate != null) ...[
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildFinanceCard(
-                                      'Agreement Start',
-                                      DateFormat('dd MMM yyyy').format(
-                                        widget.property.agreementStartDate!,
-                                      ),
-                                      Colors.black,
-                                    ),
-                                  ),
-                                  if (widget.property.agreementPeriodMonths !=
-                                      null) ...[
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: _buildFinanceCard(
-                                        'Agreement Period',
-                                        '${widget.property.agreementPeriodMonths} months',
-                                        Colors.black,
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 48),
-                      // RIGHT COLUMN: Landlord, Tenant, Documents
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildContactCard(
-                              title: 'Landlord',
-                              name: widget.property.landlordName,
-                              phone:
-                                  widget.property.landlordPhone?.isNotEmpty ==
-                                          true
-                                      ? widget.property.landlordPhone!
-                                      : 'N/A',
-                              email:
-                                  widget.property.landlordEmail?.isNotEmpty ==
-                                          true
-                                      ? widget.property.landlordEmail!
-                                      : 'N/A',
-                              address: 'N/A',
-                              accentColor: AppTheme.accentBlue,
-                            ),
-                            const SizedBox(height: 24),
-                            showTenant
-                                ? _buildContactCard(
-                                  title: 'Tenant',
-                                  name:
-                                      widget.property.primaryTenantName ??
-                                      'N/A',
-                                  phone:
-                                      widget
-                                                  .property
-                                                  .primaryTenantPhone
-                                                  ?.isNotEmpty ==
-                                              true
-                                          ? widget.property.primaryTenantPhone!
-                                          : 'N/A',
-                                  email:
-                                      widget
-                                                  .property
-                                                  .primaryTenantEmail
-                                                  ?.isNotEmpty ==
-                                              true
-                                          ? widget.property.primaryTenantEmail!
-                                          : 'N/A',
-                                  address:
-                                      widget.property.tenancyStartDate != null
-                                          ? 'Since: ${DateFormat('dd MMM yyyy').format(widget.property.tenancyStartDate!)}'
-                                          : widget.property.address.address,
-                                  accentColor: AppTheme.accentGreen,
-                                )
-                                : Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey.shade100,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: Colors.black12),
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      const Icon(
-                                        Icons.person_add_disabled_rounded,
-                                        color: Colors.black38,
-                                        size: 24,
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        'No Tenant Occupying',
-                                        style: AppTheme.bodyText.copyWith(
-                                          color: Colors.black45,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 60),
-                ],
-              ),
+                );
+              },
             ),
           ),
         ],
@@ -605,40 +193,406 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
     );
   }
 
-  Widget _buildSectionHeader(String title, [Color color = AppTheme.textMuted]) {
-    return Column(
+  Widget _buildDetailsAndContacts({
+    required bool isWide,
+    required Widget landlordCard,
+    required Widget tenantCard,
+    required NumberFormat fmt,
+    required NavigationController nav,
+  }) {
+    final leftColumn = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title.toUpperCase(),
-          style: AppTheme.heading3.copyWith(
-            fontSize: 14,
-            letterSpacing: 2,
-            color: color == Colors.black ? Colors.black54 : color,
-          ),
+        _buildSectionHeader('Features & Facilities'),
+        const SizedBox(height: 8),
+        _buildFeaturesWrap(),
+        const SizedBox(height: 12),
+        _buildSectionHeader('Amenities'),
+        const SizedBox(height: 8),
+        widget.property.amenitiesList.isNotEmpty
+            ? Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: widget.property.amenitiesList
+                    .map(
+                      (a) => _buildFeatureIcon(
+                        _amenityIcon(a['name'] ?? ''),
+                        a['name'] ?? '',
+                      ),
+                    )
+                    .toList(),
+              )
+            : Text(
+                'No amenities data available',
+                style: AppTheme.bodyText.copyWith(
+                  color: Colors.black38,
+                  fontSize: 13,
+                ),
+              ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            _buildSectionHeader('Finance'),
+            const Spacer(),
+            _buildMoreDetailsButton(nav),
+          ],
         ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _buildFinanceCard(
+                'Monthly Rent',
+                fmt.format(
+                  widget.property.agreementRentAmount ??
+                      widget.property.rentAmount,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildFinanceCard(
+                'Advance',
+                fmt.format(widget.property.advanceAmount),
+              ),
+            ),
+          ],
+        ),
+        if (widget.property.agreementStartDate != null) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: _buildFinanceCard(
+                  'Agreement Start',
+                  DateFormat('dd MMM yyyy').format(
+                    widget.property.agreementStartDate!,
+                  ),
+                ),
+              ),
+              if (widget.property.agreementPeriodMonths != null) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildFinanceCard(
+                    'Agreement Period',
+                    '${widget.property.agreementPeriodMonths} months',
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
       ],
+    );
+
+    final rightColumn = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        landlordCard,
+        const SizedBox(height: 12),
+        tenantCard,
+        const SizedBox(height: 12),
+        _buildDocumentsSection(),
+      ],
+    );
+
+    if (!isWide) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          leftColumn,
+          const SizedBox(height: 12),
+          rightColumn,
+        ],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(flex: 6, child: leftColumn),
+        const SizedBox(width: 24),
+        Expanded(flex: 5, child: rightColumn),
+      ],
+    );
+  }
+
+  Widget _buildMoreDetailsButton(NavigationController nav) {
+    return TextButton.icon(
+      onPressed: () {
+        final fc = Get.find<FinanceController>();
+        fc.selectProperty(widget.property.id, widget.property.name);
+        nav.currentIndex.value = 3;
+      },
+      icon: const Icon(
+        Icons.info_outline_rounded,
+        size: 14,
+        color: AppTheme.accentBlue,
+      ),
+      label: const Text(
+        'More Details',
+        style: TextStyle(
+          color: AppTheme.accentBlue,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      style: TextButton.styleFrom(
+        backgroundColor: AppTheme.accentBlue.withValues(alpha: 0.08),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        visualDensity: VisualDensity.compact,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeroRow() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stacked = constraints.maxWidth < 720;
+        final image = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: _buildHeroImage(180),
+            ),
+            if (widget.property.images.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 48,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: widget.property.images.length,
+                  itemBuilder: (context, index) {
+                    final imgUrl = widget.property.images[index];
+                    final isSelected = _currentImageUrl == imgUrl;
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() => _currentImageUrl = imgUrl);
+                        _showImageGallery(context, index);
+                      },
+                      child: Container(
+                        width: 48,
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppTheme.accentBlue
+                                : Colors.black12,
+                            width: isSelected ? 2 : 1,
+                          ),
+                          image: DecorationImage(
+                            image: NetworkImage(imgUrl),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ],
+        );
+
+        final info = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.property.name,
+              style: AppTheme.heading1.copyWith(
+                fontSize: 26,
+                color: Colors.black,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              widget.property.description?.isNotEmpty == true
+                  ? widget.property.description!
+                  : 'Premium ${widget.property.propertyTypeLabel} located in the heart of ${widget.property.city}.',
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: AppTheme.bodyText.copyWith(
+                height: 1.45,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.location_on_rounded,
+                  color: AppTheme.accentRed,
+                  size: 18,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    widget.property.address.address,
+                    style: AppTheme.bodyText.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+
+        if (stacked) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              image,
+              const SizedBox(height: 16),
+              info,
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 6, child: image),
+            const SizedBox(width: 24),
+            Expanded(flex: 5, child: info),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildHeroImage(double height) {
+    if (_currentImageUrl == null) {
+      return Container(
+        height: height,
+        width: double.infinity,
+        color: Colors.grey.shade100,
+        child: const Icon(
+          Icons.image_not_supported_rounded,
+          color: Color(0xFFCBD5E1),
+          size: 40,
+        ),
+      );
+    }
+
+    return Image.network(
+      _currentImageUrl!,
+      height: height,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          height: height,
+          width: double.infinity,
+          color: Colors.grey.shade100,
+          child: const Center(
+            child: CircularProgressIndicator(color: AppTheme.accentBlue),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        return Container(
+          height: height,
+          width: double.infinity,
+          color: Colors.grey.shade100,
+          child: const Icon(
+            Icons.image_not_supported_rounded,
+            color: Color(0xFFCBD5E1),
+            size: 40,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildFeaturesWrap() {
+    final features = <Map<String, dynamic>>[];
+    if (widget.property.bedrooms > 0) {
+      features.add({
+        'icon': Icons.bed_rounded,
+        'label':
+            '${widget.property.bedrooms} Bedroom${widget.property.bedrooms > 1 ? 's' : ''}',
+      });
+    }
+    if (widget.property.bathrooms > 0) {
+      features.add({
+        'icon': Icons.bathroom_rounded,
+        'label':
+            '${widget.property.bathrooms} Bathroom${widget.property.bathrooms > 1 ? 's' : ''}',
+      });
+    }
+    if (widget.property.kitchen > 0) {
+      features.add({
+        'icon': Icons.kitchen_rounded,
+        'label':
+            '${widget.property.kitchen} Kitchen${widget.property.kitchen > 1 ? 's' : ''}',
+      });
+    }
+    if (widget.property.builtYear > 0) {
+      features.add({
+        'icon': Icons.calendar_today_rounded,
+        'label': 'Built ${widget.property.builtYear}',
+      });
+    }
+
+    if (features.isEmpty) {
+      return Text(
+        'No features data available',
+        style: AppTheme.bodyText.copyWith(color: Colors.black38, fontSize: 13),
+      );
+    }
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: features
+          .map(
+            (f) => _buildFeatureIcon(
+              f['icon'] as IconData,
+              f['label'] as String,
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Text(
+      title.toUpperCase(),
+      style: AppTheme.heading3.copyWith(
+        fontSize: 12,
+        letterSpacing: 1.4,
+        color: Colors.black54,
+      ),
     );
   }
 
   Widget _buildFeatureIcon(IconData icon, String label) {
     return Container(
-      margin: const EdgeInsets.only(right: 12, bottom: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black12),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: Colors.black87, size: 20),
-          const SizedBox(width: 8),
+          Icon(icon, color: AppTheme.accentBlue, size: 16),
+          const SizedBox(width: 6),
           Text(
             label,
             style: AppTheme.bodyText.copyWith(
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
               color: Colors.black87,
             ),
@@ -674,8 +628,13 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
       case 'elevator':
       case 'lift':
         return Icons.elevator;
+      case 'food':
+        return Icons.restaurant_rounded;
+      case 'fire safety':
+        return Icons.local_fire_department_rounded;
       case 'ac':
       case 'air conditioning':
+      case 'central ac':
         return Icons.ac_unit;
       case 'large room':
         return Icons.king_bed_rounded;
@@ -699,62 +658,22 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
     }
   }
 
-  Widget _buildAmenityBox(String label, IconData icon) {
+  Widget _buildFinanceCard(String label, String value) {
     return Container(
-      width: 120,
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.black12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: AppTheme.accentCyan, size: 28),
-          const SizedBox(height: 12),
-          Text(
-            label,
-            style: AppTheme.bodyText.copyWith(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Colors.black,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFinanceCard(String label, String value, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: AppTheme.caption.copyWith(color: Colors.black45)),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           Text(
             value,
-            style: AppTheme.heading1.copyWith(color: color, fontSize: 28),
+            style: AppTheme.heading1.copyWith(color: Colors.black, fontSize: 22),
           ),
         ],
       ),
@@ -771,18 +690,11 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.black12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -790,14 +702,14 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(7),
                 decoration: BoxDecoration(
                   color: accentColor.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.person_rounded, color: accentColor, size: 20),
+                child: Icon(Icons.person_rounded, color: accentColor, size: 18),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -823,14 +735,270 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           const Divider(color: Colors.black12, height: 1),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _buildContactRow(Icons.phone_rounded, phone),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildContactRow(Icons.email_rounded, email),
+              ),
+            ],
+          ),
+          if (address.isNotEmpty && address != 'N/A') ...[
+            const SizedBox(height: 8),
+            _buildContactRow(Icons.location_on_rounded, address),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDocumentsSection() {
+    final docs = <Map<String, String>>[];
+    for (final item in widget.property.documents) {
+      if (item is! Map) continue;
+      final json = Map<String, dynamic>.from(item);
+      final name =
+          (json['fileName'] ?? json['name'] ?? 'Document').toString();
+      final fileUrl = _documentUrl(
+        (json['relativePath'] ?? json['url'] ?? json['fileUrl'] ?? '')
+            .toString(),
+      );
+      final thumbUrl = _documentUrl(
+        (json['thumbnailUrl'] ?? '').toString(),
+      );
+      final type = (json['documentType'] ?? json['fileType'] ?? '').toString();
+      docs.add({
+        'name': name,
+        'url': fileUrl.isNotEmpty ? fileUrl : thumbUrl,
+        'thumb': thumbUrl.isNotEmpty ? thumbUrl : fileUrl,
+        'type': type,
+      });
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: AppTheme.accentBlue.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.folder_rounded,
+                  color: AppTheme.accentBlue,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Documents',
+                style: AppTheme.caption.copyWith(
+                  color: AppTheme.accentBlue,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
-          _buildContactRow(Icons.phone_rounded, phone),
-          const SizedBox(height: 8),
-          _buildContactRow(Icons.email_rounded, email),
-          const SizedBox(height: 8),
-          _buildContactRow(Icons.location_on_rounded, address),
+          if (docs.isEmpty)
+            Text(
+              'No documents available',
+              style: AppTheme.bodyText.copyWith(
+                color: Colors.black38,
+                fontSize: 13,
+              ),
+            )
+          else
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (int i = 0; i < docs.length; i++)
+                  _buildDocumentThumb(
+                    index: i,
+                    name: docs[i]['name']!,
+                    url: docs[i]['url']!,
+                    thumb: docs[i]['thumb']!,
+                    type: docs[i]['type']!,
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDocumentThumb({
+    required int index,
+    required String name,
+    required String url,
+    required String thumb,
+    required String type,
+  }) {
+    final isImage = _isImageDocument(name, type) || _isImageDocument(thumb, '');
+    final isPdf = _isPdfDocument('$name $url', type);
+    final Color accent = isPdf
+        ? Colors.red.shade400
+        : isImage
+            ? const Color(0xFF3B82F6)
+            : AppTheme.accentBlue;
+
+    return KeyedSubtree(
+      key: ValueKey('property_doc_${index}_${name}_$url'),
+      child: InkWell(
+        onTap: () {
+          final docUrl = url.isNotEmpty ? url : thumb;
+          if (isPdf) {
+            Navigator.of(context, rootNavigator: true).push(
+              MaterialPageRoute(
+                builder: (_) => FullPdfPage(url: docUrl, title: name),
+              ),
+            );
+            return;
+          }
+          setState(() {
+            _openDocName = name;
+            _openDocUrl = docUrl;
+          });
+        },
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: 72,
+          height: 72,
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0F6FF),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFD6E6F8)),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: isImage && thumb.isNotEmpty
+                ? Image.network(
+                    thumb,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                    errorBuilder: (_, __, ___) => ColoredBox(
+                      color: Colors.white,
+                      child: Icon(
+                        Icons.image_outlined,
+                        color: accent,
+                        size: 28,
+                      ),
+                    ),
+                  )
+                : ColoredBox(
+                    color: Colors.white,
+                    child: Icon(
+                      isPdf
+                          ? Icons.picture_as_pdf_rounded
+                          : isImage
+                              ? Icons.image_outlined
+                              : Icons.insert_drive_file_outlined,
+                      color: accent,
+                      size: 28,
+                    ),
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDocumentViewer() {
+    final url = _openDocUrl ?? '';
+    final isPdf = _isPdfDocument('${_openDocName ?? ''} $url', '');
+
+    return ColoredBox(
+      color: const Color(0xFFF8FAFD),
+      child: url.isEmpty
+          ? Center(
+        child: Text(
+          'Document preview is not available.',
+          style: AppTheme.bodyText,
+        ),
+      )
+          : Padding(
+        padding: const EdgeInsets.all(24),
+        child: isPdf
+            ? ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: PdfIframeView(key: ValueKey(url), url: url),
+        )
+            : WebNetworkImage(url: url, fit: BoxFit.contain),
+      ),
+    );
+  }
+
+  String _documentUrl(String path) {
+    final value = path.trim();
+    if (value.isEmpty || value.toLowerCase() == 'null') return '';
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      return value;
+    }
+    return 'https://amplify-agremate-dev-76a83-deployment.s3.ap-south-1.amazonaws.com/${value.startsWith('/') ? value.substring(1) : value}';
+  }
+
+  bool _isImageDocument(String name, String type) {
+    final lower = '${name.toLowerCase()} ${type.toLowerCase()}';
+    return lower.contains('image') ||
+        lower.contains('.jpg') ||
+        lower.contains('.jpeg') ||
+        lower.contains('.png') ||
+        lower.contains('.gif') ||
+        lower.contains('.webp');
+  }
+
+  bool _isPdfDocument(String nameAndUrl, String type) {
+    final lower = '${nameAndUrl.toLowerCase()} ${type.toLowerCase()}';
+    return lower.contains('pdf') ||
+        lower.contains('.pdf') ||
+        lower.contains('application/pdf');
+  }
+
+  Widget _buildEmptyTenantCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.person_add_disabled_rounded,
+            color: Colors.black38,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'No Tenant Occupying',
+            style: AppTheme.bodyText.copyWith(
+              color: Colors.black45,
+              fontSize: 12,
+            ),
+          ),
         ],
       ),
     );
@@ -839,8 +1007,8 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
   Widget _buildContactRow(IconData icon, String text) {
     return Row(
       children: [
-        Icon(icon, color: Colors.black38, size: 18),
-        const SizedBox(width: 12),
+        Icon(icon, color: Colors.black38, size: 16),
+        const SizedBox(width: 8),
         Expanded(
           child: Text(
             text,
@@ -885,10 +1053,9 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                           color: Colors.white,
                           size: 48,
                         ),
-                        onPressed:
-                            currentIndex > 0
-                                ? () => setDialogState(() => currentIndex--)
-                                : null,
+                        onPressed: currentIndex > 0
+                            ? () => setDialogState(() => currentIndex--)
+                            : null,
                       ),
                       Expanded(
                         child: ClipRRect(
@@ -905,10 +1072,10 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                           color: Colors.white,
                           size: 48,
                         ),
-                        onPressed:
-                            currentIndex < widget.property.images.length - 1
-                                ? () => setDialogState(() => currentIndex++)
-                                : null,
+                        onPressed: currentIndex <
+                                widget.property.images.length - 1
+                            ? () => setDialogState(() => currentIndex++)
+                            : null,
                       ),
                     ],
                   ),
@@ -916,11 +1083,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                     top: 40,
                     right: 40,
                     child: IconButton(
-                      icon: const Icon(
-                        Icons.close,
-                        color: Colors.white,
-                        size: 32,
-                      ),
+                      icon: const Icon(Icons.close, color: Colors.white, size: 32),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ),
