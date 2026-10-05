@@ -27,26 +27,15 @@ class _LoginViewState extends State<LoginView> {
     final auth = Get.find<AuthController>();
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Row(
+      body: Stack(
         children: [
-          if (MediaQuery.of(context).size.width > 900)
-            Expanded(
-              flex: 5,
-              child: Container(
-                color: const Color(0xFFF8FAFC),
-                child: Image.asset(
-                  'assets/images/login_bg_v3.jpg',
-                  fit: BoxFit.cover,
-                ),
-              ),
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/login_bg.png',
+              fit: BoxFit.cover,
             ),
-
-          Expanded(
-            flex: 5,
-            child: Container(
-              color: Colors.white,
-              child: SafeArea(
+          ),
+               SafeArea(
                 child: Center(
                   child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
@@ -314,8 +303,6 @@ class _LoginViewState extends State<LoginView> {
                   ),
                 ),
               ),
-            ),
-          ),
         ],
       ),
     );
