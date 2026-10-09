@@ -1,19 +1,26 @@
-import 'dart:math';
 import 'package:get/get.dart';
+import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
+import 'package:agremate_admin/modules/property/controller/property_controller.dart';
 import 'package:agremate_admin/modules/service_request/model/service_request_model.dart';
+import 'package:agremate_admin/modules/services/repository/services_repository.dart';
 import 'package:agremate_admin/core/constants/constants.dart';
+import 'package:agremate_admin/core/utils/app_logger.dart';
 
 class ServicesController extends GetxController {
+  final _repo = ServicesRepository();
+
   final serviceRequests = <ServiceRequestModel>[].obs;
+  final recentRequests = <ServiceRequestModel>[].obs;
   final selectedServiceType = ''.obs;
   final filteredRequests = <ServiceRequestModel>[].obs;
+  final categoryCounts = <String, int>{}.obs;
   final isLoading = true.obs;
-  final _rng = Random(42);
+  final errorMessage = ''.obs;
 
   Map<String, int> get serviceCounts {
     final counts = <String, int>{};
     for (final type in AppConstants.serviceTypes) {
-      counts[type] = serviceRequests.where((r) => r.serviceType == type).length;
+      counts[type] = categoryCounts[type] ?? 0;
     }
     return counts;
   }
@@ -21,7 +28,10 @@ class ServicesController extends GetxController {
   Map<String, int> get pendingCounts {
     final counts = <String, int>{};
     for (final type in AppConstants.serviceTypes) {
-      counts[type] = serviceRequests.where((r) => r.serviceType == type && r.isPending).length;
+      counts[type] =
+          serviceRequests
+              .where((r) => r.serviceType == type && r.isPending)
+              .length;
     }
     return counts;
   }
@@ -29,76 +39,137 @@ class ServicesController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _generateData();
+    fetchRequests();
   }
 
-  void _generateData() {
-    isLoading.value = true;
-    final properties = [
-      'Andheri Apartment 1', 'Bandra Villa 3', 'Powai Studio 5', 'Juhu Penthouse 2',
-      'Malad Duplex 4', 'Goregaon Apartment 7', 'Thane Commercial 1', 'Worli Studio 8',
-      'Dadar Apartment 12', 'Kurla Villa 6', 'Indiranagar Apartment 3', 'Koramangala Villa 2',
-    ];
-    final tenantNames = [
-      'Aarav Menon', 'Ishika Sen', 'Rohan Pillai', 'Diya Chopra', 'Arjun Saxena',
-      'Meera Kulkarni', 'Varun Bansal', 'Nisha Pandey', 'Siddharth Jain', 'Tanya Malhotra',
-    ];
-    final descriptions = {
-      'Plumbing': ['Leaking faucet', 'Blocked drain', 'Pipe burst', 'Water heater issue'],
-      'Electricity': ['Power outage', 'Faulty wiring', 'Switch replacement', 'MCB tripping'],
-      'Pest Control': ['Cockroach infestation', 'Termite treatment', 'Rat problem', 'Mosquito spray'],
-      'Community': ['Parking dispute', 'Noise complaint', 'Common area cleaning', 'Garden maintenance'],
-      'Mechanical': ['Lift breakdown', 'Generator issue', 'Pump malfunction', 'Gate motor repair'],
-      'Maintenance': ['Wall painting', 'Floor repair', 'Window fixing', 'Door alignment'],
-      'Security': ['CCTV not working', 'Gate lock broken', 'Intercom issue', 'Security guard complaint'],
-      'Others': ['Key duplication', 'Name plate change', 'General inquiry', 'Visitor management'],
-    };
-    final statuses = ['pending', 'in_progress', 'completed'];
-    final priorities = ['low', 'medium', 'high'];
+  Future<void> fetchRequests() async {
+    try {
+      AppLogger.i('ServicesController', 'Load service requests');
+      isLoading.value = true;
+      errorMessage.value = '';
+      final data = await _repo.getDashboardServices();
+      final items = List<ServiceRequestModel>.from(data['requests'] as List);
+      items.sort((a, b) => b.requestDate.compareTo(a.requestDate));
 
-    final requests = <ServiceRequestModel>[];
-    for (int i = 0; i < 60; i++) {
-      final type = AppConstants.serviceTypes[_rng.nextInt(AppConstants.serviceTypes.length)];
-      final descs = descriptions[type]!;
-      requests.add(ServiceRequestModel(
-        id: 'SR${i + 1}',
-        propertyId: 'P${_rng.nextInt(12) + 1}',
-        propertyName: properties[_rng.nextInt(properties.length)],
-        tenantName: tenantNames[_rng.nextInt(tenantNames.length)],
-        serviceType: type,
-        description: descs[_rng.nextInt(descs.length)],
-        status: statuses[_rng.nextInt(statuses.length)],
-        requestDate: DateTime.now().subtract(Duration(days: _rng.nextInt(30))),
-        priority: priorities[_rng.nextInt(priorities.length)],
-      ));
+      if (_isRestricted() &&
+          Get.isRegistered<PropertyController>() &&
+          Get.find<PropertyController>().properties.isEmpty) {
+        await Get.find<PropertyController>().fetchProperties();
+      }
+
+      final visible = _visibleRequests(items);
+      serviceRequests.value = visible;
+      recentRequests.value = visible.take(10).toList();
+
+      if (_isRestricted()) {
+        final counts = <String, int>{};
+        for (final type in AppConstants.serviceTypes) {
+          counts[type] = visible.where((r) => r.serviceType == type).length;
+        }
+        categoryCounts.assignAll(counts);
+      } else {
+        categoryCounts.assignAll(
+          Map<String, int>.from(data['counts'] as Map),
+        );
+      }
+
+      if (selectedServiceType.value.isNotEmpty) {
+        filteredRequests.value =
+            visible
+                .where((r) => r.serviceType == selectedServiceType.value)
+                .toList();
+      }
+      AppLogger.i(
+        'ServicesController',
+        'Service requests loaded count=${visible.length}',
+      );
+    } catch (e) {
+      AppLogger.e('ServicesController', 'Load service requests failed', e);
+      errorMessage.value = 'Failed to load service requests: $e';
+    } finally {
+      isLoading.value = false;
     }
-    serviceRequests.value = requests;
-    isLoading.value = false;
   }
 
   void selectServiceType(String type) {
+    AppLogger.d('ServicesController', 'Select service type=$type');
     if (selectedServiceType.value == type) {
       selectedServiceType.value = '';
       filteredRequests.value = [];
     } else {
       selectedServiceType.value = type;
-      filteredRequests.value = serviceRequests.where((r) => r.serviceType == type).toList();
+      filteredRequests.value =
+          serviceRequests.where((r) => r.serviceType == type).toList();
     }
   }
 
+  final searchQuery = ''.obs;
+
   void search(String query) {
+    searchQuery.value = query;
     if (query.isEmpty) {
       if (selectedServiceType.value.isNotEmpty) {
-        filteredRequests.value = serviceRequests.where((r) => r.serviceType == selectedServiceType.value).toList();
+        filteredRequests.value =
+            serviceRequests
+                .where((r) => r.serviceType == selectedServiceType.value)
+                .toList();
+      } else {
+        filteredRequests.value = [];
       }
       return;
     }
-    var base = selectedServiceType.value.isNotEmpty
-        ? serviceRequests.where((r) => r.serviceType == selectedServiceType.value)
-        : serviceRequests;
-    filteredRequests.value = base.where((r) =>
-      r.propertyName.toLowerCase().contains(query.toLowerCase()) ||
-      r.tenantName.toLowerCase().contains(query.toLowerCase())
-    ).toList();
+
+    filteredRequests.value =
+        serviceRequests
+            .where(
+              (r) =>
+                  r.propertyName.toLowerCase().contains(query.toLowerCase()) ||
+                  r.tenantName.toLowerCase().contains(query.toLowerCase()) ||
+                  r.description.toLowerCase().contains(query.toLowerCase()) ||
+                  r.serviceType.toLowerCase().contains(query.toLowerCase()),
+            )
+            .toList();
+  }
+
+  void refresh() => fetchRequests();
+
+  List<ServiceRequestModel> _visibleRequests(List<ServiceRequestModel> items) {
+    if (!Get.isRegistered<AuthController>()) return items;
+    final auth = Get.find<AuthController>();
+    if (!auth.isRestrictedRole) return items;
+
+    final ids = <String>{};
+    final names = <String>{};
+    if (Get.isRegistered<PropertyController>()) {
+      for (final p in Get.find<PropertyController>().properties) {
+        if (p.id.isNotEmpty) ids.add(p.id);
+        if (p.name.isNotEmpty) names.add(p.name.toLowerCase());
+      }
+    }
+
+    final userName = auth.userName.value.trim().toLowerCase();
+    return items.where((r) {
+      if (r.propertyId.isNotEmpty && ids.contains(r.propertyId)) return true;
+      if (r.propertyName.isNotEmpty &&
+          names.contains(r.propertyName.toLowerCase())) {
+        return true;
+      }
+      if (auth.isLandlord &&
+          userName.isNotEmpty &&
+          r.landlordName.trim().toLowerCase() == userName) {
+        return true;
+      }
+      if (auth.isTenant &&
+          userName.isNotEmpty &&
+          r.tenantName.trim().toLowerCase() == userName) {
+        return true;
+      }
+      return false;
+    }).toList();
+  }
+
+  bool _isRestricted() {
+    if (!Get.isRegistered<AuthController>()) return false;
+    return Get.find<AuthController>().isRestrictedRole;
   }
 }

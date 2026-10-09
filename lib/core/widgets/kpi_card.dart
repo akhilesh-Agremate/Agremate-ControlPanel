@@ -8,6 +8,7 @@ class KpiCard extends StatefulWidget {
   final IconData icon;
   final Color accentColor;
   final List<double>? sparkData;
+  final List<String>? sparkLabels;
 
   const KpiCard({
     super.key,
@@ -17,6 +18,7 @@ class KpiCard extends StatefulWidget {
     required this.icon,
     required this.accentColor,
     this.sparkData,
+    this.sparkLabels,
   });
 
   @override
@@ -26,11 +28,6 @@ class KpiCard extends StatefulWidget {
 class _KpiCardState extends State<KpiCard> with SingleTickerProviderStateMixin {
   bool _hovering = false;
   int? _selectedIndex;
-
-  final List<String> _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-  ];
 
   Widget _buildInteractiveSparkline(List<double> data, Color color) {
     if (data.isEmpty) return const SizedBox();
@@ -44,8 +41,7 @@ class _KpiCardState extends State<KpiCard> with SingleTickerProviderStateMixin {
         final val = data[i];
         final hFactor = range > 0 ? ((val - minVal) / range) * 0.7 + 0.3 : 0.5;
         final isSelected = _selectedIndex == i;
-        
-        // Using a consistent professional blue for all charts
+
         const baseBlue = Color(0xFF2083D5); 
         final barColor = isSelected ? baseBlue : baseBlue.withValues(alpha: 0.4 + (i / data.length) * 0.4);
         
@@ -61,7 +57,9 @@ class _KpiCardState extends State<KpiCard> with SingleTickerProviderStateMixin {
                 clipBehavior: Clip.none,
                 children: [
                   Tooltip(
-                    message: i < _months.length ? '${_months[i]}: ${val.toStringAsFixed(0)}' : val.toStringAsFixed(0),
+                    message: (widget.sparkLabels != null && i < widget.sparkLabels!.length) 
+                        ? '${widget.sparkLabels![i]}: ${val.toStringAsFixed(0)}' 
+                        : val.toStringAsFixed(0),
                     child: Container(
                       margin: EdgeInsets.only(right: i == data.length - 1 ? 0 : 2),
                       height: 18 * hFactor,
@@ -118,14 +116,18 @@ class _KpiCardState extends State<KpiCard> with SingleTickerProviderStateMixin {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: widget.accentColor.withValues(alpha: _hovering ? 1.0 : 0.15),
-            width: _hovering ? 1.5 : 1.0,
-          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF1565C0)
+                  .withValues(alpha: _hovering ? 0.16 : 0.09),
+              blurRadius: _hovering ? 20 : 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -136,18 +138,21 @@ class _KpiCardState extends State<KpiCard> with SingleTickerProviderStateMixin {
                 Expanded(
                   child: Text(
                     widget.title.toUpperCase(),
-                    style: AppTheme.kpiLabel.copyWith(fontSize: 10, letterSpacing: 0.5, color: AppTheme.textMuted),
+                    style: AppTheme.kpiLabel.copyWith(
+                      fontSize: 10, letterSpacing: 0.5,
+                      color: const Color(0xFF2F6BFF),
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Icon(widget.icon, color: widget.accentColor, size: 16),
+             Icon(widget.icon, color: const Color(0xFF2F6BFF), size: 16),
               ],
             ),
             const SizedBox(height: 4),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(widget.value, style: AppTheme.kpiValue.copyWith(color: widget.accentColor, fontSize: 22, height: 1.0)),
+                Text(widget.value, style: AppTheme.kpiValue.copyWith(color: const Color(0xFF2F6BFF), fontSize: 22, height: 1.0)),
                 if (widget.subtitle != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
@@ -166,7 +171,7 @@ class _KpiCardState extends State<KpiCard> with SingleTickerProviderStateMixin {
             const Spacer(),
             if (widget.sparkData != null)
               SizedBox(
-                height: 20, // Fixed height for bars; badges float above
+                height: 20,
                 child: _buildInteractiveSparkline(widget.sparkData!, widget.accentColor),
               ),
           ],

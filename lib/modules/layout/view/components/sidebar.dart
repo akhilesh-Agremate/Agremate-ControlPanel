@@ -16,78 +16,91 @@ class Sidebar extends StatelessWidget {
     return Container(
       width: 260,
       decoration: const BoxDecoration(
-        gradient: AppTheme.sidebarGradient,
-        border: Border(right: BorderSide(color: AppTheme.border, width: 1)),
+        color: Colors.white,
+        border: Border(right: BorderSide(color: Color(0xFFE3EEF9), width: 1)),
       ),
       child: Column(
         children: [
-          // Logo
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 28, 20, 8),
-            child: Row(
+          Container(
+            height: 70,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            alignment: Alignment.centerLeft,
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: AppTheme.border, width: 1),
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF4A90D9).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF4A90D9).withValues(alpha: 0.2)),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.asset(
-                      'assets/images/agremate_logo.jpg',
-                      width: 44,
-                      height: 44,
-                      fit: BoxFit.cover,
+                Image.asset(
+                  'assets/images/logo_agremate.jpg',
+                  width: 170,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(height: 4),
+                Obx(
+                  () => Text(
+                    auth.roleLabel,
+                    style: AppTheme.caption.copyWith(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF7B9CCB),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('AGREMATE', style: GoogleFonts.syne(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textPrimary, letterSpacing: 2)),
-                    Text('Super Admin', style: AppTheme.caption.copyWith(fontSize: 11)),
-                  ],
                 ),
               ],
             ),
           ),
           const SizedBox(height: 12),
-          Divider(color: AppTheme.border.withValues(alpha: 0.5), height: 1),
-          const SizedBox(height: 12),
-          // Nav items
+
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               children: [
                 for (final item in AppConstants.navItems)
-                  Obx(() => _NavItem(
-                    icon: item['icon'] as IconData,
-                    label: item['label'] as String,
-                    isActive: nav.currentIndex.value == item['index'],
-                    onTap: () => nav.changePage(item['index'] as int),
-                  )),
+                  Obx(
+                        () => _NavItem(
+                      icon: _outlinedIcon(item['label'] as String, item['icon'] as IconData),
+                      label: item['label'] as String,
+                      isActive: nav.currentIndex.value == item['index'],
+                      onTap: () => nav.changePage(item['index'] as int),
+                    ),
+                  ),
+                Obx(() {
+                  if (!auth.isSuperAdmin) return const SizedBox.shrink();
+                  return _NavItem(
+                    icon: Icons.admin_panel_settings_outlined,
+                    label: 'Admin Control',
+                    isActive: nav.currentIndex.value == 9,
+                    onTap: () => nav.changePage(9),
+                  );
+                }),
               ],
             ),
           ),
-          // Account & Logout
+
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
               children: [
-                Obx(() => _NavItem(
-                  icon: Icons.person_rounded,
-                  label: 'My Account',
-                  isActive: nav.currentIndex.value == 7,
-                  onTap: () => nav.changePage(7),
-                )),
-                Obx(() => _NavItem(
-                  icon: Icons.support_agent_rounded,
-                  label: 'Support',
-                  isActive: nav.currentIndex.value == 5,
-                  onTap: () => nav.changePage(5),
-                )),
+                Obx(
+                  () => _NavItem(
+                    icon: Icons.person_rounded,
+                    label: 'My Account',
+                    isActive: nav.currentIndex.value == 7,
+                    onTap: () => nav.changePage(7),
+                  ),
+                ),
+                Obx(
+                  () => _NavItem(
+                    icon: Icons.support_agent_rounded,
+                    label: 'Support',
+                    isActive: nav.currentIndex.value == 5,
+                    onTap: () => nav.changePage(5),
+                  ),
+                ),
                 _NavItem(
                   icon: Icons.logout_rounded,
                   label: 'Logout',
@@ -103,24 +116,68 @@ class Sidebar extends StatelessWidget {
     );
   }
 
+  IconData _outlinedIcon(String label, IconData fallback) {
+    switch (label) {
+      case 'Home':
+        return Icons.home_outlined;
+      case 'Property':
+        return Icons.apartment_outlined;
+      case 'Services':
+        return Icons.business_center_outlined;
+      case 'Finance':
+        return Icons.account_balance_wallet_outlined;
+      case 'Documents':
+        return Icons.folder_outlined;
+      case 'User':
+        return Icons.people_outline;
+      default:
+        return fallback;
+    }
+  }
+
   void _showLogoutDialog(BuildContext context, AuthController auth) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.bgCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Logout', style: TextStyle(color: AppTheme.textPrimary), textAlign: TextAlign.center),
-        content: const Text('Are you sure you want to logout?', style: TextStyle(color: AppTheme.textSecondary), textAlign: TextAlign.center),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: AppTheme.textMuted))),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentRed),
-            onPressed: () { Navigator.pop(ctx); auth.logout(); },
-            child: const Text('Logout', style: TextStyle(color: Colors.white)),
+      builder:
+          (ctx) => AlertDialog(
+            backgroundColor: AppTheme.bgCard,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text(
+              'Logout',
+              style: TextStyle(color: AppTheme.textPrimary),
+              textAlign: TextAlign.center,
+            ),
+            content: const Text(
+              'Are you sure you want to logout?',
+              style: TextStyle(color: AppTheme.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+            actionsAlignment: MainAxisAlignment.center,
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: AppTheme.textMuted),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.accentRed,
+                ),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  auth.logout();
+                },
+                child: const Text(
+                  'Logout',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 }
@@ -132,56 +189,65 @@ class _NavItem extends StatefulWidget {
   final bool isLogout;
   final VoidCallback onTap;
 
-  const _NavItem({required this.icon, required this.label, required this.isActive, this.isLogout = false, required this.onTap});
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.isActive,
+    this.isLogout = false,
+    required this.onTap,
+  });
 
   @override
   State<_NavItem> createState() => _NavItemState();
 }
 
 class _NavItemState extends State<_NavItem> {
-  bool _hovering = false;
+
+  static const _blue = Color(0xFF2F6BFF);
+  static const _muted = Color(0xFF7B9CCB);
 
   @override
   Widget build(BuildContext context) {
-    final color = widget.isLogout ? AppTheme.accentRed : (widget.isActive ? AppTheme.accentGreen : AppTheme.textMuted);
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovering = true),
-      onExit: (_) => setState(() => _hovering = false),
-      child: GestureDetector(
+    final Color fg = widget.isActive
+        ? Colors.white
+        : (widget.isLogout ? AppTheme.accentRed : _muted);
+
+    return GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          margin: const EdgeInsets.symmetric(vertical: 2),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           decoration: BoxDecoration(
-            color: widget.isActive
-                ? Colors.white
-                : (_hovering ? AppTheme.bgCardLight : Colors.transparent),
-            borderRadius: BorderRadius.circular(12),
-            border: widget.isActive
-                ? Border.all(color: AppTheme.accentBlue.withValues(alpha: 0.5), width: 1)
-                : null,
+            color: widget.isActive ? _blue : Colors.transparent,
+            borderRadius: BorderRadius.circular(28),
             boxShadow: widget.isActive
                 ? [
-                    BoxShadow(
-                      color: AppTheme.accentBlue.withValues(alpha: 0.2),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    )
-                  ]
+              BoxShadow(
+                color: _blue.withValues(alpha: 0.28),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ]
                 : null,
           ),
           child: Row(
             children: [
-              Icon(widget.icon, color: color, size: 20),
+              Icon(widget.icon, color: fg, size: 20),
               const SizedBox(width: 14),
-              Expanded(child: Text(widget.label, style: TextStyle(color: widget.isActive ? AppTheme.textPrimary : color, fontSize: 14, fontWeight: widget.isActive ? FontWeight.w600 : FontWeight.w400))),
-              if (widget.isActive)
-                Container(width: 6, height: 6, decoration: BoxDecoration(color: AppTheme.accentGreen, shape: BoxShape.circle)),
+              Expanded(
+                child: Text(
+                  widget.label,
+                  style: TextStyle(
+                    color: fg,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
-      ),
     );
   }
 }

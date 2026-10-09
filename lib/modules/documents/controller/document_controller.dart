@@ -1,134 +1,143 @@
-import 'dart:math';
 import 'package:get/get.dart';
 import 'package:agremate_admin/modules/documents/model/document_model.dart';
-
+import 'package:agremate_admin/modules/documents/repository/document_repository.dart';
 import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
+import 'package:agremate_admin/modules/property/model/property_model.dart';
+import 'package:agremate_admin/modules/property/repository/property_repository.dart';
+import 'package:agremate_admin/core/utils/app_logger.dart';
 
 class DocumentController extends GetxController {
+  DocumentController(DocumentRepository repository);
+
+  final properties = <PropertyModel>[].obs;
   final documents = <DocumentModel>[].obs;
-  final currentPath = <Map<String, String>>[].obs; // breadcrumb
+  final selectedProperty = Rxn<PropertyModel>();
+  final currentPath = <Map<String, String>>[].obs;
   final currentParentId = Rxn<String>();
   final isLoading = true.obs;
+  final isDetailLoading = false.obs;
+  final errorMessage = ''.obs;
   final returnTabIndex = Rxn<int>();
-  final _rng = Random(42);
 
-  List<DocumentModel> get currentDocuments {
-    return documents.where((d) => d.parentId == currentParentId.value).toList();
+  String get searchQuery => Get.find<NavigationController>().searchQuery.value;
+
+  List<PropertyModel> get visibleProperties {
+    final query = searchQuery.toLowerCase();
+    if (query.isEmpty) return properties.toList();
+    return properties
+        .where(
+          (p) =>
+              p.name.toLowerCase().contains(query) ||
+              p.landlordName.toLowerCase().contains(query) ||
+              (p.primaryTenantName ?? '').toLowerCase().contains(query),
+        )
+        .toList();
   }
 
-  List<DocumentModel> get currentFolders => currentDocuments.where((d) => d.isFolder).toList();
-  List<DocumentModel> get currentFiles => currentDocuments.where((d) => d.isFile).toList();
+  List<DocumentModel> get allFiles {
+    if (searchQuery.isEmpty) return documents.toList();
+    final query = searchQuery.toLowerCase();
+    return documents
+        .where(
+          (d) =>
+              d.name.toLowerCase().contains(query) ||
+              (d.propertyName?.toLowerCase().contains(query) ?? false),
+        )
+        .toList();
+  }
+
+  List<DocumentModel> get currentFolders => const [];
+
+  List<DocumentModel> get currentFiles => allFiles;
 
   @override
   void onInit() {
     super.onInit();
-    _generateData();
+    fetchProperties();
   }
 
-  void _generateData() {
-    isLoading.value = true;
-    final docs = <DocumentModel>[];
-    final now = DateTime.now();
-    // Root folders
-    docs.add(DocumentModel(id:'F1',name:'Landlord Documents',type:'folder',ownerId:'admin',ownerName:'Admin',ownerType:'landlord',createdAt:now,modifiedAt:now));
-    docs.add(DocumentModel(id:'F2',name:'Tenant Documents',type:'folder',ownerId:'admin',ownerName:'Admin',ownerType:'tenant',createdAt:now,modifiedAt:now));
-    // Landlord subfolders
-    final llNames = ['Rajesh Sharma','Priya Patel','Amit Kumar','Sunita Gupta','Vikram Singh'];
-    final uploaders = ['Rajesh Sharma', 'Suresh Raina', 'Mahendra Singh', 'Virat Kohli', 'Rohit Sharma', 'Priya Patel', 'Ananya Singh'];
-    for(int i=0;i<llNames.length;i++){
-      final fid='F1_$i';
-      docs.add(DocumentModel(id:fid,name:llNames[i],type:'folder',parentId:'F1',ownerId:'L${i+1}',ownerName:llNames[i],ownerType:'landlord',createdAt:now.subtract(Duration(days:_rng.nextInt(90))),modifiedAt:now.subtract(Duration(days:_rng.nextInt(10)))));
-      // Files inside
-      final fileTypes=['pdf','doc','image','spreadsheet'];
-      final fileNames=['Rental Agreement','Property Tax Receipt','ID Proof','Insurance Policy','Bank Statement'];
-      for(int j=0;j<fileNames.length;j++){
-        docs.add(DocumentModel(id:'${fid}_$j',name:fileNames[j],type:'file',parentId:fid,ownerId:'L${i+1}',ownerName:uploaders[_rng.nextInt(uploaders.length)],ownerType:'landlord',fileType:fileTypes[_rng.nextInt(fileTypes.length)],sizeKb:_rng.nextDouble()*5000+100,createdAt:now.subtract(Duration(days:_rng.nextInt(180))),modifiedAt:now.subtract(Duration(days:_rng.nextInt(30)))));
+  Future<void> fetchProperties() async {
+    try {
+      errorMessage.value = '';
+      isLoading.value = true;
+      selectedProperty.value = null;
+      documents.clear();
+      final repo = Get.find<PropertyRepository>();
+      properties.assignAll(await repo.getAllProperties());
+    } catch (e) {
+      errorMessage.value = 'Failed to load properties.';
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> openPropertyDocuments(PropertyModel property) async {
+    selectedProperty.value = property;
+    AppLogger.i(
+      'DocumentController',
+      'Open property documents id=${property.id}',
+    );
+    try {
+      isDetailLoading.value = true;
+      errorMessage.value = '';
+      final repo = Get.find<PropertyRepository>();
+      final detail = await repo.getPropertyById(property.id);
+      if (selectedProperty.value?.id != property.id) return;
+      selectedProperty.value = detail;
+      documents.assignAll(_docsFromProperty(detail));
+      AppLogger.i(
+        'DocumentController',
+        'Property documents loaded count=${documents.length}',
+      );
+    } catch (e) {
+      AppLogger.e('DocumentController', 'Load property documents failed', e);
+      documents.clear();
+      errorMessage.value = 'Failed to load property documents.';
+    } finally {
+      isDetailLoading.value = false;
+    }
+  }
+
+  List<DocumentModel> _docsFromProperty(PropertyModel property) {
+    final list = <DocumentModel>[];
+    for (final item in property.documents) {
+      if (item is Map) {
+        final json = Map<String, dynamic>.from(item);
+        json['propertyName'] ??= property.name;
+        list.add(DocumentModel.fromJson(json));
       }
     }
-    // Tenant subfolders
-    final tnNames = ['Aarav Menon','Ishika Sen','Rohan Pillai','Diya Chopra','Arjun Saxena'];
-    for(int i=0;i<tnNames.length;i++){
-      final fid='F2_$i';
-      docs.add(DocumentModel(id:fid,name:tnNames[i],type:'folder',parentId:'F2',ownerId:'T${i+1}',ownerName:tnNames[i],ownerType:'tenant',createdAt:now.subtract(Duration(days:_rng.nextInt(90))),modifiedAt:now.subtract(Duration(days:_rng.nextInt(10)))));
-      final fileNames=['Lease Agreement','Aadhaar Card','Rent Receipt','Maintenance Bill'];
-      final fileTypes=['pdf','doc','image','spreadsheet'];
-      for(int j=0;j<fileNames.length;j++){
-        docs.add(DocumentModel(id:'${fid}_$j',name:fileNames[j],type:'file',parentId:fid,ownerId:'T${i+1}',ownerName:uploaders[_rng.nextInt(uploaders.length)],ownerType:'tenant',fileType:fileTypes[_rng.nextInt(fileTypes.length)],sizeKb:_rng.nextDouble()*3000+50,createdAt:now.subtract(Duration(days:_rng.nextInt(180))),modifiedAt:now.subtract(Duration(days:_rng.nextInt(30)))));
-      }
-    }
-    documents.value = docs;
-    isLoading.value = false;
+    return list;
   }
 
-  void openFolder(String folderId, String folderName) {
-    currentPath.add({'id': folderId, 'name': folderName});
-    currentParentId.value = folderId;
-  }
-
-  void navigateToBreadcrumb(int index) {
-    if (index < 0) {
-      currentPath.clear();
-      currentParentId.value = null;
+  void refreshData() {
+    if (selectedProperty.value != null) {
+      openPropertyDocuments(selectedProperty.value!);
     } else {
-      final target = currentPath[index];
-      currentPath.value = currentPath.sublist(0, index + 1);
-      currentParentId.value = target['id'];
+      fetchProperties();
     }
   }
+
+  void openFolder(String folderId, String folderName) {}
+
+  void navigateToBreadcrumb(int index) {}
 
   void goBack() {
-    if (returnTabIndex.value != null) {
+    if (returnTabIndex.value != null && selectedProperty.value == null) {
       final nav = Get.find<NavigationController>();
       nav.currentIndex.value = returnTabIndex.value!;
       returnTabIndex.value = null;
       return;
     }
-
-    if (currentPath.isNotEmpty) {
-      currentPath.removeLast();
-      currentParentId.value = currentPath.isNotEmpty ? currentPath.last['id'] : null;
-    }
+    selectedProperty.value = null;
+    documents.clear();
+    errorMessage.value = '';
   }
 
-  void navigateToOwnerFolder(String rootFolderId, String rootFolderName, String ownerName, String ownerType) {
-    var folder = documents.firstWhereOrNull(
-      (d) => d.parentId == rootFolderId && d.name == ownerName && d.isFolder
-    );
-
-    if (folder == null) {
-      final newFolderId = '${rootFolderId}_dynamic_${DateTime.now().millisecondsSinceEpoch}';
-      folder = DocumentModel(
-        id: newFolderId,
-        name: ownerName,
-        type: 'folder',
-        parentId: rootFolderId,
-        ownerId: ownerType == 'landlord' ? 'L_dyn' : 'T_dyn',
-        ownerName: ownerName,
-        ownerType: ownerType,
-        createdAt: DateTime.now(),
-        modifiedAt: DateTime.now(),
-      );
-      documents.add(folder);
-      
-      documents.add(DocumentModel(
-        id: '${newFolderId}_f1',
-        name: ownerType == 'landlord' ? 'Property Ownership Proof' : 'Lease Agreement',
-        type: 'file',
-        parentId: newFolderId,
-        ownerId: folder.ownerId,
-        ownerName: ownerName,
-        ownerType: ownerType,
-        fileType: 'pdf',
-        sizeKb: 1250.0,
-        createdAt: DateTime.now(),
-        modifiedAt: DateTime.now(),
-      ));
-    }
-
-    currentPath.value = [
-      {'id': rootFolderId, 'name': rootFolderName},
-      {'id': folder.id, 'name': folder.name},
-    ];
-    currentParentId.value = folder.id;
-  }
+  void navigateToOwnerFolder(
+    String rootFolderId,
+    String rootFolderName,
+    String ownerName,
+    String ownerType,
+  ) {}
 }

@@ -1,13 +1,15 @@
+import 'dart:ui';
 import 'package:agremate_admin/modules/property/model/property_model.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:agremate_admin/core/theme/theme.dart';
+import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
 import 'package:agremate_admin/modules/property/controller/property_controller.dart';
-import 'package:agremate_admin/core/widgets/glass_card.dart';
 import 'package:agremate_admin/core/widgets/kpi_card.dart';
 import 'package:agremate_admin/core/widgets/status_badge.dart';
 import 'components/property_detail_panel.dart';
+import 'components/add_property_panel.dart';
 
 class PropertyView extends StatelessWidget {
   const PropertyView({super.key});
@@ -18,273 +20,207 @@ class PropertyView extends StatelessWidget {
     final fmt = NumberFormat.compactCurrency(symbol: '₹', locale: 'en_IN');
 
     return Obx(() {
-      // Reading these reactive values inside Obx ensures rebuild on any change
+      final auth =
+      Get.isRegistered<AuthController>() ? Get.find<AuthController>() : null;
+      final canAddProperty =
+          auth == null || auth.isLandlord || !auth.isRestrictedRole;
+
+      final isAddOpen = pc.isAddOpen.value && canAddProperty;
       final isDetailOpen = pc.selectedProperty.value != null;
       final isLoading = pc.isLoading.value;
       final page = pc.currentPage.value;
       final totalFiltered = pc.filteredProperties.length;
-
-      // Compute page slice directly here — no caching, no stale state
       final pageItems = pc.currentPageProperties;
+
+      debugPrint(
+          'PropertyView build: isAddOpen=${pc.isAddOpen.value} canAdd=$canAddProperty');
+      if (isAddOpen) {
+        return AddPropertyPanel(
+          onBack: () => pc.isAddOpen.value = false,
+          onSubmit: (data) => pc.createProperty(data),
+          amenityOptions: pc.amenities.toList(),
+          amenitiesLoading: pc.isAmenitiesLoading.value,
+          featureOptions: pc.featureOptions.toList(),
+          featuresLoading: pc.isFeaturesLoading.value,
+        );
+      }
 
       if (isDetailOpen) {
         return PropertyDetailPanel(property: pc.selectedProperty.value!);
       }
 
-      return SingleChildScrollView(
-        controller: pc.scrollController,
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── KPI Row ────────────────────────────────────────────────────
-            Row(
-              children: [
-                Expanded(
-                  child: AspectRatio(
-                    aspectRatio: 1.5,
-                    child: KpiCard(
-                      title: 'Total Landlords',
-                      value: '${pc.landlords.length}',
-                      icon: Icons.person_rounded,
-                      accentColor: AppTheme.landlordFill,
-                      subtitle: '${pc.landlords.length} active',
-                      sparkData: const [3, 5, 4, 7, 6, 8, 9, 7, 10, 12, 11, 15],
+      return ColoredBox(
+        color: const Color(0xFFF8FAFD),
+        child: SingleChildScrollView(
+          controller: pc.scrollController,
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: AspectRatio(
+                      aspectRatio: 1.5,
+                      child: KpiCard(
+                        title: 'Total Properties',
+                        value: '${pc.kpiStats.value.totalProperties}',
+                        icon: Icons.apartment_rounded,
+                        accentColor: AppTheme.accentGreen,
+                        subtitle: '${pc.kpiStats.value.rentedCount} rented',
+                        sparkData: pc.kpiStats.value.propertiesSparkline.isEmpty
+                            ? const [4.0, 6.0, 5.0, 8.0, 7.0, 9.0, 10.0, 8.0, 11.0, 13.0, 12.0, 16.0]
+                            : pc.kpiStats.value.propertiesSparkline,
+                        sparkLabels: pc.kpiStats.value.chartLabels.isEmpty
+                            ? null
+                            : pc.kpiStats.value.chartLabels,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: AspectRatio(
-                    aspectRatio: 1.5,
-                    child: KpiCard(
-                      title: 'Total Tenants',
-                      value: '${pc.tenants.length}',
-                      icon: Icons.groups_rounded,
-                      accentColor: AppTheme.tenantFill,
-                      subtitle: 'across ${pc.properties.length} properties',
-                      sparkData: const [5, 8, 7, 9, 12, 10, 14, 13, 16, 18, 17, 25],
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: AspectRatio(
+                      aspectRatio: 1.5,
+                      child: KpiCard(
+                        title: 'Total Landlords',
+                        value: '${pc.kpiStats.value.totalLandlords}',
+                        icon: Icons.person_rounded,
+                        accentColor: AppTheme.landlordFill,
+                        subtitle:
+                        '${pc.kpiStats.value.activeLandlordCount} active',
+                        sparkData: pc.kpiStats.value.landlordsSparkline.isEmpty
+                            ? const [3.0, 5.0, 4.0, 7.0, 6.0, 8.0, 9.0, 7.0, 10.0, 12.0, 11.0, 15.0]
+                            : pc.kpiStats.value.landlordsSparkline,
+                        sparkLabels: pc.kpiStats.value.chartLabels.isEmpty
+                            ? null
+                            : pc.kpiStats.value.chartLabels,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: AspectRatio(
-                    aspectRatio: 1.5,
-                    child: KpiCard(
-                      title: 'Total Properties',
-                      value: '${pc.properties.length}',
-                      icon: Icons.apartment_rounded,
-                      accentColor: AppTheme.accentGreen,
-                      subtitle: '${pc.properties.where((p) => p.isRented).length} rented',
-                      sparkData: const [4, 6, 5, 8, 7, 9, 10, 8, 11, 13, 12, 16],
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: AspectRatio(
+                      aspectRatio: 1.5,
+                      child: KpiCard(
+                        title: 'Total Tenants',
+                        value: '${pc.kpiStats.value.totalTenants}',
+                        icon: Icons.groups_rounded,
+                        accentColor: AppTheme.tenantFill,
+                        subtitle:
+                        'across ${pc.kpiStats.value.tenantsAcrossProperties} properties',
+                        sparkData: pc.kpiStats.value.tenantsSparkline.isEmpty
+                            ? const [5.0, 8.0, 7.0, 9.0, 12.0, 10.0, 14.0, 13.0, 16.0, 18.0, 17.0, 25.0]
+                            : pc.kpiStats.value.tenantsSparkline,
+                        sparkLabels: pc.kpiStats.value.chartLabels.isEmpty
+                            ? null
+                            : pc.kpiStats.value.chartLabels,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: AspectRatio(
-                    aspectRatio: 1.5,
-                    child: KpiCard(
-                      title: 'Total Revenue',
-                      value: fmt.format(pc.landlords.fold<double>(0, (s, l) => s + (l.totalRevenue ?? 0))),
-                      icon: Icons.trending_up_rounded,
-                      accentColor: AppTheme.accentPurple,
-                      sparkData: const [10, 12, 15, 14, 18, 20, 19, 22, 25, 24, 28, 30],
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: AspectRatio(
+                      aspectRatio: 1.5,
+                      child: KpiCard(
+                        title: 'Total Revenue',
+                        value: fmt.format(pc.kpiStats.value.totalRevenue),
+                        icon: Icons.trending_up_rounded,
+                        accentColor: AppTheme.accentPurple,
+                        sparkData: pc.kpiStats.value.revenueSparkline.isEmpty
+                            ? const [10.0, 12.0, 15.0, 14.0, 18.0, 20.0, 19.0, 22.0, 25.0, 24.0, 28.0, 30.0]
+                            : pc.kpiStats.value.revenueSparkline,
+                        sparkLabels: pc.kpiStats.value.chartLabels.isEmpty
+                            ? null
+                            : pc.kpiStats.value.chartLabels,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 28),
+                ],
+              ),
+              const SizedBox(height: 28),
+              Row(
+                children: [
+                  Text('Properties', style: AppTheme.heading2),
+                  const SizedBox(width: 8),
+                  Text('($totalFiltered properties)', style: AppTheme.caption),
+                  const Spacer(),
+                  if (auth != null && auth.isSuperAdmin) ...[
+                    _CategoryFilterSelector(pc: pc),
+                    const SizedBox(width: 16),
+                  ],
+                  if (canAddProperty)
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        debugPrint('Add Property clicked');
+                        pc.openAddProperty();
+                      },
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Add Property'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2F6BFF),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  const crossAxisCount = 3;
+                  final cardWidth =
+                      (constraints.maxWidth - 20 * (crossAxisCount - 1)) /
+                          crossAxisCount;
 
-            // ── Header ─────────────────────────────────────────────────────
-            Row(
-              children: [
-                Text('Properties', style: AppTheme.heading2),
-                const SizedBox(width: 8),
-                Text('($totalFiltered total)', style: AppTheme.caption),
-                const Spacer(),
-                ElevatedButton.icon(
-                  onPressed: () => _showAddPropertyDialog(context, pc),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Add Property'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accentGreen,
-                    foregroundColor: AppTheme.bgDark,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
+                  if (isLoading) {
+                    return const SizedBox(
+                      height: 400,
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
 
-            // ── Grid ───────────────────────────────────────────────────────
-            LayoutBuilder(
-              builder: (context, constraints) {
-                const crossAxisCount = 3;
-                final cardWidth = (constraints.maxWidth - 16 * (crossAxisCount - 1)) / crossAxisCount;
+                  if (pageItems.isEmpty) {
+                    return _EmptyState(
+                      page: page,
+                      onRefresh: pc.refreshProperties,
+                    );
+                  }
 
-                if (isLoading) {
-                  return const SizedBox(
-                    height: 400,
-                    child: Center(child: CircularProgressIndicator()),
+                  return Wrap(
+                    key: ValueKey('page_$page'),
+                    spacing: 20,
+                    runSpacing: 24,
+                    children: pageItems
+                        .map(
+                          (prop) => _PropertyCard(
+                        prop: prop,
+                        pc: pc,
+                        width: cardWidth,
+                        isSelected:
+                        pc.selectedProperty.value?.id == prop.id,
+                      ),
+                    )
+                        .toList(),
                   );
-                }
-
-                if (pageItems.isEmpty) {
-                  return _EmptyState(page: page, onRefresh: pc.refreshProperties);
-                }
-
-                return Wrap(
-                  key: ValueKey('page_$page'),   // force widget tree rebuild each page
-                  spacing: 16,
-                  runSpacing: 16,
-                  children: pageItems
-                      .map((prop) => _PropertyCard(
-                            prop: prop,
-                            pc: pc,
-                            width: cardWidth,
-                            isSelected: pc.selectedProperty.value?.id == prop.id,
-                          ))
-                      .toList(),
-                );
-              },
-            ),
-            const SizedBox(height: 32),
-
-            // ── Pagination ─────────────────────────────────────────────────
-            _Pagination(pc: pc),
-          ],
+                },
+              ),
+              const SizedBox(height: 32),
+              _Pagination(pc: pc),
+            ],
+          ),
         ),
       );
     });
   }
-
-  void _showAddPropertyDialog(BuildContext context, PropertyController pc) {
-    final nameC = TextEditingController();
-    final addressC = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.bgCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Add Property',
-          style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.bold),
-        ),
-        content: SizedBox(
-          width: 400,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameC,
-                style: const TextStyle(color: AppTheme.textPrimary),
-                decoration: InputDecoration(
-                  labelText: 'Property Name',
-                  labelStyle: const TextStyle(color: AppTheme.textMuted),
-                  filled: true,
-                  fillColor: AppTheme.bgCardLight,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppTheme.border),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppTheme.border),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppTheme.accentGreen),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: addressC,
-                style: const TextStyle(color: AppTheme.textPrimary),
-                maxLines: 2,
-                decoration: InputDecoration(
-                  labelText: 'Address',
-                  labelStyle: const TextStyle(color: AppTheme.textMuted),
-                  filled: true,
-                  fillColor: AppTheme.bgCardLight,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppTheme.border),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppTheme.border),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppTheme.accentGreen),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                style: const TextStyle(color: AppTheme.textPrimary),
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: 'Monthly Rent',
-                  labelStyle: const TextStyle(color: AppTheme.textMuted),
-                  filled: true,
-                  fillColor: AppTheme.bgCardLight,
-                  prefixText: '₹ ',
-                  prefixStyle: const TextStyle(color: AppTheme.textPrimary),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppTheme.border),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppTheme.border),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppTheme.accentGreen),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: AppTheme.textMuted)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.accentGreen,
-              foregroundColor: AppTheme.bgDark,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            onPressed: () {
-              if (nameC.text.isNotEmpty && addressC.text.isNotEmpty) {
-                Get.snackbar(
-                  'Coming Soon',
-                  'Property creation via API will be available soon.',
-                  duration: const Duration(seconds: 3),
-                );
-                Navigator.pop(ctx);
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
-// ── Empty State ──────────────────────────────────────────────────────────────
 class _EmptyState extends StatelessWidget {
   final int page;
   final VoidCallback onRefresh;
@@ -335,7 +271,6 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-// ── Property Card ─────────────────────────────────────────────────────────────
 class _PropertyCard extends StatelessWidget {
   final PropertyModel prop;
   final PropertyController pc;
@@ -348,169 +283,244 @@ class _PropertyCard extends StatelessWidget {
     this.isSelected = false,
   });
 
+  static const double _cardHeight = 280;
+
   @override
   Widget build(BuildContext context) {
-    final fmt = NumberFormat.currency(symbol: '₹', locale: 'en_IN', decimalDigits: 0);
-
-    final showTenant = prop.status == PropertyStatus.rented ||
-        prop.status == PropertyStatus.booked;
+    final tenantName =
+    (prop.primaryTenantName != null && prop.primaryTenantName!.isNotEmpty)
+        ? prop.primaryTenantName!
+        : 'N/A';
+    final hasImage = prop.imageUrl != null && prop.imageUrl!.trim().isNotEmpty;
 
     Widget statusBadge;
-    Color statusColor;
     switch (prop.status) {
       case PropertyStatus.rented:
         statusBadge = StatusBadge.rented();
-        statusColor = AppTheme.statusRentedText;
         break;
       case PropertyStatus.available:
         statusBadge = StatusBadge.available();
-        statusColor = AppTheme.statusAvailableText;
         break;
       case PropertyStatus.booked:
         statusBadge = StatusBadge.booked();
-        statusColor = AppTheme.accentPurple;
         break;
       case PropertyStatus.requested:
         statusBadge = StatusBadge.requested();
-        statusColor = AppTheme.statusRequestedText;
         break;
       case PropertyStatus.maintenance:
         statusBadge = StatusBadge.maintenance();
-        statusColor = AppTheme.statusMaintenanceText;
+        break;
+      case PropertyStatus.unknown:
+        statusBadge = StatusBadge.unknown();
         break;
     }
 
     return SizedBox(
       width: width,
-      child: GlassCard(
-        glowColor: isSelected ? AppTheme.accentGreen : statusColor.withValues(alpha: 0.2),
-        padding: EdgeInsets.zero,
-        onTap: () => pc.selectedProperty.value = prop,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                  child: Image.network(
-                    prop.imageUrl,
-                    height: 180,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (c, e, s) => Container(
-                      height: 180,
-                      width: double.infinity,
-                      color: AppTheme.bgCardLight,
-                      child: const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.image_not_supported_rounded,
-                            color: AppTheme.textMuted,
-                            size: 32,
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Image Not Available',
-                            style: TextStyle(
-                              color: AppTheme.textMuted,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(top: 12, right: 12, child: statusBadge),
-              ],
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF2563EB).withValues(alpha: 0.12),
+              blurRadius: 28,
+              offset: const Offset(0, 12),
             ),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.white,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: isSelected
+                ? const BorderSide(color: AppTheme.accentGreen, width: 2)
+                : const BorderSide(color: Color(0xFFD6E8FA), width: 1.5),
+          ),
+          child: InkWell(
+            onTap: () => pc.openPropertyDetails(prop),
+            child: SizedBox(
+              height: _cardHeight,
+              width: double.infinity,
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  Text(prop.name, style: AppTheme.heading3, overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 6),
-                  Text(
-                    prop.address.address,
-                    style: AppTheme.caption,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 12),
-                  if (showTenant && prop.primaryTenantName != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.person_outline_rounded, color: AppTheme.tenantFill, size: 14),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              'Tenant: ${prop.primaryTenantName}',
-                              style: AppTheme.caption.copyWith(color: AppTheme.tenantFill, fontWeight: FontWeight.bold),
-                              overflow: TextOverflow.ellipsis,
+                  if (hasImage)
+                    Image.network(
+                      prop.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (c, e, s) => _placeholder(),
+                    )
+                  else
+                    _placeholder(),
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFBDBDBD)
+                                .withValues(alpha: 0.35),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.6)),
+                          ),
+                          child: Text(
+                            '₹ ${NumberFormat.decimalPattern('en_IN').format(prop.rentAmount)}/ Month',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black26,
+                                  blurRadius: 3,
+                                  offset: Offset(0, 1),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  Row(
-                    children: [
-                      const Icon(Icons.person_rounded, color: AppTheme.landlordFill, size: 14),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          'Landlord: ${prop.landlordName}',
-                          style: AppTheme.caption.copyWith(color: AppTheme.landlordFill, fontWeight: FontWeight.w600),
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                  const SizedBox(height: 16),
-                  const Divider(color: AppTheme.border, height: 1),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Text(
-                        fmt.format(prop.rentAmount),
-                        style: const TextStyle(color: AppTheme.accentGreen, fontWeight: FontWeight.bold, fontSize: 18),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: 150,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.75),
+                          ],
+                        ),
                       ),
-                      Text('/month', style: AppTheme.caption),
-                      const Spacer(),
-                      Icon(Icons.circle, size: 8, color: statusColor),
-                      const SizedBox(width: 4),
-                      Text(prop.statusLabel, style: AppTheme.caption),
-                    ],
+                    ),
+                  ),
+                  Positioned(top: 12, right: 12, child: statusBadge),
+                  Positioned(
+                    left: 16,
+                    right: 16,
+                    bottom: 14,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          prop.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on_rounded,
+                                color: Colors.white, size: 14),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                prop.address.address,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _personLabel(
+                                icon: Icons.person_rounded,
+                                text: 'Landlord: ${prop.landlordName}',
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _personLabel(
+                                icon: Icons.groups_outlined,
+                                text: 'Tenant: $tenantName',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
   }
+
+  Widget _placeholder() {
+    return Image.asset(
+      'assets/images/placer.png',
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      errorBuilder: (c, e, s) => Container(color: AppTheme.bgCardLight),
+    );
+  }
+
+  Widget _personLabel({required IconData icon, required String text}) {
+    return Row(
+      children: [
+        Icon(icon, color: Colors.white70, size: 14),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
-// ── Pagination ────────────────────────────────────────────────────────────────
 class _Pagination extends StatelessWidget {
   final PropertyController pc;
   const _Pagination({required this.pc});
 
-  /// Builds a smart windowed page list:
-  /// Always shows first, last, current ±2, with '…' gaps in between.
   List<Widget> _buildPageButtons(int current, int total) {
     final Set<int> pagesToShow = {};
-    // Always anchor: page 1 and the last known data page
     pagesToShow.add(1);
     if (total > 0) pagesToShow.add(total);
-    // Always include current page (even if it exceeds total)
     pagesToShow.add(current);
-    // Show neighbours bounded by 1 on left; on right extend up to max(total, current)
     final upperBound = current > total ? current : total;
     for (int d = -2; d <= 2; d++) {
       final p = current + d;
@@ -522,12 +532,13 @@ class _Pagination extends StatelessWidget {
     int? prev;
     for (final page in sorted) {
       if (prev != null && page - prev > 1) {
-        // Ellipsis gap
         widgets.add(
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text('…',
-                style: TextStyle(color: AppTheme.textMuted, fontSize: 14)),
+            child: Text(
+              '…',
+              style: TextStyle(color: AppTheme.textMuted, fontSize: 14),
+            ),
           ),
         );
       }
@@ -544,7 +555,8 @@ class _Pagination extends StatelessWidget {
               color: isActive ? AppTheme.accentGreen : AppTheme.bgCardLight,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                  color: isActive ? AppTheme.accentGreen : AppTheme.border),
+                color: isActive ? AppTheme.accentGreen : AppTheme.border,
+              ),
             ),
             child: Text(
               '$page',
@@ -570,17 +582,14 @@ class _Pagination extends StatelessWidget {
       return Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // ← Prev
-          IconButton(
-            onPressed: current > 1 ? () => pc.goToPage(current - 1) : null,
-            icon: Icon(Icons.chevron_left,
-                color: current > 1 ? AppTheme.textPrimary : AppTheme.textMuted),
-          ),
+          if (current > 1)
+            IconButton(
+              onPressed: () => pc.goToPage(current - 1),
+              icon: const Icon(Icons.chevron_left, color: AppTheme.textPrimary),
+            ),
           const SizedBox(width: 4),
-          // Page buttons with smart windowing
           ..._buildPageButtons(current, total),
           const SizedBox(width: 4),
-          // → Next (no upper bound — allows navigating to empty pages)
           IconButton(
             onPressed: () => pc.goToPage(current + 1),
             icon: const Icon(Icons.chevron_right, color: AppTheme.textPrimary),
@@ -588,5 +597,122 @@ class _Pagination extends StatelessWidget {
         ],
       );
     });
+  }
+}
+
+class _CategoryFilterSelector extends StatelessWidget {
+  final PropertyController pc;
+  const _CategoryFilterSelector({required this.pc});
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final currentFilter = pc.selectedCategoryFilter.value;
+      final totalCount = pc.totalPropertiesCount;
+      final pgCount = pc.pgPropertiesCount;
+      final individualCount = pc.individualPropertiesCount;
+
+      return Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F4F9),
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildTab(
+              label: 'All',
+              count: totalCount,
+              isSelected: currentFilter == PropertyCategoryFilter.all,
+              onTap: () => pc.setCategoryFilter(PropertyCategoryFilter.all),
+            ),
+            const SizedBox(width: 4),
+            _buildTab(
+              label: 'PG',
+              count: pgCount,
+              isSelected: currentFilter == PropertyCategoryFilter.pg,
+              onTap: () => pc.setCategoryFilter(PropertyCategoryFilter.pg),
+            ),
+            const SizedBox(width: 4),
+            _buildTab(
+              label: 'Individual',
+              count: individualCount,
+              isSelected: currentFilter == PropertyCategoryFilter.individual,
+              onTap: () =>
+                  pc.setCategoryFilter(PropertyCategoryFilter.individual),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildTab({
+    required String label,
+    required int count,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected
+                      ? const Color(0xFF2F6BFF)
+                      : const Color(0xFF5A6A85),
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? const Color(0xFFEEF2FF)
+                      : const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '$count',
+                  style: TextStyle(
+                    color: isSelected
+                        ? const Color(0xFF2F6BFF)
+                        : const Color(0xFF475569),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
