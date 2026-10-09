@@ -5,6 +5,8 @@ import 'package:agremate_admin/modules/home/controller/home_controller.dart';
 import 'package:agremate_admin/modules/home/view/components/subscription_detail_panel.dart';
 import 'package:agremate_admin/modules/home/view/components/rent_collection_detail_view.dart';
 import 'package:agremate_admin/modules/home/view/components/pending_payment_detail_view.dart';
+import 'package:agremate_admin/modules/home/view/components/subscription_detail_view.dart';
+import 'package:agremate_admin/modules/home/view/components/expired_subscription_detail_view.dart';
 import 'package:agremate_admin/modules/property/controller/property_controller.dart';
 import 'package:agremate_admin/modules/property/model/property_model.dart';
 import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
@@ -77,6 +79,14 @@ class HomeView extends StatelessWidget {
         return const PendingPaymentDetailView();
       }
 
+      if (controller.showSubscriptionDetails.value) {
+        return const SubscriptionDetailView();
+      }
+
+      if (controller.showExpiredSubscriptionDetails.value) {
+        return const ExpiredSubscriptionDetailView();
+      }
+
       return ColoredBox(
         color: const Color(0xFFF8FAFD),
           child: Stack(
@@ -127,6 +137,16 @@ class HomeView extends StatelessWidget {
                                   ? () {
                                 AppLogger.i('HomeView', 'Open pending payment details');
                                       controller.openPendingPaymentDetails();
+                                    }
+                                  : label == 'Total Subscriptions'
+                                  ? () {
+                                AppLogger.i('HomeView', 'Open subscription details');
+                                      controller.openSubscriptionDetails();
+                                    }
+                                  : label == 'Subscription Expired'
+                                  ? () {
+                                AppLogger.i('HomeView', 'Open expired subscription details');
+                                      controller.openExpiredSubscriptionDetails();
                                     }
                                   : null,
                               value: Obx(
@@ -2137,16 +2157,6 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                               item['tenantName'] ?? '',
                               Colors.black,
                             ),
-                            if ((item['status'] ?? '')
-                                .toString()
-                                .isNotEmpty) ...[
-                              const SizedBox(height: 2),
-                              widget.buildLabelValue(
-                                'Status',
-                                item['status'] ?? '',
-                                Colors.black,
-                              ),
-                            ],
                           ] else if (title == 'Recent Service Requests') ...[
                             Text(
                               item['propertyName'] ?? '',

@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 import 'package:agremate_admin/modules/property/controller/property_controller.dart';
 import 'package:agremate_admin/modules/services/controller/services_controller.dart';
+import 'package:agremate_admin/core/utils/app_logger.dart';
 
 enum SearchResultType { property, landlord, tenant, location, service }
 
@@ -164,7 +165,7 @@ class NavigationController extends GetxController {
         results.where((r) => seenIds.add('${r.type}-${r.id}')).take(15),
       );
     } catch (e) {
-      print('Search error: $e');
+      AppLogger.e('NavigationController', 'Search error', e);
     }
   }
 

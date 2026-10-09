@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:agremate_admin/core/theme/theme.dart';
 import 'package:agremate_admin/modules/account/controller/account_controller.dart';
 import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
 import 'package:agremate_admin/core/widgets/glass_card.dart';
+import '../model/account_model.dart';
+
+String _na(String v) => v.trim().isEmpty ? 'N/A' : v.trim();
 
 class AccountView extends StatelessWidget {
   const AccountView({super.key});
@@ -52,7 +56,7 @@ class AccountView extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(user.name, style: AppTheme.heading1),
+                        Text(_na(user.name), style: AppTheme.heading1),
                         const SizedBox(height: 4),
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -71,18 +75,13 @@ class AccountView extends StatelessWidget {
                             ),
                           ),
                           child: Text(
-                            user.role,
+                            _na(user.role),
                             style: const TextStyle(
                               color: AppTheme.accentPurple,
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Member since ${user.createdAt.year}',
-                          style: AppTheme.caption,
                         ),
                       ],
                     ),
@@ -111,8 +110,10 @@ class AccountView extends StatelessWidget {
             else
               _ProfileDetails(user: user),
 
-            const SizedBox(height: 32),
-            const _RegisterNewAccount(),
+            if (auth.isSuperAdmin) ...[
+              const SizedBox(height: 32),
+              const _RegisterNewAccount(),
+            ],
             const SizedBox(height: 32),
             GlassCard(
               glowColor: AppTheme.accentRed,
@@ -200,41 +201,35 @@ class AccountView extends StatelessWidget {
 }
 
 class _ProfileDetails extends StatelessWidget {
-  final dynamic user;
+  final AccountModel user;
   const _ProfileDetails({required this.user});
 
   @override
   Widget build(BuildContext context) {
+    final c = user.createdAt;
     return Column(
       children: [
         _DetailRow(
           icon: Icons.email_rounded,
           label: 'Email',
-          value: user.email,
+          value: _na(user.email),
           color: AppTheme.accentCyan,
         ),
         const SizedBox(height: 12),
         _DetailRow(
           icon: Icons.phone_rounded,
           label: 'Phone',
-          value: user.phone,
+          value: _na(user.phone),
           color: AppTheme.accentGreen,
         ),
         const SizedBox(height: 12),
         _DetailRow(
           icon: Icons.badge_rounded,
           label: 'Role',
-          value: user.role,
+          value: _na(user.role),
           color: AppTheme.accentPurple,
         ),
         const SizedBox(height: 12),
-        _DetailRow(
-          icon: Icons.calendar_today_rounded,
-          label: 'Joined',
-          value:
-              '${user.createdAt.day}/${user.createdAt.month}/${user.createdAt.year}',
-          color: AppTheme.accentOrange,
-        ),
       ],
     );
   }
@@ -348,8 +343,7 @@ class _RegisterNewAccount extends StatefulWidget {
 }
 
 class _RegisterNewAccountState extends State<_RegisterNewAccount> {
-  final _emailPhoneController = TextEditingController();
-  final _passwordController = TextEditingController();
+  final _phoneController = TextEditingController();
   String? _selectedRole;
   final List<String> _roles = [
     'Landlord',
@@ -358,33 +352,13 @@ class _RegisterNewAccountState extends State<_RegisterNewAccount> {
     'Super Admin',
   ];
 
-  String? _emailPhoneError;
-  String? _passwordError;
+  String? _phoneError;
   String? _roleError;
 
   @override
   void dispose() {
-    _emailPhoneController.dispose();
-    _passwordController.dispose();
+    _phoneController.dispose();
     super.dispose();
-  }
-
-  bool _isValidEmail(String email) {
-    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-    return emailRegex.hasMatch(email);
-  }
-
-  bool _isValidPhone(String phone) {
-    final phoneRegex = RegExp(r'^\d{10}$');
-    return phoneRegex.hasMatch(phone);
-  }
-
-  bool _isPasswordComplex(String pw) {
-    final hasUpper = pw.contains(RegExp(r'[A-Z]'));
-    final hasLower = pw.contains(RegExp(r'[a-z]'));
-    final hasDigit = pw.contains(RegExp(r'[0-9]'));
-    final hasSpecial = pw.contains(RegExp(r'[@#$%&]'));
-    return hasUpper && hasLower && hasDigit && hasSpecial;
   }
 
   @override
@@ -397,45 +371,28 @@ class _RegisterNewAccountState extends State<_RegisterNewAccount> {
           Text('Register New Account', style: AppTheme.heading2),
           const SizedBox(height: 24),
           TextField(
-            controller: _emailPhoneController,
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(10),
+            ],
             style: const TextStyle(color: AppTheme.textPrimary),
             decoration: const InputDecoration(
-              labelText: 'Phone number or Email',
+              labelText: 'Phone Number',
+              prefixText: '+91 ',
               filled: true,
               fillColor: Colors.white,
             ),
-            onChanged: (val) {
-              if (_emailPhoneError != null)
-                setState(() => _emailPhoneError = null);
+            onChanged: (_) {
+              if (_phoneError != null) setState(() => _phoneError = null);
             },
           ),
-          if (_emailPhoneError != null)
+          if (_phoneError != null)
             Padding(
               padding: const EdgeInsets.only(top: 8, left: 12),
               child: Text(
-                _emailPhoneError!,
-                style: const TextStyle(color: AppTheme.accentRed, fontSize: 12),
-              ),
-            ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _passwordController,
-            obscureText: true,
-            style: const TextStyle(color: AppTheme.textPrimary),
-            decoration: const InputDecoration(
-              labelText: 'Password',
-              filled: true,
-              fillColor: Colors.white,
-            ),
-            onChanged: (val) {
-              if (_passwordError != null) setState(() => _passwordError = null);
-            },
-          ),
-          if (_passwordError != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8, left: 12),
-              child: Text(
-                _passwordError!,
+                _phoneError!,
                 style: const TextStyle(color: AppTheme.accentRed, fontSize: 12),
               ),
             ),
@@ -456,15 +413,15 @@ class _RegisterNewAccountState extends State<_RegisterNewAccount> {
                   elevation: const WidgetStatePropertyAll(4.0),
                 ),
                 dropdownMenuEntries:
-                    _roles.map((role) {
-                      return DropdownMenuEntry<String>(
-                        value: role,
-                        label: role,
-                        style: MenuItemButton.styleFrom(
-                          foregroundColor: AppTheme.textPrimary,
-                        ),
-                      );
-                    }).toList(),
+                _roles.map((role) {
+                  return DropdownMenuEntry<String>(
+                    value: role,
+                    label: role,
+                    style: MenuItemButton.styleFrom(
+                      foregroundColor: AppTheme.textPrimary,
+                    ),
+                  );
+                }).toList(),
                 onSelected: (val) {
                   if (val != null) {
                     setState(() {
@@ -489,45 +446,31 @@ class _RegisterNewAccountState extends State<_RegisterNewAccount> {
             width: double.infinity,
             child: ElevatedButton(
               onPressed: () {
-                setState(() {
-                  _emailPhoneError = null;
-                  _passwordError = null;
-                  _roleError = null;
-                });
+                final phone = _phoneController.text.trim();
+                String? phoneErr;
+                String? roleErr;
 
-                final emailPhone = _emailPhoneController.text.trim();
-                final password = _passwordController.text;
-                bool hasError = false;
-
-                if (emailPhone.isEmpty) {
-                  _emailPhoneError = 'Phone number or Email is required.';
-                  hasError = true;
-                } else if (!_isValidEmail(emailPhone) &&
-                    !_isValidPhone(emailPhone)) {
-                  _emailPhoneError =
-                      'Enter a valid Email or 10-digit Phone number.';
-                  hasError = true;
+                if (phone.isEmpty) {
+                  phoneErr = 'Phone number is required.';
+                } else if (phone.length != 10) {
+                  phoneErr = 'Enter a valid 10-digit phone number.';
                 }
-
-                if (password.isEmpty) {
-                  _passwordError = 'Password is required.';
-                  hasError = true;
-                } else if (password.length < 6 ||
-                    !_isPasswordComplex(password)) {
-                  _passwordError =
-                      'Must be at least 6 chars and include uppercase, lowercase, number, and special char (@#\$%&).';
-                  hasError = true;
-                }
-
                 if (_selectedRole == null) {
-                  _roleError = 'Please select a role.';
-                  hasError = true;
+                  roleErr = 'Please select a role.';
                 }
 
-                if (hasError) {
-                  setState(() {});
+                if (phoneErr != null || roleErr != null) {
+                  setState(() {
+                    _phoneError = phoneErr;
+                    _roleError = roleErr;
+                  });
                   return;
                 }
+
+                setState(() {
+                  _phoneError = null;
+                  _roleError = null;
+                });
 
                 Get.snackbar(
                   'Success',
@@ -537,8 +480,7 @@ class _RegisterNewAccountState extends State<_RegisterNewAccount> {
                   snackPosition: SnackPosition.BOTTOM,
                   margin: const EdgeInsets.all(16),
                 );
-                _emailPhoneController.clear();
-                _passwordController.clear();
+                _phoneController.clear();
                 setState(() => _selectedRole = null);
               },
               child: const Text('Register'),

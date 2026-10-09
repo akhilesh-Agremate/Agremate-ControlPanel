@@ -2,10 +2,11 @@ import 'package:get/get.dart';
 import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
 import 'package:agremate_admin/modules/service_request/model/service_request_model.dart';
 import 'package:agremate_admin/modules/property/controller/property_controller.dart';
-
 import '../model/dashboard_overview_model.dart';
 import '../model/rent_collection_model.dart';
+import '../model/subscription_model.dart';
 import '../repository/dashboard_repository.dart';
+import 'package:agremate_admin/core/utils/app_logger.dart';
 
 class HomeController extends GetxController {
   final isLoading = false.obs;
@@ -20,6 +21,14 @@ class HomeController extends GetxController {
   final pendingPayments = <RentCollectionModel>[].obs;
   final isPendingPaymentsLoading = false.obs;
   final pendingPaymentsError = ''.obs;
+  final showSubscriptionDetails = false.obs;
+  final subscriptions = <SubscriptionModel>[].obs;
+  final isSubscriptionsLoading = false.obs;
+  final subscriptionsError = ''.obs;
+  final showExpiredSubscriptionDetails = false.obs;
+  final expiredSubscriptions = <SubscriptionModel>[].obs;
+  final isExpiredSubscriptionsLoading = false.obs;
+  final expiredSubscriptionsError = ''.obs;
 
   final List<String> periods = [
     'This Month',
@@ -125,13 +134,12 @@ class HomeController extends GetxController {
 
   Future<void> fetchOverview() async {
     try {
-      print('fetchOverview: starting');
+      AppLogger.i('HomeController', 'Fetch overview started');
       isOverviewLoading.value = true;
       overview.value = await _dashboardRepo.getOverview();
-      print('fetchOverview: success ${overview.value?.totalRentCollections}');
+      AppLogger.i('HomeController', 'Fetch overview success rentCollections=${overview.value?.totalRentCollections}');
     } catch (e, st) {
-      print('HomeController.fetchOverview error: $e');
-      print(st);
+      AppLogger.e('HomeController', 'Fetch overview failed', e, st);
       overview.value = null;
     } finally {
       isOverviewLoading.value = false;
@@ -159,6 +167,7 @@ class HomeController extends GetxController {
 
   Future<void> fetchRecentActivity() async {
     try {
+      AppLogger.i('HomeController', 'Fetch recent activity started');
       isLoading.value = true;
       final result = await _dashboardRepo.getRecentActivity();
       final createdDates = <String, String>{};
@@ -297,7 +306,9 @@ class HomeController extends GetxController {
         uniqueDocs.putIfAbsent(key, () => doc);
       }
       documentList.assignAll(_visibleActivityMaps(uniqueDocs.values.toList()));
+      AppLogger.i('HomeController', 'Fetch recent activity success');
     } catch (e) {
+      AppLogger.e('HomeController', 'Fetch recent activity failed', e);
       recentRent.clear();
       recentSubs.clear();
       recentServices.clear();
@@ -504,7 +515,7 @@ class HomeController extends GetxController {
       case 'Pending Payments':
         return _formatINR(o.pendingPayments);
       case 'Total Subscriptions':
-        return _formatINR(o.totalSubscriptions);
+        return o.totalSubscriptionsCount.toString();
       case 'Subscription Expired':
         return o.subscriptionExpiredCount.toString();
       default:
@@ -571,6 +582,54 @@ class HomeController extends GetxController {
       rentCollections.clear();
     } finally {
       isRentCollectionsLoading.value = false;
+    }
+  }
+
+  Future<void> openSubscriptionDetails() async {
+    showSubscriptionDetails.value = true;
+    await fetchSubscriptions();
+  }
+
+  void closeSubscriptionDetails() {
+    showSubscriptionDetails.value = false;
+    subscriptionsError.value = '';
+  }
+
+  Future<void> fetchSubscriptions() async {
+    try {
+      isSubscriptionsLoading.value = true;
+      subscriptionsError.value = '';
+      final fetched = await _dashboardRepo.getSubscriptions();
+      subscriptions.assignAll(fetched);
+    } catch (e) {
+      subscriptionsError.value = 'Failed to load subscriptions.';
+      subscriptions.clear();
+    } finally {
+      isSubscriptionsLoading.value = false;
+    }
+  }
+
+  Future<void> openExpiredSubscriptionDetails() async {
+    showExpiredSubscriptionDetails.value = true;
+    await fetchExpiredSubscriptions();
+  }
+
+  void closeExpiredSubscriptionDetails() {
+    showExpiredSubscriptionDetails.value = false;
+    expiredSubscriptionsError.value = '';
+  }
+
+  Future<void> fetchExpiredSubscriptions() async {
+    try {
+      isExpiredSubscriptionsLoading.value = true;
+      expiredSubscriptionsError.value = '';
+      final fetched = await _dashboardRepo.getExpiredSubscriptions();
+      expiredSubscriptions.assignAll(fetched);
+    } catch (e) {
+      expiredSubscriptionsError.value = 'Failed to load expired subscriptions.';
+      expiredSubscriptions.clear();
+    } finally {
+      isExpiredSubscriptionsLoading.value = false;
     }
   }
 

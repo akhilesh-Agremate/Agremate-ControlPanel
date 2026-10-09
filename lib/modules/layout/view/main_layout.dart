@@ -15,6 +15,8 @@ import 'package:agremate_admin/modules/account/view/account_view.dart';
 import 'package:agremate_admin/modules/tenant/view/tenant_detail_view.dart';
 import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
 import 'package:agremate_admin/routes/app_routes.dart';
+import 'package:agremate_admin/modules/admin_control/view/admin_control_view.dart';
+import 'package:agremate_admin/modules/admin_control/controller/admin_control_controller.dart';
 
 class MainLayout extends StatelessWidget {
   const MainLayout({super.key});
@@ -36,6 +38,10 @@ class MainLayout extends StatelessWidget {
       );
     }
 
+    if (auth.isSuperAdmin && !Get.isRegistered<AdminControlController>()) {
+      Get.put(AdminControlController());
+    }
+
     final nav = Get.find<NavigationController>();
     final pages = [
       const HomeView(),
@@ -47,6 +53,7 @@ class MainLayout extends StatelessWidget {
       const UserView(),
       const AccountView(),
       const TenantDetailView(),
+      const AdminControlView(),
     ];
 
     return Scaffold(

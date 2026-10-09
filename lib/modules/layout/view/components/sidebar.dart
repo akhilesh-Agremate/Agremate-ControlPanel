@@ -42,7 +42,7 @@ class Sidebar extends StatelessWidget {
                 const SizedBox(height: 4),
                 Obx(
                   () => Text(
-                    auth.role.value.isNotEmpty ? auth.role.value : 'Super Admin',
+                    auth.roleLabel,
                     style: AppTheme.caption.copyWith(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
@@ -55,7 +55,6 @@ class Sidebar extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-          // Nav items
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -69,10 +68,19 @@ class Sidebar extends StatelessWidget {
                       onTap: () => nav.changePage(item['index'] as int),
                     ),
                   ),
+                Obx(() {
+                  if (!auth.isSuperAdmin) return const SizedBox.shrink();
+                  return _NavItem(
+                    icon: Icons.admin_panel_settings_outlined,
+                    label: 'Admin Control',
+                    isActive: nav.currentIndex.value == 9,
+                    onTap: () => nav.changePage(9),
+                  );
+                }),
               ],
             ),
           ),
-          // Account & Logout
+
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(

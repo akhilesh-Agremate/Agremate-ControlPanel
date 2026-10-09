@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:agremate_admin/network_utils/app_end_points.dart';
 import 'package:agremate_admin/routes/app_routes.dart';
 import '../config.dart';
+import 'dio_log_interceptor.dart';
 import 'internet_check_interceptor.dart';
 import 'network_info.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
@@ -54,9 +55,7 @@ class DioClient {
           },
         ),
       );
-
-      _dio!.interceptors.add(
-        LogInterceptor(requestBody: true, responseBody: true),
+      _dio!.interceptors.add(DioLogInterceptor()
       );
     }
     return _dio!;

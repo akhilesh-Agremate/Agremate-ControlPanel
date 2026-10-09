@@ -10,6 +10,10 @@ import 'package:agremate_admin/modules/property/model/property_model.dart';
 import 'package:agremate_admin/modules/property/model/property_stats_model.dart';
 import 'package:agremate_admin/modules/property/repository/property_repository.dart';
 import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
+import 'package:agremate_admin/core/utils/app_logger.dart';
+import '../model/amenity_model.dart';
+
+enum PropertyCategoryFilter { all, pg, individual }
 
 class PropertyController extends GetxController {
   final PropertyRepository _repository;
@@ -19,6 +23,7 @@ class PropertyController extends GetxController {
   final tenants = <TenantModel>[].obs;
   final properties = <PropertyModel>[].obs;
   final filteredProperties = <PropertyModel>[].obs;
+  final selectedCategoryFilter = PropertyCategoryFilter.all.obs;
   final currentPage = 1.obs;
   final searchQuery = ''.obs;
   final isLoading = true.obs;
@@ -29,11 +34,21 @@ class PropertyController extends GetxController {
   final returnTabIndex = Rxn<int>();
   final stats = Rxn<PropertyStatsModel>();
   final kpiStats = PropertyStatsModel.empty().obs;
+  final isAddOpen = false.obs;
+  final amenities = <AmenityModel>[].obs;
+  final isAmenitiesLoading = false.obs;
+  final featureOptions = <AmenityModel>[].obs;
+  final isFeaturesLoading = false.obs;
 
   final scrollController = ScrollController();
   static const int perPage = 30;
 
   Timer? _autoRefreshTimer;
+
+  int get totalPropertiesCount => properties.length;
+  int get pgPropertiesCount => properties.where((p) => p.isPg).length;
+  int get individualPropertiesCount =>
+      properties.where((p) => p.isIndividual).length;
 
   int get totalPages {
     if (filteredProperties.isEmpty) return 1;
@@ -49,6 +64,36 @@ class PropertyController extends GetxController {
 
     final end = min(start + perPage, total);
     return filteredProperties.sublist(start, end);
+  }
+
+  void setCategoryFilter(PropertyCategoryFilter filter) {
+    if (selectedCategoryFilter.value == filter) return;
+    selectedCategoryFilter.value = filter;
+    _applyFilters();
+  }
+
+  void _applyFilters() {
+    var result = properties.toList();
+
+    if (selectedCategoryFilter.value == PropertyCategoryFilter.pg) {
+      result = result.where((p) => p.isPg).toList();
+    } else if (selectedCategoryFilter.value ==
+        PropertyCategoryFilter.individual) {
+      result = result.where((p) => p.isIndividual).toList();
+    }
+
+    final query = searchQuery.value.trim().toLowerCase();
+    if (query.isNotEmpty) {
+      result = result.where((p) {
+        return p.name.toLowerCase().contains(query) ||
+            p.landlordName.toLowerCase().contains(query) ||
+            (p.primaryTenantName?.toLowerCase().contains(query) ?? false) ||
+            p.address.address.toLowerCase().contains(query);
+      }).toList();
+    }
+
+    filteredProperties.assignAll(result);
+    currentPage.value = 1;
   }
 
   @override
@@ -79,25 +124,7 @@ class PropertyController extends GetxController {
       final fetched = await _repository.getAllProperties();
       final prevCount = properties.length;
       properties.assignAll(fetched);
-      if (searchQuery.value.isEmpty) {
-        filteredProperties.assignAll(fetched);
-      } else {
-        filteredProperties.assignAll(
-          fetched.where(
-            (p) =>
-                p.name.toLowerCase().contains(
-                  searchQuery.value.toLowerCase(),
-                ) ||
-                p.landlordName.toLowerCase().contains(
-                  searchQuery.value.toLowerCase(),
-                ) ||
-                (p.primaryTenantName?.toLowerCase().contains(searchQuery.value.toLowerCase()) ?? false) ||
-                p.address.address.toLowerCase().contains(
-                  searchQuery.value.toLowerCase(),
-                ),
-          ),
-        );
-      }
+      _applyFilters();
       _buildDependentLists();
       await fetchStats();
       await fetchTenants();
@@ -117,13 +144,86 @@ class PropertyController extends GetxController {
     }
   }
 
+  Future<void> fetchAmenities() async {
+    try {
+      isAmenitiesLoading.value = true;
+      amenities.assignAll(await _repository.getAmenities());
+    } catch (e) {
+      AppLogger.e('PropertyController', 'Error fetching amenities', e);
+    } finally {
+      isAmenitiesLoading.value = false;
+    }
+  }
+
+  Future<void> fetchFeatures() async {
+    try {
+      isFeaturesLoading.value = true;
+      featureOptions.assignAll(await _repository.getFeatures());
+    } catch (e) {
+      AppLogger.e('PropertyController', 'Error fetching features', e);
+    } finally {
+      isFeaturesLoading.value = false;
+    }
+  }
+
+  Future<void> updateProperty(PropertyModel property, Map<String, dynamic> data) async {
+    final auth = Get.find<AuthController>();
+    if (!(auth.isSuperAdmin || auth.isLandlord)) {
+      throw Exception('You do not have permission to edit properties');
+    }
+    final fresh = await _repository.getPropertyById(property.id);
+    await _repository.updateProperty(fresh, data);
+    selectedProperty.value = await _repository.getPropertyById(property.id);
+    unawaited(refreshProperties());
+    Get.snackbar('Success', 'Property updated', snackPosition: SnackPosition.BOTTOM);
+  }
+
+  Future<void> deleteProperty(String id) async {
+    final auth = Get.find<AuthController>();
+    if (!(auth.isSuperAdmin || auth.isLandlord)) {
+      Get.snackbar(
+        'Permission Denied',
+        'You do not have permission to delete properties',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+    try {
+      isLoading.value = true;
+      final message = await _repository.deleteProperty(id);
+      closePropertyDetails();
+      await refreshProperties();
+      Get.snackbar(
+        'Success',
+        message,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 5),
+      );
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Failed to delete property: $e',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      rethrow;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  void openAddProperty() {
+    isAddOpen.value = true;
+    if (amenities.isEmpty) fetchAmenities();
+    if (featureOptions.isEmpty) fetchFeatures();
+  }
+
   Future<void> fetchProperties() async {
     try {
       isLoading.value = true;
       currentPage.value = 1;
       final fetched = await _repository.getAllProperties();
       properties.assignAll(fetched);
-      filteredProperties.assignAll(fetched);
+      _applyFilters();
       _buildDependentLists();
       await fetchStats();
       await fetchTenants();
@@ -136,6 +236,23 @@ class PropertyController extends GetxController {
     }
   }
 
+  Future<void> createProperty(Map<String, dynamic> data) async {
+    AppLogger.i('PropertyController', 'Create property started');
+    try {
+      await _repository.createProperty(data);
+      await refreshProperties();
+      AppLogger.i('PropertyController', 'Create property success');
+      Get.snackbar(
+        'Success',
+        'Property created successfully',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } catch (e) {
+      AppLogger.e('PropertyController', 'Create property failed', e);
+      rethrow;
+    }
+  }
+
   void _buildDependentLists() {
   }
 
@@ -143,7 +260,7 @@ class PropertyController extends GetxController {
     try {
       stats.value = await _repository.getPropertyStats();
     } catch (e) {
-      print('Error fetching property stats: $e');
+      AppLogger.e('PropertyController', 'Error fetching property stats', e);
     }
   }
 
@@ -165,6 +282,11 @@ class PropertyController extends GetxController {
         totalTenants: tenants.length,
         tenantsAcrossProperties: fromProps.tenantsAcrossProperties,
         totalRevenue: fromProps.totalRevenue,
+        propertiesSparkline: fromProps.propertiesSparkline,
+        landlordsSparkline: fromProps.landlordsSparkline,
+        tenantsSparkline: fromProps.tenantsSparkline,
+        revenueSparkline: fromProps.revenueSparkline,
+        chartLabels: fromProps.chartLabels,
       );
       return;
     }
@@ -180,6 +302,11 @@ class PropertyController extends GetxController {
       totalTenants: tenants.length,
       tenantsAcrossProperties: api.tenantsAcrossProperties,
       totalRevenue: api.totalRevenue,
+      propertiesSparkline: api.propertiesSparkline,
+      landlordsSparkline: api.landlordsSparkline,
+      tenantsSparkline: api.tenantsSparkline,
+      revenueSparkline: api.revenueSparkline,
+      chartLabels: api.chartLabels,
     );
   }
 
@@ -238,7 +365,7 @@ class PropertyController extends GetxController {
       }
       tenants.assignAll(fetchedTenants);
     } catch (e) {
-      print('Error fetching tenants: $e');
+      AppLogger.e('PropertyController', 'Error fetching tenants', e);
     }
   }
 
@@ -258,26 +385,13 @@ class PropertyController extends GetxController {
       }
       landlords.assignAll(fetchedLandlords);
     } catch (e) {
-      print('Error fetching landlords: $e');
+      AppLogger.e('PropertyController', 'Error fetching landlords', e);
     }
   }
 
   void search(String query) {
     searchQuery.value = query;
-    currentPage.value = 1;
-    if (query.isEmpty) {
-      filteredProperties.assignAll(properties);
-    } else {
-      filteredProperties.assignAll(
-        properties.where(
-          (p) =>
-              p.name.toLowerCase().contains(query.toLowerCase()) ||
-              p.landlordName.toLowerCase().contains(query.toLowerCase()) ||
-              (p.primaryTenantName?.toLowerCase().contains(query.toLowerCase()) ?? false) ||
-              p.address.address.toLowerCase().contains(query.toLowerCase()),
-        ),
-      );
-    }
+    _applyFilters();
   }
 
   void goToPage(int page) {
@@ -307,8 +421,7 @@ class PropertyController extends GetxController {
   void deleteLandlord(String id) {
     landlords.removeWhere((l) => l.id == id);
     properties.removeWhere((p) => p.landlordId == id);
-    filteredProperties.assignAll(properties);
-    currentPage.value = 1;
+    _applyFilters();
   }
 
   void addLandlord(String name, String phone, String email) {

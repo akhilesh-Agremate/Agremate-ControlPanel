@@ -1,13 +1,13 @@
 class DashboardOverviewModel {
   final num totalRentCollections;
   final num pendingPayments;
-  final num totalSubscriptions;
+  final int totalSubscriptionsCount;
   final int subscriptionExpiredCount;
 
   DashboardOverviewModel({
     required this.totalRentCollections,
     required this.pendingPayments,
-    required this.totalSubscriptions,
+    this.totalSubscriptionsCount=0,
     required this.subscriptionExpiredCount,
   });
 
@@ -15,7 +15,8 @@ class DashboardOverviewModel {
     return DashboardOverviewModel(
       totalRentCollections: json['totalRentCollections'] ?? 0,
       pendingPayments: json['pendingPayments'] ?? 0,
-      totalSubscriptions: json['totalSubscriptions'] ?? 0,
+      totalSubscriptionsCount:
+      ((json['totalSubscriptionsCount'] ?? json['subscriptionCount'] ?? 0) as num).toInt(),
       subscriptionExpiredCount:
       ((json['subscriptionExpiredCount'] ?? 0) as num).toInt(),
     );

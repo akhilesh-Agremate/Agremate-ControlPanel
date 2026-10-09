@@ -4,6 +4,7 @@ import 'package:agremate_admin/modules/documents/repository/document_repository.
 import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
 import 'package:agremate_admin/modules/property/model/property_model.dart';
 import 'package:agremate_admin/modules/property/repository/property_repository.dart';
+import 'package:agremate_admin/core/utils/app_logger.dart';
 
 class DocumentController extends GetxController {
   DocumentController(DocumentRepository repository);
@@ -72,6 +73,10 @@ class DocumentController extends GetxController {
 
   Future<void> openPropertyDocuments(PropertyModel property) async {
     selectedProperty.value = property;
+    AppLogger.i(
+      'DocumentController',
+      'Open property documents id=${property.id}',
+    );
     try {
       isDetailLoading.value = true;
       errorMessage.value = '';
@@ -80,7 +85,12 @@ class DocumentController extends GetxController {
       if (selectedProperty.value?.id != property.id) return;
       selectedProperty.value = detail;
       documents.assignAll(_docsFromProperty(detail));
+      AppLogger.i(
+        'DocumentController',
+        'Property documents loaded count=${documents.length}',
+      );
     } catch (e) {
+      AppLogger.e('DocumentController', 'Load property documents failed', e);
       documents.clear();
       errorMessage.value = 'Failed to load property documents.';
     } finally {

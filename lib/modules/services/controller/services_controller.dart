@@ -4,6 +4,7 @@ import 'package:agremate_admin/modules/property/controller/property_controller.d
 import 'package:agremate_admin/modules/service_request/model/service_request_model.dart';
 import 'package:agremate_admin/modules/services/repository/services_repository.dart';
 import 'package:agremate_admin/core/constants/constants.dart';
+import 'package:agremate_admin/core/utils/app_logger.dart';
 
 class ServicesController extends GetxController {
   final _repo = ServicesRepository();
@@ -43,6 +44,7 @@ class ServicesController extends GetxController {
 
   Future<void> fetchRequests() async {
     try {
+      AppLogger.i('ServicesController', 'Load service requests');
       isLoading.value = true;
       errorMessage.value = '';
       final data = await _repo.getDashboardServices();
@@ -77,7 +79,12 @@ class ServicesController extends GetxController {
                 .where((r) => r.serviceType == selectedServiceType.value)
                 .toList();
       }
+      AppLogger.i(
+        'ServicesController',
+        'Service requests loaded count=${visible.length}',
+      );
     } catch (e) {
+      AppLogger.e('ServicesController', 'Load service requests failed', e);
       errorMessage.value = 'Failed to load service requests: $e';
     } finally {
       isLoading.value = false;
@@ -85,6 +92,7 @@ class ServicesController extends GetxController {
   }
 
   void selectServiceType(String type) {
+    AppLogger.d('ServicesController', 'Select service type=$type');
     if (selectedServiceType.value == type) {
       selectedServiceType.value = '';
       filteredRequests.value = [];

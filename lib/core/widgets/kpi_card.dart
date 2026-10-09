@@ -8,6 +8,7 @@ class KpiCard extends StatefulWidget {
   final IconData icon;
   final Color accentColor;
   final List<double>? sparkData;
+  final List<String>? sparkLabels;
 
   const KpiCard({
     super.key,
@@ -17,6 +18,7 @@ class KpiCard extends StatefulWidget {
     required this.icon,
     required this.accentColor,
     this.sparkData,
+    this.sparkLabels,
   });
 
   @override
@@ -26,11 +28,6 @@ class KpiCard extends StatefulWidget {
 class _KpiCardState extends State<KpiCard> with SingleTickerProviderStateMixin {
   bool _hovering = false;
   int? _selectedIndex;
-
-  final List<String> _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-  ];
 
   Widget _buildInteractiveSparkline(List<double> data, Color color) {
     if (data.isEmpty) return const SizedBox();
@@ -60,7 +57,9 @@ class _KpiCardState extends State<KpiCard> with SingleTickerProviderStateMixin {
                 clipBehavior: Clip.none,
                 children: [
                   Tooltip(
-                    message: i < _months.length ? '${_months[i]}: ${val.toStringAsFixed(0)}' : val.toStringAsFixed(0),
+                    message: (widget.sparkLabels != null && i < widget.sparkLabels!.length) 
+                        ? '${widget.sparkLabels![i]}: ${val.toStringAsFixed(0)}' 
+                        : val.toStringAsFixed(0),
                     child: Container(
                       margin: EdgeInsets.only(right: i == data.length - 1 ? 0 : 2),
                       height: 18 * hFactor,

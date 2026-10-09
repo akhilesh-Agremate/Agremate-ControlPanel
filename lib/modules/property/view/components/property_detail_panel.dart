@@ -6,10 +6,11 @@ import 'package:agremate_admin/core/widgets/web_network_image.dart';
 import 'package:agremate_admin/core/widgets/status_badge.dart';
 import 'package:agremate_admin/modules/property/model/property_model.dart';
 import 'package:agremate_admin/modules/property/controller/property_controller.dart';
-import 'package:agremate_admin/modules/finance/controller/finance_controller.dart';
 import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
 import '../../../../core/widgets/full_pdf_page.dart';
 import '../../../../core/widgets/pdf_iframe_view.dart';
+import '../../../auth/controller/auth_controller.dart';
+import 'add_property_panel.dart';
 
 class PropertyDetailPanel extends StatefulWidget {
   final PropertyModel property;
@@ -24,6 +25,57 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
   String? _currentImageUrl;
   String? _openDocName;
   String? _openDocUrl;
+
+  bool _isEditing = false;
+
+  bool get _canEdit {
+    if (!Get.isRegistered<AuthController>()) return true;
+    final auth = Get.find<AuthController>();
+    return auth.isSuperAdmin || auth.isLandlord;
+  }
+
+  bool get _canDelete {
+    if (!Get.isRegistered<AuthController>()) return true;
+    final auth = Get.find<AuthController>();
+    return auth.isSuperAdmin || auth.isLandlord;
+  }
+
+  void _confirmDelete(BuildContext context, PropertyController pc) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Property'),
+        content: Text(
+          'Are you sure you want to delete "${widget.property.name}"?\n\n'
+          'Property delete request will be submitted. It will be hidden after 24 hours and permanently deleted after 3 days.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              await pc.deleteProperty(widget.property.id);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.accentRed,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _startEdit() {
+    final pc = Get.find<PropertyController>();
+    if (pc.amenities.isEmpty) pc.fetchAmenities();
+    if (pc.featureOptions.isEmpty) pc.fetchFeatures();
+    setState(() => _isEditing = true);
+  }
 
   @override
   void initState() {
@@ -44,6 +96,20 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
   Widget build(BuildContext context) {
     final pc = Get.find<PropertyController>();
     final nav = Get.find<NavigationController>();
+    if (_isEditing) {
+      return Obx(
+            () => AddPropertyPanel(
+          key: ValueKey('edit_${widget.property.id}'),
+          initial: widget.property,
+          onBack: () => setState(() => _isEditing = false),
+          onSubmit: (data) => pc.updateProperty(widget.property, data),
+          amenityOptions: pc.amenities.toList(),
+          amenitiesLoading: pc.isAmenitiesLoading.value,
+          featureOptions: pc.featureOptions.toList(),
+          featuresLoading: pc.isFeaturesLoading.value,
+        ),
+      );
+    }
     final fmt = NumberFormat.currency(
       symbol: '₹',
       locale: 'en_IN',
@@ -147,6 +213,34 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                   style: AppTheme.heading2.copyWith(color: Colors.black),
                 ),
                 const Spacer(),
+                if (_openDocName == null) ...[
+                  if (_canEdit) ...[
+                    OutlinedButton.icon(
+                      onPressed: _startEdit,
+                      icon: const Icon(Icons.edit_rounded, size: 16),
+                      label: const Text('Edit'),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                  if (_canDelete) ...[
+                    OutlinedButton.icon(
+                      onPressed: () => _confirmDelete(context, pc),
+                      icon: const Icon(
+                        Icons.delete_outline_rounded,
+                        size: 16,
+                        color: AppTheme.accentRed,
+                      ),
+                      label: const Text(
+                        'Delete',
+                        style: TextStyle(color: AppTheme.accentRed),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: AppTheme.accentRed),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                ],
                 statusBadge,
               ],
             ),
@@ -320,8 +414,6 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
   Widget _buildMoreDetailsButton(NavigationController nav) {
     return TextButton.icon(
       onPressed: () {
-        final fc = Get.find<FinanceController>();
-        fc.selectProperty(widget.property.id, widget.property.name);
         nav.currentIndex.value = 3;
       },
       icon: const Icon(

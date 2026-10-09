@@ -3,13 +3,13 @@ import 'package:agremate_admin/network_utils/app_end_points.dart';
 import 'package:agremate_admin/modules/account/model/account_model.dart';
 
 class AccountRepository {
-  Future<UserModel> getProfile() async {
+  Future<AccountModel> getProfile() async {
     try {
       final response = await DioClient.instance.get(AppEndpoints.currentUserDetails);
       if (response.statusCode == 200) {
         final data = response.data;
         if (data != null && data['status'] == true) {
-          return UserModel.fromJson(data['result'] ?? data);
+          return AccountModel.fromJson(data['result'] ?? data);
         }
         throw Exception(data?['message'] ?? 'Failed to fetch profile');
       }
@@ -18,7 +18,7 @@ class AccountRepository {
       rethrow;
     }
   }
-  Future<UserModel> updateProfile({
+  Future<AccountModel> updateProfile({
     required String name,
     required String email,
     required String phone,
@@ -31,7 +31,7 @@ class AccountRepository {
       if (response.statusCode == 200) {
         final data = response.data;
         if (data != null && data['status'] == true) {
-          return UserModel.fromJson(data['result'] ?? data);
+          return AccountModel.fromJson(data['result'] ?? data);
         }
         throw Exception(data?['message'] ?? 'Failed to update profile');
       }

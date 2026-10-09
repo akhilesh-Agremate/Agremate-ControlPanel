@@ -4,11 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:agremate_admin/core/theme/theme.dart';
+import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
 import 'package:agremate_admin/modules/property/controller/property_controller.dart';
-import 'package:agremate_admin/core/widgets/glass_card.dart';
 import 'package:agremate_admin/core/widgets/kpi_card.dart';
 import 'package:agremate_admin/core/widgets/status_badge.dart';
 import 'components/property_detail_panel.dart';
+import 'components/add_property_panel.dart';
 
 class PropertyView extends StatelessWidget {
   const PropertyView({super.key});
@@ -19,11 +20,30 @@ class PropertyView extends StatelessWidget {
     final fmt = NumberFormat.compactCurrency(symbol: '₹', locale: 'en_IN');
 
     return Obx(() {
+      final auth =
+      Get.isRegistered<AuthController>() ? Get.find<AuthController>() : null;
+      final canAddProperty =
+          auth == null || auth.isLandlord || !auth.isRestrictedRole;
+
+      final isAddOpen = pc.isAddOpen.value && canAddProperty;
       final isDetailOpen = pc.selectedProperty.value != null;
       final isLoading = pc.isLoading.value;
       final page = pc.currentPage.value;
       final totalFiltered = pc.filteredProperties.length;
       final pageItems = pc.currentPageProperties;
+
+      debugPrint(
+          'PropertyView build: isAddOpen=${pc.isAddOpen.value} canAdd=$canAddProperty');
+      if (isAddOpen) {
+        return AddPropertyPanel(
+          onBack: () => pc.isAddOpen.value = false,
+          onSubmit: (data) => pc.createProperty(data),
+          amenityOptions: pc.amenities.toList(),
+          amenitiesLoading: pc.isAmenitiesLoading.value,
+          featureOptions: pc.featureOptions.toList(),
+          featuresLoading: pc.isFeaturesLoading.value,
+        );
+      }
 
       if (isDetailOpen) {
         return PropertyDetailPanel(property: pc.selectedProperty.value!);
@@ -31,587 +51,173 @@ class PropertyView extends StatelessWidget {
 
       return ColoredBox(
         color: const Color(0xFFF8FAFD),
-          child: SingleChildScrollView(
-        controller: pc.scrollController,
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: AspectRatio(
-                    aspectRatio: 1.5,
-                    child: KpiCard(
-                      title: 'Total Properties',
-                      value: '${pc.kpiStats.value.totalProperties}',
-                      icon: Icons.apartment_rounded,
-                      accentColor: AppTheme.accentGreen,
-                      subtitle: '${pc.kpiStats.value.rentedCount} rented',
-                      sparkData: const [
-                        4,
-                        6,
-                        5,
-                        8,
-                        7,
-                        9,
-                        10,
-                        8,
-                        11,
-                        13,
-                        12,
-                        16,
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: AspectRatio(
-                    aspectRatio: 1.5,
-                    child: KpiCard(
-                      title: 'Total Landlords',
-                      value: '${pc.kpiStats.value.totalLandlords}',
-                      icon: Icons.person_rounded,
-                      accentColor: AppTheme.landlordFill,
-                      subtitle: '${pc.kpiStats.value.activeLandlordCount} active',
-                      sparkData: const [3, 5, 4, 7, 6, 8, 9, 7, 10, 12, 11, 15],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: AspectRatio(
-                    aspectRatio: 1.5,
-                    child: KpiCard(
-                      title: 'Total Tenants',
-                      value: '${pc.kpiStats.value.totalTenants}',
-                      icon: Icons.groups_rounded,
-                      accentColor: AppTheme.tenantFill,
-                      subtitle:
-                          'across ${pc.kpiStats.value.tenantsAcrossProperties} properties',
-                      sparkData: const [
-                        5,
-                        8,
-                        7,
-                        9,
-                        12,
-                        10,
-                        14,
-                        13,
-                        16,
-                        18,
-                        17,
-                        25,
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: AspectRatio(
-                    aspectRatio: 1.5,
-                    child: KpiCard(
-                      title: 'Total Revenue',
-                      value: fmt.format(pc.kpiStats.value.totalRevenue),
-                      icon: Icons.trending_up_rounded,
-                      accentColor: AppTheme.accentPurple,
-                      sparkData: const [
-                        10,
-                        12,
-                        15,
-                        14,
-                        18,
-                        20,
-                        19,
-                        22,
-                        25,
-                        24,
-                        28,
-                        30,
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 28),
-
-            Row(
-              children: [
-                Text('Properties', style: AppTheme.heading2),
-                const SizedBox(width: 8),
-                Text('($totalFiltered total)', style: AppTheme.caption),
-                const Spacer(),
-                ElevatedButton.icon(
-                  onPressed: () => _showAddPropertyDialog(context, pc),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Add Property'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2F6BFF),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 12,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                const crossAxisCount = 3;
-                final cardWidth =
-                    (constraints.maxWidth - 20 * (crossAxisCount - 1)) /
-                    crossAxisCount;
-
-                if (isLoading) {
-                  return const SizedBox(
-                    height: 400,
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
-
-                if (pageItems.isEmpty) {
-                  return _EmptyState(
-                    page: page,
-                    onRefresh: pc.refreshProperties,
-                  );
-                }
-
-                return Wrap(
-                  key: ValueKey(
-                    'page_$page',
-                  ),
-                  spacing: 20,
-                  runSpacing: 24,
-                  children:
-                      pageItems
-                          .map(
-                            (prop) => _PropertyCard(
-                              prop: prop,
-                              pc: pc,
-                              width: cardWidth,
-                              isSelected:
-                                  pc.selectedProperty.value?.id == prop.id,
-                            ),
-                          )
-                          .toList(),
-                );
-              },
-            ),
-            const SizedBox(height: 32),
-            _Pagination(pc: pc),
-          ],
-        ),
-          ),
-      );
-    });
-  }
-
-  void _showAddPropertyDialog(BuildContext context, PropertyController pc) {
-    final nameC = TextEditingController();
-    final addressC = TextEditingController();
-    final rentC = TextEditingController();
-    final advanceC = TextEditingController();
-    bool petsAllowed = false;
-    Set<String> selectedAmenities = {};
-
-    int? selectedBedrooms;
-    int? selectedBathrooms;
-    int? selectedKitchens;
-    int? selectedBuiltYear;
-
-    final amenitiesList = ['Game Room', 'Furnished', 'WiFi', 'Semi Furnished'];
-    final yearList = List.generate(2027 - 1977 + 1, (index) => 1977 + index).reversed.toList();
-    final countList = List.generate(10, (index) => index + 1);
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setState) {
-          return Dialog(
-            backgroundColor: const Color(0xFFF8F9FB),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: SizedBox(
-              width: 500,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Add Property',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () => Navigator.pop(ctx),
-                            icon: const Icon(Icons.close, color: Colors.grey),
-                          ),
-                        ],
+        child: SingleChildScrollView(
+          controller: pc.scrollController,
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: AspectRatio(
+                      aspectRatio: 1.5,
+                      child: KpiCard(
+                        title: 'Total Properties',
+                        value: '${pc.kpiStats.value.totalProperties}',
+                        icon: Icons.apartment_rounded,
+                        accentColor: AppTheme.accentGreen,
+                        subtitle: '${pc.kpiStats.value.rentedCount} rented',
+                        sparkData: pc.kpiStats.value.propertiesSparkline.isEmpty
+                            ? const [4.0, 6.0, 5.0, 8.0, 7.0, 9.0, 10.0, 8.0, 11.0, 13.0, 12.0, 16.0]
+                            : pc.kpiStats.value.propertiesSparkline,
+                        sparkLabels: pc.kpiStats.value.chartLabels.isEmpty
+                            ? null
+                            : pc.kpiStats.value.chartLabels,
                       ),
                     ),
-
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                      child: Column(
-                        children: [
-                          _buildSection(
-                            icon: Icons.info_outline_rounded,
-                            title: 'Basic Info',
-                            child: Column(
-                              children: [
-                                TextField(
-                                  controller: nameC,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Property Name',
-                                    labelStyle: TextStyle(color: Colors.grey),
-                                    enabledBorder: UnderlineInputBorder(
-                                      borderSide: BorderSide(color: Color(0xFFE2E8F0)),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                TextField(
-                                  controller: addressC,
-                                  maxLines: 2,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Address',
-                                    labelStyle: TextStyle(color: Colors.grey),
-                                    enabledBorder: UnderlineInputBorder(
-                                      borderSide: BorderSide(color: Color(0xFFE2E8F0)),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          _buildSection(
-                            icon: Icons.tune_rounded,
-                            title: 'Features',
-                            child: Column(
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: DropdownButtonFormField<int>(
-                                        value: selectedBedrooms,
-                                        dropdownColor: Colors.white,
-                                        items: countList.map((e) => DropdownMenuItem(value: e, child: Text('$e'))).toList(),
-                                        onChanged: (val) => setState(() => selectedBedrooms = val),
-                                        decoration: InputDecoration(
-                                          labelText: 'Bedrooms',
-                                          labelStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
-                                          filled: true,
-                                          fillColor: const Color(0xFFE0F2FE),
-                                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: DropdownButtonFormField<int>(
-                                        value: selectedBathrooms,
-                                        dropdownColor: Colors.white,
-                                        items: countList.map((e) => DropdownMenuItem(value: e, child: Text('$e'))).toList(),
-                                        onChanged: (val) => setState(() => selectedBathrooms = val),
-                                        decoration: InputDecoration(
-                                          labelText: 'Bathrooms',
-                                          labelStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
-                                          filled: true,
-                                          fillColor: const Color(0xFFE0F2FE),
-                                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: DropdownButtonFormField<int>(
-                                        value: selectedKitchens,
-                                        dropdownColor: Colors.white,
-                                        items: countList.map((e) => DropdownMenuItem(value: e, child: Text('$e'))).toList(),
-                                        onChanged: (val) => setState(() => selectedKitchens = val),
-                                        decoration: InputDecoration(
-                                          labelText: 'Kitchen',
-                                          labelStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
-                                          filled: true,
-                                          fillColor: const Color(0xFFE0F2FE),
-                                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: DropdownButtonFormField<int>(
-                                        value: selectedBuiltYear,
-                                        dropdownColor: Colors.white,
-                                        items: yearList.map((e) => DropdownMenuItem(value: e, child: Text('$e'))).toList(),
-                                        onChanged: (val) => setState(() => selectedBuiltYear = val),
-                                        decoration: InputDecoration(
-                                          labelText: 'Built Year',
-                                          labelStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
-                                          filled: true,
-                                          fillColor: const Color(0xFFE0F2FE),
-                                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          _buildSection(
-                            icon: Icons.star_outline_rounded,
-                            title: 'Amenities',
-                            child: Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: amenitiesList.map((amenity) {
-                                final isSelected = selectedAmenities.contains(amenity);
-                                return _buildChip(
-                                  label: amenity,
-                                  isSelected: isSelected,
-                                  onSelected: (selected) {
-                                    setState(() {
-                                      if (selected) {
-                                        selectedAmenities.add(amenity);
-                                      } else {
-                                        selectedAmenities.remove(amenity);
-                                      }
-                                    });
-                                  },
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          _buildSection(
-                            icon: Icons.pets_rounded,
-                            title: 'Pets',
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'Pets Allowed',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Color(0xFF4A4A4A),
-                                  ),
-                                ),
-                                Switch(
-                                  value: petsAllowed,
-                                  activeColor: const Color(0xFF64748B),
-                                  onChanged: (val) {
-                                    setState(() => petsAllowed = val);
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          _buildSection(
-                            icon: Icons.currency_rupee_rounded,
-                            title: 'Pricing',
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: TextField(
-                                    controller: advanceC,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Advance',
-                                      labelStyle: TextStyle(color: Colors.grey),
-                                      enabledBorder: UnderlineInputBorder(
-                                        borderSide: BorderSide(color: Color(0xFFE2E8F0)),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 24),
-                                Expanded(
-                                  child: TextField(
-                                    controller: rentC,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Rent',
-                                      labelStyle: TextStyle(color: Colors.grey),
-                                      enabledBorder: UnderlineInputBorder(
-                                        borderSide: BorderSide(color: Color(0xFFE2E8F0)),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 32),
-                        ],
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: AspectRatio(
+                      aspectRatio: 1.5,
+                      child: KpiCard(
+                        title: 'Total Landlords',
+                        value: '${pc.kpiStats.value.totalLandlords}',
+                        icon: Icons.person_rounded,
+                        accentColor: AppTheme.landlordFill,
+                        subtitle:
+                        '${pc.kpiStats.value.activeLandlordCount} active',
+                        sparkData: pc.kpiStats.value.landlordsSparkline.isEmpty
+                            ? const [3.0, 5.0, 4.0, 7.0, 6.0, 8.0, 9.0, 7.0, 10.0, 12.0, 11.0, 15.0]
+                            : pc.kpiStats.value.landlordsSparkline,
+                        sparkLabels: pc.kpiStats.value.chartLabels.isEmpty
+                            ? null
+                            : pc.kpiStats.value.chartLabels,
                       ),
                     ),
-
-                    Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Get.snackbar(
-                              'Coming Soon',
-                              'Property creation via API will be available soon.',
-                              duration: const Duration(seconds: 3),
-                            );
-                            Navigator.pop(ctx);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2563EB),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 0,
-                          ),
-                          child: const Text(
-                            'Add Property',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: AspectRatio(
+                      aspectRatio: 1.5,
+                      child: KpiCard(
+                        title: 'Total Tenants',
+                        value: '${pc.kpiStats.value.totalTenants}',
+                        icon: Icons.groups_rounded,
+                        accentColor: AppTheme.tenantFill,
+                        subtitle:
+                        'across ${pc.kpiStats.value.tenantsAcrossProperties} properties',
+                        sparkData: pc.kpiStats.value.tenantsSparkline.isEmpty
+                            ? const [5.0, 8.0, 7.0, 9.0, 12.0, 10.0, 14.0, 13.0, 16.0, 18.0, 17.0, 25.0]
+                            : pc.kpiStats.value.tenantsSparkline,
+                        sparkLabels: pc.kpiStats.value.chartLabels.isEmpty
+                            ? null
+                            : pc.kpiStats.value.chartLabels,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: AspectRatio(
+                      aspectRatio: 1.5,
+                      child: KpiCard(
+                        title: 'Total Revenue',
+                        value: fmt.format(pc.kpiStats.value.totalRevenue),
+                        icon: Icons.trending_up_rounded,
+                        accentColor: AppTheme.accentPurple,
+                        sparkData: pc.kpiStats.value.revenueSparkline.isEmpty
+                            ? const [10.0, 12.0, 15.0, 14.0, 18.0, 20.0, 19.0, 22.0, 25.0, 24.0, 28.0, 30.0]
+                            : pc.kpiStats.value.revenueSparkline,
+                        sparkLabels: pc.kpiStats.value.chartLabels.isEmpty
+                            ? null
+                            : pc.kpiStats.value.chartLabels,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 28),
+              Row(
+                children: [
+                  Text('Properties', style: AppTheme.heading2),
+                  const SizedBox(width: 8),
+                  Text('($totalFiltered properties)', style: AppTheme.caption),
+                  const Spacer(),
+                  if (auth != null && auth.isSuperAdmin) ...[
+                    _CategoryFilterSelector(pc: pc),
+                    const SizedBox(width: 16),
+                  ],
+                  if (canAddProperty)
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        debugPrint('Add Property clicked');
+                        pc.openAddProperty();
+                      },
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Add Property'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2F6BFF),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 12,
                         ),
                       ),
                     ),
-                  ],
-                ),
+                ],
               ),
-            ),
-          );
-        },
-      ),
-    );
-  }
+              const SizedBox(height: 16),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  const crossAxisCount = 3;
+                  final cardWidth =
+                      (constraints.maxWidth - 20 * (crossAxisCount - 1)) /
+                          crossAxisCount;
 
-  Widget _buildSection({required IconData icon, required String title, required Widget child}) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(icon, color: const Color(0xFF3B82F6), size: 20),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: child,
-          ),
-        ],
-      ),
-    );
-  }
+                  if (isLoading) {
+                    return const SizedBox(
+                      height: 400,
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
 
-  Widget _buildChip({required String label, required bool isSelected, required Function(bool) onSelected}) {
-    return FilterChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: onSelected,
-      backgroundColor: Colors.white,
-      selectedColor: const Color(0xFFEFF6FF),
-      labelStyle: TextStyle(
-        color: isSelected ? const Color(0xFF3B82F6) : const Color(0xFF4A4A4A),
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-      ),
-      shape: StadiumBorder(
-        side: BorderSide(
-          color: isSelected ? const Color(0xFF3B82F6) : const Color(0xFFE2E8F0),
+                  if (pageItems.isEmpty) {
+                    return _EmptyState(
+                      page: page,
+                      onRefresh: pc.refreshProperties,
+                    );
+                  }
+
+                  return Wrap(
+                    key: ValueKey('page_$page'),
+                    spacing: 20,
+                    runSpacing: 24,
+                    children: pageItems
+                        .map(
+                          (prop) => _PropertyCard(
+                        prop: prop,
+                        pc: pc,
+                        width: cardWidth,
+                        isSelected:
+                        pc.selectedProperty.value?.id == prop.id,
+                      ),
+                    )
+                        .toList(),
+                  );
+                },
+              ),
+              const SizedBox(height: 32),
+              _Pagination(pc: pc),
+            ],
+          ),
         ),
-      ),
-      showCheckmark: false,
-    );
-  }
-
-  InputDecoration _inputDecoration(String label) {
-    return InputDecoration(
-      labelText: label,
-      labelStyle: const TextStyle(color: AppTheme.textMuted),
-      filled: true,
-      fillColor: AppTheme.bgCardLight,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: AppTheme.border),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: AppTheme.border),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: AppTheme.accentGreen),
-      ),
-    );
+      );
+    });
   }
 }
 
@@ -682,200 +288,195 @@ class _PropertyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tenantName =
-        (prop.primaryTenantName != null && prop.primaryTenantName!.isNotEmpty)
-            ? prop.primaryTenantName!
-            : 'N/A';
+    (prop.primaryTenantName != null && prop.primaryTenantName!.isNotEmpty)
+        ? prop.primaryTenantName!
+        : 'N/A';
     final hasImage = prop.imageUrl != null && prop.imageUrl!.trim().isNotEmpty;
 
     Widget statusBadge;
-    Color statusColor;
     switch (prop.status) {
       case PropertyStatus.rented:
         statusBadge = StatusBadge.rented();
-        statusColor = AppTheme.statusRentedText;
         break;
       case PropertyStatus.available:
         statusBadge = StatusBadge.available();
-        statusColor = AppTheme.statusAvailableText;
         break;
       case PropertyStatus.booked:
         statusBadge = StatusBadge.booked();
-        statusColor = AppTheme.accentPurple;
         break;
       case PropertyStatus.requested:
         statusBadge = StatusBadge.requested();
-        statusColor = AppTheme.statusRequestedText;
         break;
       case PropertyStatus.maintenance:
         statusBadge = StatusBadge.maintenance();
-        statusColor = AppTheme.statusMaintenanceText;
         break;
       case PropertyStatus.unknown:
         statusBadge = StatusBadge.unknown();
-        statusColor = const Color(0xFF9E9E9E);
         break;
     }
 
     return SizedBox(
-        width: width,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF2563EB).withValues(alpha: 0.12),
-                blurRadius: 28,
-                offset: const Offset(0, 12),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Material(
-            color: Colors.white,
-            clipBehavior: Clip.antiAlias,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-              side: isSelected
-                  ? const BorderSide(color: AppTheme.accentGreen, width: 2)
-                  : const BorderSide(color: Color(0xFFD6E8FA), width: 1.5),
+      width: width,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF2563EB).withValues(alpha: 0.12),
+              blurRadius: 28,
+              offset: const Offset(0, 12),
             ),
-            child: InkWell(
-              onTap: () => pc.openPropertyDetails(prop),
-              child: SizedBox(
-                height: _cardHeight,
-            width: double.infinity,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (hasImage)
-                  Image.network(
-                    prop.imageUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (c, e, s) => _placeholder(),
-                  )
-                else
-                  _placeholder(),
-                Positioned(
-                  top: 12,
-                  left: 12,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFBDBDBD).withValues(alpha: 0.35),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.white,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: isSelected
+                ? const BorderSide(color: AppTheme.accentGreen, width: 2)
+                : const BorderSide(color: Color(0xFFD6E8FA), width: 1.5),
+          ),
+          child: InkWell(
+            onTap: () => pc.openPropertyDetails(prop),
+            child: SizedBox(
+              height: _cardHeight,
+              width: double.infinity,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (hasImage)
+                    Image.network(
+                      prop.imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (c, e, s) => _placeholder(),
+                    )
+                  else
+                    _placeholder(),
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFBDBDBD)
+                                .withValues(alpha: 0.35),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.6)),
+                          ),
+                          child: Text(
+                            '₹ ${NumberFormat.decimalPattern('en_IN').format(prop.rentAmount)}/ Month',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black26,
+                                  blurRadius: 3,
+                                  offset: Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                        child: Text(
-                          '₹ ${NumberFormat.decimalPattern('en_IN').format(prop.rentAmount)}/ Month',
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: 150,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.75),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(top: 12, right: 12, child: statusBadge),
+                  Positioned(
+                    left: 16,
+                    right: 16,
+                    bottom: 14,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          prop.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black26,
-                                blurRadius: 3,
-                                offset: Offset(0, 1),
-                              ),
-                            ],
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: 150,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.75),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(top: 12, right: 12, child: statusBadge),
-
-                Positioned(
-                  left: 16,
-                  right: 16,
-                  bottom: 14,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        prop.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          const Icon(Icons.location_on_rounded,
-                              color: Colors.white, size: 14),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              prop.address.address,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on_rounded,
+                                color: Colors.white, size: 14),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                prop.address.address,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _personLabel(
-                              icon: Icons.person_rounded,
-                              text: 'Landlord: ${prop.landlordName}',
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _personLabel(
+                                icon: Icons.person_rounded,
+                                text: 'Landlord: ${prop.landlordName}',
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: _personLabel(
-                              icon: Icons.groups_outlined,
-                              text: 'Tenant: $tenantName',
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _personLabel(
+                                icon: Icons.groups_outlined,
+                                text: 'Tenant: $tenantName',
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
-        ),
     );
   }
 
@@ -914,6 +515,7 @@ class _PropertyCard extends StatelessWidget {
 class _Pagination extends StatelessWidget {
   final PropertyController pc;
   const _Pagination({required this.pc});
+
   List<Widget> _buildPageButtons(int current, int total) {
     final Set<int> pagesToShow = {};
     pagesToShow.add(1);
@@ -983,10 +585,7 @@ class _Pagination extends StatelessWidget {
           if (current > 1)
             IconButton(
               onPressed: () => pc.goToPage(current - 1),
-              icon: const Icon(
-                Icons.chevron_left,
-                color: AppTheme.textPrimary,
-              ),
+              icon: const Icon(Icons.chevron_left, color: AppTheme.textPrimary),
             ),
           const SizedBox(width: 4),
           ..._buildPageButtons(current, total),
@@ -998,5 +597,122 @@ class _Pagination extends StatelessWidget {
         ],
       );
     });
+  }
+}
+
+class _CategoryFilterSelector extends StatelessWidget {
+  final PropertyController pc;
+  const _CategoryFilterSelector({required this.pc});
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final currentFilter = pc.selectedCategoryFilter.value;
+      final totalCount = pc.totalPropertiesCount;
+      final pgCount = pc.pgPropertiesCount;
+      final individualCount = pc.individualPropertiesCount;
+
+      return Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F4F9),
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildTab(
+              label: 'All',
+              count: totalCount,
+              isSelected: currentFilter == PropertyCategoryFilter.all,
+              onTap: () => pc.setCategoryFilter(PropertyCategoryFilter.all),
+            ),
+            const SizedBox(width: 4),
+            _buildTab(
+              label: 'PG',
+              count: pgCount,
+              isSelected: currentFilter == PropertyCategoryFilter.pg,
+              onTap: () => pc.setCategoryFilter(PropertyCategoryFilter.pg),
+            ),
+            const SizedBox(width: 4),
+            _buildTab(
+              label: 'Individual',
+              count: individualCount,
+              isSelected: currentFilter == PropertyCategoryFilter.individual,
+              onTap: () =>
+                  pc.setCategoryFilter(PropertyCategoryFilter.individual),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildTab({
+    required String label,
+    required int count,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected
+                      ? const Color(0xFF2F6BFF)
+                      : const Color(0xFF5A6A85),
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? const Color(0xFFEEF2FF)
+                      : const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '$count',
+                  style: TextStyle(
+                    color: isSelected
+                        ? const Color(0xFF2F6BFF)
+                        : const Color(0xFF475569),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

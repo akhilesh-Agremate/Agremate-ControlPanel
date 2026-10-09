@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:get/get.dart';
 import 'package:agremate_admin/routes/app_routes.dart';
-
+import 'package:agremate_admin/core/utils/app_logger.dart';
 import '../model/model.dart';
 import 'auth_service.dart';
 
@@ -30,6 +30,13 @@ class AuthController extends GetxController {
   bool get isLandlord => _normalizedRole == 'landlord';
   bool get isTenant => _normalizedRole == 'tenant';
   bool get isRestrictedRole => isLandlord || isTenant;
+
+  String get roleLabel {
+    if (isSuperAdmin) return 'Super Admin';
+    if (isLandlord) return 'Landlord';
+    if (isTenant) return 'Tenant';
+    return role.value.isNotEmpty ? role.value : 'N/A';
+  }
 
   final phoneNumber = ''.obs;
   final session = ''.obs;
@@ -112,11 +119,13 @@ class AuthController extends GetxController {
     isLoading.value = true;
     try {
       final fullPhone = '$countryCode$phone';
+      AppLogger.i('AuthController', 'Send OTP pressed');
       final access = await _service.checkAccess(fullPhone);
       final result = access.data;
       final roleOk = result != null && _isAllowedDashboardRole(result.role);
 
       if (!access.status || result == null || result.canAccess != true || !roleOk) {
+        AppLogger.w('AuthController', 'Access denied for login');
         errorMessage.value = access.message.isNotEmpty
             ? access.message
             : 'This phone number is not authorized as Super Admin, Landlord, or Tenant.';
@@ -124,7 +133,6 @@ class AuthController extends GetxController {
       }
 
       _pendingAccess = result;
-      _applyAccess(result);
       await _sendOtp(fullPhone);
     } finally {
       isLoading.value = false;
@@ -176,17 +184,20 @@ class AuthController extends GetxController {
       await _service.confirmOtp(phoneNumber.value, otp, session.value);
       final authSession = res.data;
       if (!res.status || authSession == null || !authSession.isSuccess) {
+        AppLogger.w('AuthController', 'OTP verification failed');
         errorMessage.value =
         res.message.isNotEmpty ? res.message : 'OTP verification failed';
         return;
       }
 
+      _clearIdentity();
       _applySession(authSession);
       if (_pendingAccess != null) {
         _applyAccess(_pendingAccess!);
       }
 
       isLoggedIn.value = true;
+      AppLogger.i('AuthController', 'Login success role=${role.value}');
       Get.offAllNamed(AppRoutes.dashboard);
     } finally {
       isLoading.value = false;
@@ -194,6 +205,7 @@ class AuthController extends GetxController {
   }
 
   void logout() {
+    AppLogger.i('AuthController', 'Logout');
     _clearSession();
     Get.offAllNamed(AppRoutes.login);
   }
@@ -205,7 +217,9 @@ class AuthController extends GetxController {
       session.value = res.data ?? '';
       isOtpSent.value = true;
       _startTimer();
+      AppLogger.i('AuthController', 'OTP sent');
     } else {
+      AppLogger.w('AuthController', 'Failed to send OTP');
       errorMessage.value =
       res.message.isNotEmpty ? res.message : 'Failed to send OTP';
     }
@@ -245,6 +259,14 @@ class AuthController extends GetxController {
     if (access.fullName.isNotEmpty) userName.value = access.fullName;
     if (access.email.isNotEmpty) userEmail.value = access.email;
     if (access.phoneNumber.isNotEmpty) userPhone.value = access.phoneNumber;
+  }
+
+  void _clearIdentity() {
+    userId.value = '';
+    userName.value = '';
+    userEmail.value = '';
+    userPhone.value = '';
+    role.value = '';
   }
 
   void _clearSession() {

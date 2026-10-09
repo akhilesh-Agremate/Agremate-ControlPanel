@@ -25,6 +25,10 @@ class AppEndpoints {
   static const String adminDashboardServices = "/AdminDashboard/services";
   static const String adminDashboardRecentActivity =
       "/AdminDashboard/recent-activity";
+  static const String adminDashboardSubscriptions =
+      "/AdminDashboard/subscriptions";
+  static const String adminDashboardExpiredSubscriptions =
+      "/AdminDashboard/subscriptions/expired";
 
   static const userForgotPassword = "/User/forgot-password";
   static const amenitiesList = "/Amenities/amenities";
@@ -39,4 +43,12 @@ class AppEndpoints {
   static const currentUserDetails = '/User/current-user-details';
   static const landlordSubscriptionSummary = '/landlord-subscription/summary';
   static const allDocuments = '/documents/all-details';
+  static const String uploadFile = '/Files/upload';
+  static const String amenities  = '/Amenities';
+  static const String config = '/Config';
+  static const String financeOverview = '/AdminDashboard/finance/overview';
+  static const String financeProperties = '/AdminDashboard/finance/properties';
+  static String financePropertyDetail(String id) =>
+      '/AdminDashboard/finance/properties/$id';
+  static const String adminControlSettings = '/AdminDashboard/admin-control/settings';
 }

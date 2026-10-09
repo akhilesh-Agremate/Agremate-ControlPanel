@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:agremate_admin/core/utils/app_logger.dart';
 
 enum PropertyStatus { rented, available, booked, requested, maintenance, unknown }
 
@@ -66,6 +67,11 @@ class PropertyModel {
   final int? agreementPeriodMonths;
   final double? agreementRentAmount;
 
+  final String category;
+  final int? totalRooms;
+  final int? totalBeds;
+  final int? availableBeds;
+
   PropertyModel({
     required this.id,
     required this.name,
@@ -106,6 +112,10 @@ class PropertyModel {
     this.agreementStartDate,
     this.agreementPeriodMonths,
     this.agreementRentAmount,
+    this.category = '',
+    this.totalRooms,
+    this.totalBeds,
+    this.availableBeds,
   });
 
   factory PropertyModel.fromJson(Map<String, dynamic> json) {
@@ -218,10 +228,16 @@ class PropertyModel {
         agreementStartDate: agreementStartDate,
         agreementPeriodMonths: agreementPeriodMonths,
         agreementRentAmount: agreementRentAmount,
+        propertyType: json['propertyType']?.toString() ?? 'Apartment',
+        category: json['category']?.toString() ??
+            json['propertyCategory']?.toString() ??
+            '',
+        totalRooms: (json['totalRooms'] as num?)?.toInt(),
+        totalBeds: (json['totalBeds'] as num?)?.toInt(),
+        availableBeds: (json['availableBeds'] as num?)?.toInt(),
       );
     } catch (e, stack) {
-      print('PropertyModel.fromJson Error: $e');
-      print(stack);
+      AppLogger.e('PropertyModel', 'fromJson failed', e, stack);
       rethrow;
     }
   }
@@ -254,6 +270,27 @@ class PropertyModel {
   }
 
   bool get isRented => status == PropertyStatus.rented;
+
+  bool get isPg {
+    final cat = category.trim().toLowerCase();
+    final pType = propertyType.trim().toLowerCase();
+    return cat == 'pg' ||
+        pType == 'pg' ||
+        pType == '3' ||
+        pType.contains('pg') ||
+        (totalBeds != null && totalBeds! > 0) ||
+        (totalRooms != null && totalRooms! > 0);
+  }
+
+  bool get isIndividual {
+    final cat = category.trim().toLowerCase();
+    final pType = propertyType.trim().toLowerCase();
+    if (isPg) return false;
+    return cat == 'residential' ||
+        cat == 'individual' ||
+        cat.isEmpty ||
+        (pType != 'pg' && pType != '3');
+  }
 
   String get propertyTypeLabel {
     switch (propertyType.trim()) {

@@ -1,13 +1,17 @@
 import 'package:agremate_admin/network_utils/dio_client.dart';
 import 'package:agremate_admin/network_utils/app_end_points.dart';
 import 'package:agremate_admin/modules/service_request/model/service_request_model.dart';
+import 'package:agremate_admin/core/utils/app_logger.dart';
 
 class ServicesRepository {
   Future<Map<String, dynamic>> getDashboardServices() async {
+    AppLogger.i('ServicesRepository', 'Fetch service requests started');
+    try {
     final response =
         await DioClient.instance.get(AppEndpoints.adminDashboardServices);
     final data = response.data;
     if (data is! Map) {
+      AppLogger.w('ServicesRepository', 'Unexpected services response');
       return {
         'counts': <String, int>{},
         'requests': <ServiceRequestModel>[],
@@ -42,7 +46,15 @@ class ServicesRepository {
       }
     }
 
+    AppLogger.i(
+      'ServicesRepository',
+      'Fetch service requests success count=${requests.length}',
+    );
     return {'counts': counts, 'requests': requests};
+    } catch (e) {
+      AppLogger.e('ServicesRepository', 'Fetch service requests failed', e);
+      rethrow;
+    }
   }
 
   Future<List<ServiceRequestModel>> getAllMaintenanceRequests() async {
