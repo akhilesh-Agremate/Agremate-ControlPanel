@@ -25,11 +25,11 @@ class KpiCard extends StatefulWidget {
   State<KpiCard> createState() => _KpiCardState();
 }
 
-class _KpiCardState extends State<KpiCard> with SingleTickerProviderStateMixin {
+class _KpiCardState extends State<KpiCard> {
   bool _hovering = false;
   int? _selectedIndex;
 
-  Widget _buildInteractiveSparkline(List<double> data, Color color) {
+  Widget _buildInteractiveSparkline(List<double> data) {
     if (data.isEmpty) return const SizedBox();
     final maxVal = data.reduce((a, b) => a > b ? a : b);
     final minVal = data.reduce((a, b) => a < b ? a : b);
@@ -41,61 +41,27 @@ class _KpiCardState extends State<KpiCard> with SingleTickerProviderStateMixin {
         final val = data[i];
         final hFactor = range > 0 ? ((val - minVal) / range) * 0.7 + 0.3 : 0.5;
         final isSelected = _selectedIndex == i;
+        const baseBlue = Color(0xFF2083D5);
+        final barColor = isSelected
+            ? baseBlue
+            : baseBlue.withValues(alpha: 0.35 + (i / data.length) * 0.4);
 
-        const baseBlue = Color(0xFF2083D5); 
-        final barColor = isSelected ? baseBlue : baseBlue.withValues(alpha: 0.4 + (i / data.length) * 0.4);
-        
         return Expanded(
-          child: GestureDetector(
-            onTapDown: (_) => setState(() => _selectedIndex = i),
-            onTapCancel: () => setState(() => _selectedIndex = null),
-            child: MouseRegion(
-              onEnter: (_) => setState(() => _selectedIndex = i),
-              onExit: (_) => setState(() => _selectedIndex = null),
-              child: Stack(
-                alignment: Alignment.bottomCenter,
-                clipBehavior: Clip.none,
-                children: [
-                  Tooltip(
-                    message: (widget.sparkLabels != null && i < widget.sparkLabels!.length) 
-                        ? '${widget.sparkLabels![i]}: ${val.toStringAsFixed(0)}' 
-                        : val.toStringAsFixed(0),
-                    child: Container(
-                      margin: EdgeInsets.only(right: i == data.length - 1 ? 0 : 2),
-                      height: 18 * hFactor,
-                      decoration: BoxDecoration(
-                        color: barColor,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  if (isSelected)
-                    Positioned(
-                      bottom: (18 * hFactor) + 2,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2083D5),
-                          borderRadius: BorderRadius.circular(4),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.1),
-                              blurRadius: 2,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          val.toStringAsFixed(val.truncateToDouble() == val ? 0 : 1),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 8,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
+          child: MouseRegion(
+            onEnter: (_) => setState(() => _selectedIndex = i),
+            onExit: (_) => setState(() => _selectedIndex = null),
+            child: Tooltip(
+              message: (widget.sparkLabels != null &&
+                      i < widget.sparkLabels!.length)
+                  ? '${widget.sparkLabels![i]}: ${val.toStringAsFixed(0)}'
+                  : val.toStringAsFixed(0),
+              child: Container(
+                margin: EdgeInsets.only(right: i == data.length - 1 ? 0 : 3),
+                height: 28 * hFactor,
+                decoration: BoxDecoration(
+                  color: barColor,
+                  borderRadius: BorderRadius.circular(3),
+                ),
               ),
             ),
           ),
@@ -115,66 +81,92 @@ class _KpiCardState extends State<KpiCard> with SingleTickerProviderStateMixin {
         });
       },
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        duration: const Duration(milliseconds: 180),
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: _hovering
+                ? const Color(0xFF2F6BFF).withValues(alpha: 0.45)
+                : const Color(0xFFD6E8FA),
+          ),
           boxShadow: [
             BoxShadow(
               color: const Color(0xFF1565C0)
-                  .withValues(alpha: _hovering ? 0.16 : 0.09),
-              blurRadius: _hovering ? 20 : 14,
+                  .withValues(alpha: _hovering ? 0.14 : 0.07),
+              blurRadius: _hovering ? 16 : 10,
               offset: const Offset(0, 4),
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    widget.title.toUpperCase(),
-                    style: AppTheme.kpiLabel.copyWith(
-                      fontSize: 10, letterSpacing: 0.5,
-                      color: const Color(0xFF2F6BFF),
+        child: SizedBox(
+          height: 150,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2F6BFF).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    overflow: TextOverflow.ellipsis,
+                    child: Icon(
+                      widget.icon,
+                      color: const Color(0xFF2F6BFF),
+                      size: 18,
+                    ),
                   ),
-                ),
-             Icon(widget.icon, color: const Color(0xFF2F6BFF), size: 16),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(widget.value, style: AppTheme.kpiValue.copyWith(color: const Color(0xFF2F6BFF), fontSize: 22, height: 1.0)),
-                if (widget.subtitle != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
+                  const SizedBox(width: 10),
+                  Expanded(
                     child: Text(
-                      widget.subtitle!,
-                      style: AppTheme.caption.copyWith(
-                        fontSize: 10,
-                        color: AppTheme.textMuted.withValues(alpha: 0.8),
+                      widget.title,
+                      style: AppTheme.kpiLabel.copyWith(
+                        fontSize: 12,
+                        letterSpacing: 0.2,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF5B6B8C),
                       ),
-                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-              ],
-            ),
-            const Spacer(),
-            if (widget.sparkData != null)
-              SizedBox(
-                height: 20,
-                child: _buildInteractiveSparkline(widget.sparkData!, widget.accentColor),
+                ],
               ),
-          ],
+              const SizedBox(height: 12),
+              Text(
+                widget.value,
+                style: AppTheme.kpiValue.copyWith(
+                  color: const Color(0xFF1B4FD8),
+                  fontSize: 28,
+                  height: 1.1,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 16,
+                child: Text(
+                  widget.subtitle ?? '',
+                  style: AppTheme.caption.copyWith(
+                    fontSize: 12,
+                    color: AppTheme.textMuted,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const Spacer(),
+              if (widget.sparkData != null)
+                SizedBox(
+                  height: 28,
+                  child: _buildInteractiveSparkline(widget.sparkData!),
+                ),
+            ],
+          ),
         ),
       ),
     );

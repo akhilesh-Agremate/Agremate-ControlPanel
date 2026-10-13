@@ -51,61 +51,50 @@ class FinanceView extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: AspectRatio(
-                    aspectRatio: 1.5,
-                    child: KpiCard(
-                      title: 'Total Revenue',
-                      value: o.totalRevenueFormatted,
-                      icon: Icons.account_balance_wallet_rounded,
-                      accentColor: AppTheme.accentGreen,
-                      subtitle: 'All landlords combined',
-                      sparkData: o.totalRevenueSparkline,
-                      sparkLabels: o.chartLabels.isEmpty ? null : o.chartLabels,
-                    ),
+                  child: KpiCard(
+                    title: 'Total Revenue',
+                    value: o.totalRevenueFormatted,
+                    icon: Icons.account_balance_wallet_rounded,
+                    accentColor: AppTheme.accentGreen,
+                    subtitle: 'All landlords combined',
+                    sparkData: o.totalRevenueSparkline,
+                    sparkLabels: o.chartLabels.isEmpty ? null : o.chartLabels,
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: AspectRatio(
-                    aspectRatio: 1.5,
-                    child: KpiCard(
-                      title: 'Rented Properties',
-                      value: '${o.rentedPropertiesCount}',
-                      icon: Icons.home_rounded,
-                      accentColor: AppTheme.accentOrange,
-                      sparkData: o.rentedPropertiesSparkline,
-                      sparkLabels: o.chartLabels.isEmpty ? null : o.chartLabels,
-                    ),
+                  child: KpiCard(
+                    title: 'Rented Properties',
+                    value: '${o.rentedPropertiesCount}',
+                    icon: Icons.home_rounded,
+                    accentColor: AppTheme.accentOrange,
+                    sparkData: o.rentedPropertiesSparkline,
+                    sparkLabels: o.chartLabels.isEmpty ? null : o.chartLabels,
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: AspectRatio(
-                    aspectRatio: 1.5,
-                    child: KpiCard(
-                      title: 'Paid',
-                      value: '${o.paidCount}',
-                      icon: Icons.check_circle_rounded,
-                      accentColor: AppTheme.accentCyan,
-                      sparkData: o.paidSparkline,
-                      sparkLabels: o.chartLabels.isEmpty ? null : o.chartLabels,
-                    ),
+                  child: KpiCard(
+                    title: 'Paid',
+                    value: '${o.paidCount}',
+                    icon: Icons.check_circle_rounded,
+                    accentColor: AppTheme.accentCyan,
+                    sparkData: o.paidSparkline,
+                    sparkLabels: o.chartLabels.isEmpty ? null : o.chartLabels,
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: AspectRatio(
-                    aspectRatio: 1.5,
-                    child: KpiCard(
-                      title: 'Overdue',
-                      value: '${o.overdueCount}',
-                      icon: Icons.warning_rounded,
-                      accentColor: AppTheme.accentRed,
-                      sparkData: o.overdueSparkline,
-                      sparkLabels: o.chartLabels.isEmpty ? null : o.chartLabels,
-                    ),
+                  child: KpiCard(
+                    title: 'Overdue',
+                    value: '${o.overdueCount}',
+                    icon: Icons.warning_rounded,
+                    accentColor: AppTheme.accentRed,
+                    sparkData: o.overdueSparkline,
+                    sparkLabels: o.chartLabels.isEmpty ? null : o.chartLabels,
                   ),
                 ),
               ],

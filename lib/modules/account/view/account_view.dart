@@ -6,6 +6,7 @@ import 'package:agremate_admin/modules/account/controller/account_controller.dar
 import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
 import 'package:agremate_admin/core/widgets/glass_card.dart';
 import '../model/account_model.dart';
+import '../model/role_model.dart';
 
 String _na(String v) => v.trim().isEmpty ? 'N/A' : v.trim();
 
@@ -206,7 +207,6 @@ class _ProfileDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = user.createdAt;
     return Column(
       children: [
         _DetailRow(
@@ -344,25 +344,32 @@ class _RegisterNewAccount extends StatefulWidget {
 
 class _RegisterNewAccountState extends State<_RegisterNewAccount> {
   final _phoneController = TextEditingController();
-  String? _selectedRole;
-  final List<String> _roles = [
-    'Landlord',
-    'Property Manager',
-    'Admin',
-    'Super Admin',
-  ];
+  final _roleDropdownController = TextEditingController();
+  RoleModel? _selectedRole;
 
   String? _phoneError;
   String? _roleError;
 
   @override
+  void initState() {
+    super.initState();
+    final ac = Get.find<AccountController>();
+    if (ac.roles.isEmpty && !ac.isLoadingRoles.value) {
+      ac.fetchRoles();
+    }
+  }
+
+  @override
   void dispose() {
     _phoneController.dispose();
+    _roleDropdownController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final ac = Get.find<AccountController>();
+
     return GlassCard(
       glowColor: AppTheme.accentBlue,
       child: Column(
@@ -397,42 +404,79 @@ class _RegisterNewAccountState extends State<_RegisterNewAccount> {
               ),
             ),
           const SizedBox(height: 16),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              return DropdownMenu<String>(
-                width: constraints.maxWidth,
-                initialSelection: _selectedRole,
-                hintText: 'Select a role',
-                textStyle: const TextStyle(color: AppTheme.textPrimary),
-                inputDecorationTheme: Theme.of(context).inputDecorationTheme
-                    .copyWith(filled: true, fillColor: Colors.white),
-                menuStyle: MenuStyle(
-                  backgroundColor: const WidgetStatePropertyAll(
-                    AppTheme.bgCard,
-                  ),
-                  elevation: const WidgetStatePropertyAll(4.0),
+          Obx(() {
+            final isLoading = ac.isLoadingRoles.value;
+            final roles = ac.roles;
+            final rolesError = ac.rolesError.value;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    return DropdownMenu<RoleModel>(
+                      controller: _roleDropdownController,
+                      width: constraints.maxWidth,
+                      initialSelection: _selectedRole,
+                      hintText: isLoading ? 'Loading roles...' : 'Select a role',
+                      enabled: !isLoading,
+                      textStyle: const TextStyle(color: AppTheme.textPrimary),
+                      inputDecorationTheme: Theme.of(context)
+                          .inputDecorationTheme
+                          .copyWith(
+                            filled: true,
+                            fillColor: Colors.white,
+                            suffixIconColor: AppTheme.textSecondary,
+                          ),
+                      menuStyle: const MenuStyle(
+                        backgroundColor: WidgetStatePropertyAll(
+                          AppTheme.bgCard,
+                        ),
+                        elevation: WidgetStatePropertyAll(4.0),
+                      ),
+                      dropdownMenuEntries: roles.map((role) {
+                        return DropdownMenuEntry<RoleModel>(
+                          value: role,
+                          label: role.name,
+                          style: MenuItemButton.styleFrom(
+                            foregroundColor: AppTheme.textPrimary,
+                          ),
+                        );
+                      }).toList(),
+                      onSelected: (val) {
+                        setState(() {
+                          _selectedRole = val;
+                          if (val != null) {
+                            _roleError = null;
+                          }
+                        });
+                      },
+                    );
+                  },
                 ),
-                dropdownMenuEntries:
-                _roles.map((role) {
-                  return DropdownMenuEntry<String>(
-                    value: role,
-                    label: role,
-                    style: MenuItemButton.styleFrom(
-                      foregroundColor: AppTheme.textPrimary,
-                    ),
-                  );
-                }).toList(),
-                onSelected: (val) {
-                  if (val != null) {
-                    setState(() {
-                      _selectedRole = val;
-                      _roleError = null;
-                    });
-                  }
-                },
-              );
-            },
-          ),
+                if (rolesError.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Failed to load roles: $rolesError',
+                          style: const TextStyle(
+                            color: AppTheme.accentRed,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: ac.fetchRoles,
+                        child: const Text('Retry', style: TextStyle(fontSize: 12)),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            );
+          }),
           if (_roleError != null)
             Padding(
               padding: const EdgeInsets.only(top: 8, left: 12),
@@ -442,50 +486,64 @@ class _RegisterNewAccountState extends State<_RegisterNewAccount> {
               ),
             ),
           const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                final phone = _phoneController.text.trim();
-                String? phoneErr;
-                String? roleErr;
+          Obx(() {
+            final isCreating = ac.isCreatingUser.value;
+            return SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: isCreating
+                    ? null
+                    : () async {
+                        final phone = _phoneController.text.trim();
+                        String? phoneErr;
+                        String? roleErr;
 
-                if (phone.isEmpty) {
-                  phoneErr = 'Phone number is required.';
-                } else if (phone.length != 10) {
-                  phoneErr = 'Enter a valid 10-digit phone number.';
-                }
-                if (_selectedRole == null) {
-                  roleErr = 'Please select a role.';
-                }
+                        if (phone.isEmpty) {
+                          phoneErr = 'Phone number is required.';
+                        } else if (phone.length != 10) {
+                          phoneErr = 'Enter a valid 10-digit phone number.';
+                        }
+                        if (_selectedRole == null) {
+                          roleErr = 'Please select a role.';
+                        }
 
-                if (phoneErr != null || roleErr != null) {
-                  setState(() {
-                    _phoneError = phoneErr;
-                    _roleError = roleErr;
-                  });
-                  return;
-                }
+                        if (phoneErr != null || roleErr != null) {
+                          setState(() {
+                            _phoneError = phoneErr;
+                            _roleError = roleErr;
+                          });
+                          return;
+                        }
 
-                setState(() {
-                  _phoneError = null;
-                  _roleError = null;
-                });
+                        setState(() {
+                          _phoneError = null;
+                          _roleError = null;
+                        });
 
-                Get.snackbar(
-                  'Success',
-                  'Account registered successfully!',
-                  backgroundColor: AppTheme.accentGreen,
-                  colorText: Colors.white,
-                  snackPosition: SnackPosition.BOTTOM,
-                  margin: const EdgeInsets.all(16),
-                );
-                _phoneController.clear();
-                setState(() => _selectedRole = null);
-              },
-              child: const Text('Register'),
-            ),
-          ),
+                        final success = await ac.createUser(
+                          phoneNumber: phone,
+                          roleId: _selectedRole!.id,
+                        );
+
+                        if (success) {
+                          _phoneController.clear();
+                          _roleDropdownController.clear();
+                          setState(() => _selectedRole = null);
+                        }
+                      },
+                child: isCreating
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Register'),
+              ),
+            );
+          }),
         ],
       ),
     );

@@ -11,6 +11,7 @@ import '../../../../core/widgets/full_pdf_page.dart';
 import '../../../../core/widgets/pdf_iframe_view.dart';
 import '../../../auth/controller/auth_controller.dart';
 import 'add_property_panel.dart';
+import '../pg_property_detail_view.dart';
 
 class PropertyDetailPanel extends StatefulWidget {
   final PropertyModel property;
@@ -37,14 +38,15 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
   bool get _canDelete {
     if (!Get.isRegistered<AuthController>()) return true;
     final auth = Get.find<AuthController>();
-    return auth.isSuperAdmin || auth.isLandlord;
+    return !auth.isTenant;
   }
 
   void _confirmDelete(BuildContext context, PropertyController pc) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Property'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text('Delete Property', style: TextStyle(fontWeight: FontWeight.bold)),
         content: Text(
           'Are you sure you want to delete "${widget.property.name}"?\n\n'
           'Property delete request will be submitted. It will be hidden after 24 hours and permanently deleted after 3 days.',
@@ -62,6 +64,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.accentRed,
               foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             child: const Text('Delete'),
           ),
@@ -74,6 +77,9 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
     final pc = Get.find<PropertyController>();
     if (pc.amenities.isEmpty) pc.fetchAmenities();
     if (pc.featureOptions.isEmpty) pc.fetchFeatures();
+    if (pc.selectedProperty.value == null || pc.selectedProperty.value!.id != widget.property.id) {
+      pc.openPropertyDetails(widget.property);
+    }
     setState(() => _isEditing = true);
   }
 
@@ -94,15 +100,19 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.property.isPg) {
+      return PgPropertyDetailView(property: widget.property);
+    }
     final pc = Get.find<PropertyController>();
     final nav = Get.find<NavigationController>();
     if (_isEditing) {
+      final currentProperty = pc.selectedProperty.value ?? widget.property;
       return Obx(
             () => AddPropertyPanel(
-          key: ValueKey('edit_${widget.property.id}'),
-          initial: widget.property,
+          key: ValueKey('edit_${currentProperty.id}'),
+          initial: currentProperty,
           onBack: () => setState(() => _isEditing = false),
-          onSubmit: (data) => pc.updateProperty(widget.property, data),
+          onSubmit: (data) => pc.updateProperty(currentProperty, data),
           amenityOptions: pc.amenities.toList(),
           amenitiesLoading: pc.isAmenitiesLoading.value,
           featureOptions: pc.featureOptions.toList(),

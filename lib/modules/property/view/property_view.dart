@@ -10,6 +10,9 @@ import 'package:agremate_admin/core/widgets/kpi_card.dart';
 import 'package:agremate_admin/core/widgets/status_badge.dart';
 import 'components/property_detail_panel.dart';
 import 'components/add_property_panel.dart';
+import 'components/create_pg_property_panel.dart';
+import 'components/property_type_dialog.dart';
+import 'pg_property_detail_view.dart';
 
 class PropertyView extends StatelessWidget {
   const PropertyView({super.key});
@@ -35,6 +38,14 @@ class PropertyView extends StatelessWidget {
       debugPrint(
           'PropertyView build: isAddOpen=${pc.isAddOpen.value} canAdd=$canAddProperty');
       if (isAddOpen) {
+        if (pc.addType.value == PropertyAddType.pg) {
+          return CreatePgPropertyPanel(
+            onBack: () => pc.isAddOpen.value = false,
+            onSubmit: (data) => pc.createPgProperty(data),
+            amenityOptions: pc.amenities.toList(),
+            amenitiesLoading: pc.isAmenitiesLoading.value,
+          );
+        }
         return AddPropertyPanel(
           onBack: () => pc.isAddOpen.value = false,
           onSubmit: (data) => pc.createProperty(data),
@@ -46,7 +57,11 @@ class PropertyView extends StatelessWidget {
       }
 
       if (isDetailOpen) {
-        return PropertyDetailPanel(property: pc.selectedProperty.value!);
+        final prop = pc.selectedProperty.value!;
+        if (prop.isPg) {
+          return PgPropertyDetailView(property: prop);
+        }
+        return PropertyDetailPanel(property: prop);
       }
 
       return ColoredBox(
@@ -58,91 +73,102 @@ class PropertyView extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: AspectRatio(
-                      aspectRatio: 1.5,
-                      child: KpiCard(
-                        title: 'Total Properties',
-                        value: '${pc.kpiStats.value.totalProperties}',
-                        icon: Icons.apartment_rounded,
-                        accentColor: AppTheme.accentGreen,
-                        subtitle: '${pc.kpiStats.value.rentedCount} rented',
-                        sparkData: pc.kpiStats.value.propertiesSparkline.isEmpty
-                            ? const [4.0, 6.0, 5.0, 8.0, 7.0, 9.0, 10.0, 8.0, 11.0, 13.0, 12.0, 16.0]
-                            : pc.kpiStats.value.propertiesSparkline,
-                        sparkLabels: pc.kpiStats.value.chartLabels.isEmpty
-                            ? null
-                            : pc.kpiStats.value.chartLabels,
-                      ),
+                    child: KpiCard(
+                      title: 'Total Properties',
+                      value: '${pc.kpiStats.value.totalProperties}',
+                      icon: Icons.apartment_rounded,
+                      accentColor: AppTheme.accentGreen,
+                      subtitle: '${pc.kpiStats.value.rentedCount} rented',
+                      sparkData: pc.kpiStats.value.propertiesSparkline.isEmpty
+                          ? const [4.0, 6.0, 5.0, 8.0, 7.0, 9.0, 10.0, 8.0, 11.0, 13.0, 12.0, 16.0]
+                          : pc.kpiStats.value.propertiesSparkline,
+                      sparkLabels: pc.kpiStats.value.chartLabels.isEmpty
+                          ? null
+                          : pc.kpiStats.value.chartLabels,
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: AspectRatio(
-                      aspectRatio: 1.5,
-                      child: KpiCard(
-                        title: 'Total Landlords',
-                        value: '${pc.kpiStats.value.totalLandlords}',
-                        icon: Icons.person_rounded,
-                        accentColor: AppTheme.landlordFill,
-                        subtitle:
-                        '${pc.kpiStats.value.activeLandlordCount} active',
-                        sparkData: pc.kpiStats.value.landlordsSparkline.isEmpty
-                            ? const [3.0, 5.0, 4.0, 7.0, 6.0, 8.0, 9.0, 7.0, 10.0, 12.0, 11.0, 15.0]
-                            : pc.kpiStats.value.landlordsSparkline,
-                        sparkLabels: pc.kpiStats.value.chartLabels.isEmpty
-                            ? null
-                            : pc.kpiStats.value.chartLabels,
-                      ),
+                    child: KpiCard(
+                      title: 'Total Landlords',
+                      value: '${pc.kpiStats.value.totalLandlords}',
+                      icon: Icons.person_rounded,
+                      accentColor: AppTheme.landlordFill,
+                      subtitle:
+                          '${pc.kpiStats.value.activeLandlordCount} active',
+                      sparkData: pc.kpiStats.value.landlordsSparkline.isEmpty
+                          ? const [3.0, 5.0, 4.0, 7.0, 6.0, 8.0, 9.0, 7.0, 10.0, 12.0, 11.0, 15.0]
+                          : pc.kpiStats.value.landlordsSparkline,
+                      sparkLabels: pc.kpiStats.value.chartLabels.isEmpty
+                          ? null
+                          : pc.kpiStats.value.chartLabels,
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: AspectRatio(
-                      aspectRatio: 1.5,
-                      child: KpiCard(
-                        title: 'Total Tenants',
-                        value: '${pc.kpiStats.value.totalTenants}',
-                        icon: Icons.groups_rounded,
-                        accentColor: AppTheme.tenantFill,
-                        subtitle:
-                        'across ${pc.kpiStats.value.tenantsAcrossProperties} properties',
-                        sparkData: pc.kpiStats.value.tenantsSparkline.isEmpty
-                            ? const [5.0, 8.0, 7.0, 9.0, 12.0, 10.0, 14.0, 13.0, 16.0, 18.0, 17.0, 25.0]
-                            : pc.kpiStats.value.tenantsSparkline,
-                        sparkLabels: pc.kpiStats.value.chartLabels.isEmpty
-                            ? null
-                            : pc.kpiStats.value.chartLabels,
-                      ),
+                    child: KpiCard(
+                      title: 'Total Tenants',
+                      value: '${pc.kpiStats.value.totalTenants}',
+                      icon: Icons.groups_rounded,
+                      accentColor: AppTheme.tenantFill,
+                      subtitle:
+                          'across ${pc.kpiStats.value.tenantsAcrossProperties} properties',
+                      sparkData: pc.kpiStats.value.tenantsSparkline.isEmpty
+                          ? const [5.0, 8.0, 7.0, 9.0, 12.0, 10.0, 14.0, 13.0, 16.0, 18.0, 17.0, 25.0]
+                          : pc.kpiStats.value.tenantsSparkline,
+                      sparkLabels: pc.kpiStats.value.chartLabels.isEmpty
+                          ? null
+                          : pc.kpiStats.value.chartLabels,
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
-                    child: AspectRatio(
-                      aspectRatio: 1.5,
-                      child: KpiCard(
-                        title: 'Total Revenue',
-                        value: fmt.format(pc.kpiStats.value.totalRevenue),
-                        icon: Icons.trending_up_rounded,
-                        accentColor: AppTheme.accentPurple,
-                        sparkData: pc.kpiStats.value.revenueSparkline.isEmpty
-                            ? const [10.0, 12.0, 15.0, 14.0, 18.0, 20.0, 19.0, 22.0, 25.0, 24.0, 28.0, 30.0]
-                            : pc.kpiStats.value.revenueSparkline,
-                        sparkLabels: pc.kpiStats.value.chartLabels.isEmpty
-                            ? null
-                            : pc.kpiStats.value.chartLabels,
-                      ),
+                    child: KpiCard(
+                      title: 'Total Revenue',
+                      value: fmt.format(pc.kpiStats.value.totalRevenue),
+                      icon: Icons.trending_up_rounded,
+                      accentColor: AppTheme.accentPurple,
+                      sparkData: pc.kpiStats.value.revenueSparkline.isEmpty
+                          ? const [10.0, 12.0, 15.0, 14.0, 18.0, 20.0, 19.0, 22.0, 25.0, 24.0, 28.0, 30.0]
+                          : pc.kpiStats.value.revenueSparkline,
+                      sparkLabels: pc.kpiStats.value.chartLabels.isEmpty
+                          ? null
+                          : pc.kpiStats.value.chartLabels,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 28),
-              Row(
+              const SizedBox(height: 24),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFD6E8FA)),
+                ),
+                child: Row(
                 children: [
                   Text('Properties', style: AppTheme.heading2),
                   const SizedBox(width: 8),
-                  Text('($totalFiltered properties)', style: AppTheme.caption),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEEF4FF),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '$totalFiltered',
+                      style: AppTheme.caption.copyWith(
+                        color: const Color(0xFF2F6BFF),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
                   const Spacer(),
                   if (auth != null && auth.isSuperAdmin) ...[
                     _CategoryFilterSelector(pc: pc),
@@ -150,9 +176,15 @@ class PropertyView extends StatelessWidget {
                   ],
                   if (canAddProperty)
                     ElevatedButton.icon(
-                      onPressed: () {
-                        debugPrint('Add Property clicked');
-                        pc.openAddProperty();
+                      onPressed: () async {
+                        final type = await showPropertyTypeDialog(context);
+                        if (type == null) return;
+
+                        if (type == PropertyAddType.individual) {
+                          pc.openAddProperty(type: PropertyAddType.individual);
+                        } else {
+                          pc.openAddProperty(type: PropertyAddType.pg);
+                        }
                       },
                       icon: const Icon(Icons.add, size: 18),
                       label: const Text('Add Property'),
@@ -170,13 +202,15 @@ class PropertyView extends StatelessWidget {
                       ),
                     ),
                 ],
+                ),
               ),
               const SizedBox(height: 16),
               LayoutBuilder(
                 builder: (context, constraints) {
-                  const crossAxisCount = 3;
+                  const crossAxisCount = 4;
+                  const cardGap = 16.0;
                   final cardWidth =
-                      (constraints.maxWidth - 20 * (crossAxisCount - 1)) /
+                      (constraints.maxWidth - cardGap * (crossAxisCount - 1)) /
                           crossAxisCount;
 
                   if (isLoading) {
@@ -195,7 +229,7 @@ class PropertyView extends StatelessWidget {
 
                   return Wrap(
                     key: ValueKey('page_$page'),
-                    spacing: 20,
+                    spacing: cardGap,
                     runSpacing: 24,
                     children: pageItems
                         .map(
@@ -412,7 +446,45 @@ class _PropertyCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Positioned(top: 12, right: 12, child: statusBadge),
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: prop.isPg
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(20),
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 7),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFBDBDBD)
+                                      .withValues(alpha: 0.35),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                      color: Colors.white
+                                          .withValues(alpha: 0.6)),
+                                ),
+                                child: const Text(
+                                  'PG',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    shadows: [
+                                      Shadow(
+                                        color: Colors.black26,
+                                        blurRadius: 3,
+                                        offset: Offset(0, 1),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          )
+                        : statusBadge,
+                  ),
                   Positioned(
                     left: 16,
                     right: 16,

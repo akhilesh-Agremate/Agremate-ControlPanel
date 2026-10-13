@@ -142,32 +142,68 @@ class PropertyModel {
 
       final landlordObj = json['landlord'] as Map<String, dynamic>?;
       final landlordId   = landlordObj?['id']?.toString() ?? json['landlordId']?.toString() ?? '';
-      final landlordName = landlordObj?['name']?.toString() ?? json['landlordName']?.toString() ?? json['ownerName']?.toString() ?? 'N/A';
-      final landlordPhone = landlordObj?['phone']?.toString() ?? json['landlordPhone']?.toString();
-      final landlordEmail = landlordObj?['email']?.toString() ?? json['landlordEmail']?.toString();
-      final landlordAddress = landlordObj?['address']?.toString();
+      final landlordName = landlordObj?['name']?.toString() ??
+          landlordObj?['fullName']?.toString() ??
+          json['landlordName']?.toString() ??
+          json['ownerName']?.toString() ??
+          'N/A';
+      final landlordPhone = landlordObj?['phoneNumber']?.toString() ??
+          landlordObj?['phone']?.toString() ??
+          landlordObj?['mobile']?.toString() ??
+          landlordObj?['contactNumber']?.toString() ??
+          json['landlordPhoneNumber']?.toString() ??
+          json['landlordPhone']?.toString() ??
+          json['landlordContactNumber']?.toString() ??
+          json['phoneNumber']?.toString() ??
+          json['phone']?.toString();
+      final landlordEmail = landlordObj?['email']?.toString() ??
+          json['landlordEmail']?.toString() ??
+          json['ownerEmail']?.toString() ??
+          json['email']?.toString();
+      final landlordAddress = landlordObj?['address']?.toString() ?? json['landlordAddress']?.toString();
       final tenantObj = json['tenant'] as Map<String, dynamic>?;
       final tenantId = tenantObj?['id']?.toString() ?? json['tenantId']?.toString() ?? '';
       final tenantIds = json['tenantIds'] is List
           ? List<String>.from((json['tenantIds'] as List).map((e) => e.toString()))
           : (tenantId.isNotEmpty ? <String>[tenantId] : <String>[]);
-      final tenantName  = tenantObj?['name']?.toString() ?? json['tenantName']?.toString() ?? json['primaryTenantName']?.toString();
+      final tenantName  = tenantObj?['name']?.toString() ??
+          tenantObj?['fullName']?.toString() ??
+          json['tenantName']?.toString() ??
+          json['primaryTenantName']?.toString();
       final tenantPhone = tenantObj?['phoneNumber']?.toString() ??
           tenantObj?['phone']?.toString() ??
-          json['primaryTenantPhone']?.toString();
-      final tenantEmail = tenantObj?['email']?.toString() ?? json['primaryTenantEmail']?.toString();
+          tenantObj?['mobile']?.toString() ??
+          json['tenantPhoneNumber']?.toString() ??
+          json['primaryTenantPhone']?.toString() ??
+          json['tenantPhone']?.toString();
+      final tenantEmail = tenantObj?['email']?.toString() ??
+          json['tenantEmail']?.toString() ??
+          json['primaryTenantEmail']?.toString();
       DateTime? tenancyStart;
       if (tenantObj?['tenancyStartDate'] != null) {
         tenancyStart = DateTime.tryParse(tenantObj!['tenancyStartDate'].toString());
+      } else if (json['tenancyStartDate'] != null) {
+        tenancyStart = DateTime.tryParse(json['tenancyStartDate'].toString());
       }
 
       final rawAmenities = json['amenities'] as List<dynamic>?;
       final amenitiesList = rawAmenities
-          ?.map((a) => {
-                'name':    (a['name'] ?? '').toString(),
+          ?.map((a) {
+            if (a is Map) {
+              return {
+                'id':      (a['id'] ?? a['amenityId'] ?? '').toString(),
+                'name':    (a['name'] ?? a['amenityName'] ?? '').toString(),
                 'type':    (a['type'] ?? '').toString(),
                 'details': (a['details'] ?? '').toString(),
-              })
+              };
+            }
+            return {
+              'id':      a.toString(),
+              'name':    a.toString(),
+              'type':    '',
+              'details': '',
+            };
+          })
           .toList() ?? <Map<String, String>>[];
 
       final agreementObj = json['agreement'] as Map<String, dynamic>?;
@@ -177,11 +213,22 @@ class PropertyModel {
       final agreementRentAmount   = (agreementObj?['rentAmount'] as num?)?.toDouble();
 
       final thumbnailUrl = _resolveMediaUrl(json['thumbnailUrl']?.toString());
-      final images = json['images'] != null
-          ? List<String>.from((json['images'] as List).map((e) => _resolveMediaUrl(e.toString())))
-              .where((url) => url.isNotEmpty)
-              .toList()
-          : <String>[];
+      final images = <String>[];
+      final rawImages = json['images'];
+      if (rawImages is List) {
+        for (final item in rawImages) {
+          if (item is Map) {
+            final u = (item['absolutePath'] ?? item['fileUrl'] ?? item['url'] ?? item['relativePath'] ?? '').toString();
+            if (u.isNotEmpty) {
+              final resolved = _resolveMediaUrl(u);
+              if (resolved.isNotEmpty && !images.contains(resolved)) images.add(resolved);
+            }
+          } else if (item != null && item.toString().trim().isNotEmpty) {
+            final resolved = _resolveMediaUrl(item.toString());
+            if (resolved.isNotEmpty && !images.contains(resolved)) images.add(resolved);
+          }
+        }
+      }
       if (thumbnailUrl.isNotEmpty && !images.contains(thumbnailUrl)) {
         images.insert(0, thumbnailUrl);
       }
