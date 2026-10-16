@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:get/get.dart';
 import 'package:agremate_admin/network_utils/dio_client.dart';
 import 'package:agremate_admin/network_utils/app_end_points.dart';
@@ -377,9 +378,14 @@ class PropertyRepository {
   Future<void> updatePgProperty(String propertyId, Map<String, dynamic> data) async {
     try {
       AppLogger.i('PropertyRepository', 'Update PG property API started id=$propertyId');
+
+      final existingPg = await getPropertyById(propertyId);
+      final rawPgImages = existingPg.rawJson['images'] is List
+          ? existingPg.rawJson['images'] as List
+          : const [];
       final images = <Map<String, dynamic>>[
         for (final u in (data['existingImages'] as List? ?? []))
-          _imageObject(u.toString()),
+          _imageObject(u.toString(), rawPgImages),
       ];
       final documents = <Map<String, dynamic>>[
         for (final d in (data['existingDocuments'] as List? ?? []))
@@ -460,7 +466,21 @@ class PropertyRepository {
     }
   }
 
-  Map<String, dynamic> _imageObject(String url) {
+  Map<String, dynamic> _imageObject(String url, [List rawImages = const []]) {
+    for (final e in rawImages) {
+      if (e is! Map) continue;
+      final candidates = [
+        e['absolutePath'],
+        e['originalUrl'],
+        e['thumbnailUrl'],
+        e['fileUrl'],
+        e['url'],
+        e['relativePath'],
+      ].map((v) => v?.toString().trim() ?? '').where((v) => v.isNotEmpty);
+      if (candidates.any((c) => c == url || url.endsWith(c))) {
+        return _documentObject(e);
+      }
+    }
     final i = url.indexOf('.amazonaws.com/');
     final rel = i == -1 ? url : url.substring(i + '.amazonaws.com/'.length);
     return {
@@ -484,13 +504,16 @@ class PropertyRepository {
       }
       final raw = existing.rawJson;
 
+      final rawImages = raw['images'] is List ? raw['images'] as List : const [];
       final images = <Map<String, dynamic>>[
-        for (final u in (data['existingImages'] as List? ?? [])) _imageObject(u.toString()),
+        for (final u in (data['existingImages'] as List? ?? []))
+          _imageObject(u.toString(), rawImages),
       ];
       final documents = <Map<String, dynamic>>[
         for (final d in (data['existingDocuments'] as List? ?? []))
           if (d is Map) _documentObject(d),
       ];
+
       for (final p in (data['photos'] as List<PickedFile>? ?? [])) {
         images.add(await _uploadFile(p));
       }
@@ -568,6 +591,9 @@ class PropertyRepository {
         'propertyType': data['propertyType'] ?? 0,
         'contractReference': raw['contractReference']?.toString() ?? '',
       };
+      AppLogger.i('PropertyRepository',
+          'Update docs count=${documents.length}: ${jsonEncode(documents)}');
+      AppLogger.i('PropertyRepository', 'IMAGES >> ${jsonEncode(images)}');
 
       final response = await DioClient.instance.put(
         '${AppEndpoints.adminDashboardProperties}/${existing.id}',
@@ -657,7 +683,7 @@ class PropertyRepository {
     final uploaded = s(['uploadedTime', 'uploadedDate']);
 
     return {
-      'id': d['id'],
+      if ((d['id']?.toString() ?? '').isNotEmpty) 'id': d['id'],
       'fileName': s(['fileName', 'documentName', 'name']),
       'absolutePath': abs,
       'relativePath': rel,

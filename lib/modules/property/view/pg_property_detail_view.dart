@@ -378,18 +378,6 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              pg.description.isNotEmpty
-                  ? pg.description
-                  : 'Well-maintained PG property with fully furnished rooms and modern amenities.',
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: AppTheme.bodyText.copyWith(
-                height: 1.45,
-                color: Colors.black87,
-              ),
-            ),
             const SizedBox(height: 12),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2457,7 +2445,6 @@ class _MoveTenantInDialogState extends State<_MoveTenantInDialog> {
               ),
               const SizedBox(height: 18),
 
-              // Gmail *
               _buildFieldLabel('Gmail'),
               const SizedBox(height: 8),
               TextField(
@@ -2470,8 +2457,6 @@ class _MoveTenantInDialogState extends State<_MoveTenantInDialog> {
                 ),
               ),
               const SizedBox(height: 18),
-
-              // Tenancy start date *
               _buildFieldLabel('Tenancy start date'),
               const SizedBox(height: 8),
               InkWell(
@@ -2489,8 +2474,6 @@ class _MoveTenantInDialogState extends State<_MoveTenantInDialog> {
                 ),
               ),
               const SizedBox(height: 26),
-
-              // Move tenant in Button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(

@@ -1,3 +1,4 @@
+import 'package:agremate_admin/modules/property/view/components/property_location_map.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -307,6 +308,10 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
     final leftColumn = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (widget.property.description?.trim().isNotEmpty == true) ...[
+          _buildAboutCard(),
+          const SizedBox(height: 16),
+        ],
         _buildSectionHeader('Features & Facilities'),
         const SizedBox(height: 8),
         _buildFeaturesWrap(),
@@ -450,6 +455,44 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
     );
   }
 
+  String _placeValue(List<String> keys) {
+    final raw = widget.property.rawJson;
+    final place = raw['placeDetails'] is Map
+        ? Map<String, dynamic>.from(raw['placeDetails'])
+        : <String, dynamic>{};
+    for (final k in keys) {
+      final v = (place[k] ?? raw[k])?.toString().trim() ?? '';
+      if (v.isNotEmpty && v.toLowerCase() != 'null') return v;
+    }
+    return '';
+  }
+
+  Widget _buildPlaceChip(IconData icon, String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFD6E8FA)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: AppTheme.brandSteelBlue),
+          const SizedBox(width: 6),
+          Text(
+            '$label: $value',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHeroRow() {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -459,7 +502,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
-              child: _buildHeroImage(180),
+              child: _buildHeroImage(stacked ? 220 : 290),
             ),
             if (widget.property.images.isNotEmpty) ...[
               const SizedBox(height: 8),
@@ -511,19 +554,26 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                 color: Colors.black,
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              widget.property.description?.isNotEmpty == true
-                  ? widget.property.description!
-                  : 'Premium ${widget.property.propertyTypeLabel} located in the heart of ${widget.property.city}.',
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: AppTheme.bodyText.copyWith(
-                height: 1.45,
-                color: Colors.black87,
-              ),
+            Builder(
+              builder: (_) {
+                final door = _placeValue(['doorNumber']);
+                final floor = _placeValue(['floor', 'floorNumber']);
+                if (door.isEmpty && floor.isEmpty) return const SizedBox(height: 10);
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 10),
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (door.isNotEmpty)
+                        _buildPlaceChip(Icons.door_front_door_outlined, 'Door No', door),
+                      if (floor.isNotEmpty)
+                        _buildPlaceChip(Icons.layers_outlined, 'Floor', floor),
+                    ],
+                  ),
+                );
+              },
             ),
-            const SizedBox(height: 10),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -544,6 +594,13 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 16),
+            PropertyLocationMap(
+              title: widget.property.name,
+              address: widget.property.address.address,
+              latitude: widget.property.address.latitude,
+              longitude: widget.property.address.longitude,
             ),
           ],
         );
@@ -664,6 +721,64 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
             ),
           )
           .toList(),
+    );
+  }
+
+  Widget _buildAboutCard() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(18, 16, 18, 10),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, size: 20, color: Colors.black87),
+                SizedBox(width: 10),
+                Text(
+                  'About Property',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(
+            height: 1,
+            thickness: 1,
+            indent: 18,
+            endIndent: 18,
+            color: Color(0xFFF1F5F9),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Text(
+              widget.property.description!,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.black87,
+                height: 1.5,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

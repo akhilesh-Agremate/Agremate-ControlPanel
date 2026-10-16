@@ -114,23 +114,8 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
   int genderAllowed = 1;
   final extraPropertiesC = TextEditingController();
 
-  final List<String> availableRules = [
-    'No smoking',
-    'No loud music after 10 PM',
-    'Visitors must register',
-    'Gate closes at 10:30 PM',
-    'No alcohol',
-    'Keep common areas clean',
-  ];
   final Set<String> selectedRules = {};
-  final List<String> _defaultRules = const [
-    'No smoking',
-    'No loud music after 10 PM',
-    'Visitors must register',
-    'Gate closes at 10:30 PM',
-    'No alcohol',
-    'Keep common areas clean',
-  ];
+  final List<String> availableRules = [];
   bool _showAddRule = false;
   final customRuleC = TextEditingController();
 
@@ -244,6 +229,19 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
 
   String? _required(String? v, String label) =>
       (v == null || v.trim().isEmpty) ? '$label is required' : null;
+  String _pick(List<dynamic> sources, List<String> keys) {
+    for (final s in sources) {
+      if (s is! Map) continue;
+      for (final k in keys) {
+        final v = s[k]?.toString().trim() ?? '';
+        if (v.isNotEmpty && v.toLowerCase() != 'null') return v;
+      }
+    }
+    return '';
+  }
+
+  String _pincodeFromAddress(String address) =>
+      RegExp(r'\b\d{6}\b').firstMatch(address)?.group(0) ?? '';
 
   String _plural(int n, String word) => '$n ${n == 1 ? word : '${word}s'}';
 
@@ -293,10 +291,22 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
             raw['floorNumber'] ??
             '')
         .toString();
-    cityC.text = (raw['city'] ?? place['city'] ?? p.rawJson['city'] ?? '')
-        .toString();
-    pincodeC.text =
-        (raw['pincode'] ?? place['pincode'] ?? '').toString();
+    final sources = <dynamic>[
+      raw,
+      place,
+      raw['pgDetails'],
+      raw['address'],
+      raw['propertyDetails'],
+      raw['location'],
+    ];
+    cityC.text = _pick(sources, ['city', 'City', 'cityName']);
+    pincodeC.text = _pick(
+        sources, ['pincode', 'pinCode', 'PinCode', 'postalCode', 'zipCode', 'zip']);
+    if (pincodeC.text.isEmpty) {
+      pincodeC.text = _pincodeFromAddress(addressC.text);
+    }
+    debugPrint('PG prefill city="${cityC.text}" pincode="${pincodeC.text}" '
+        'rawKeys=${raw.keys.toList()} placeKeys=${place.keys.toList()}');
     latitude = p.latitude ??
         (place['latitude'] as num?)?.toDouble() ??
         (raw['latitude'] as num?)?.toDouble();
@@ -373,6 +383,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
     existingDocs
       ..clear()
       ..addAll(p.documents.map((d) => {
+        'id': d.id,
             'fileName': d.documentName,
             'absolutePath': d.fileUrl,
             'relativePath': '',
@@ -1533,29 +1544,19 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
               maxLines: 2,
               validator: (v) => _required(v, 'Description')),
           _gap,
-          _twoCol(
-            _dropdownBox<int>(
-              'PG type',
-              pgType,
-              [1, 2, 3],
-                  (v) => setState(() => pgType = v ?? 1),
-              itemLabel: (v) => v == 1
-                  ? 'Co-ed'
-                  : v == 2
-                  ? 'Boys'
-                  : 'Girls',
-            ),
-            _dropdownBox<int>(
-              'Gender allowed',
-              genderAllowed,
-              [1, 2, 3],
-                  (v) => setState(() => genderAllowed = v ?? 1),
-              itemLabel: (v) => v == 1
-                  ? 'Any (Co-ed)'
-                  : v == 2
-                  ? 'Male only'
-                  : 'Female only',
-            ),
+          _dropdownBox<int>(
+            'PG type',
+            pgType,
+            [1, 2, 3],
+                (v) => setState(() {
+              pgType = v ?? 1;
+              genderAllowed = pgType;
+            }),
+            itemLabel: (v) => v == 1
+                ? 'Co-ed'
+                : v == 2
+                ? 'Boys'
+                : 'Girls',
           ),
           _gap,
           _twoCol(
@@ -1595,9 +1596,6 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
               validator: (v) => _required(v, 'Pincode'),
             ),
           ),
-          _gap,
-          _uField('Extra facilities / tags',
-              'e.g. CCTV, power backup, RO water', extraPropertiesC),
         ],
       ),
     ),
@@ -1614,16 +1612,16 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
       icon: Icons.checklist_rounded,
       title: 'House Rules',
       trailing: _circleAdd(_addCustomRule),
-      child: Column(
+      child: (availableRules.isEmpty && !_showAddRule)
+          ? null
+          : Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: availableRules.map((rule) {
-              final isSel = selectedRules.contains(rule);
-              final isCustom = !_defaultRules.contains(rule);
-              if (isCustom) {
+          if (availableRules.isNotEmpty)
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: availableRules.map((rule) {
                 return InputChip(
                   label: Text(rule),
                   selected: true,
@@ -1645,22 +1643,13 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                   shape: const StadiumBorder(
                     side: BorderSide(color: _blue),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 6),
                 );
-              }
-              return _chip(rule, isSel, (val) {
-                setState(() {
-                  if (val) {
-                    selectedRules.add(rule);
-                  } else {
-                    selectedRules.remove(rule);
-                  }
-                });
-              });
-            }).toList(),
-          ),
+              }).toList(),
+            ),
           if (_showAddRule) ...[
-            const SizedBox(height: 14),
+            if (availableRules.isNotEmpty) const SizedBox(height: 14),
             Row(
               children: [
                 Expanded(
@@ -1668,6 +1657,9 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                     controller: customRuleC,
                     autofocus: true,
                     decoration: const InputDecoration(
+                      filled: false,
+                      fillColor: Colors.transparent,
+                      hoverColor: Colors.transparent,
                       hintText: 'Add a house rule',
                       border: UnderlineInputBorder(),
                       isDense: true,
@@ -2288,7 +2280,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
   Widget _mCard({
     required IconData icon,
     required String title,
-    required Widget child,
+    Widget? child,
     Widget? trailing,
   }) {
     return Container(
@@ -2335,11 +2327,13 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
               ],
             ),
           ),
-          const Divider(height: 1, color: _line),
-          Padding(
-            padding: const EdgeInsets.all(18),
-            child: child,
-          ),
+          if (child != null) ...[
+            const Divider(height: 1, color: _line),
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: child,
+            ),
+          ],
         ],
       ),
     );
