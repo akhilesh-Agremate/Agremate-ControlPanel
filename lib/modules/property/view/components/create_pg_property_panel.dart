@@ -847,6 +847,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
             titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
             contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
             title: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
                   width: 40,
@@ -866,8 +867,13 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                       TextField(
                         controller: nameCtl,
                         decoration: const InputDecoration(
+                          filled: false,
+                          fillColor: Colors.transparent,
+                          hoverColor: Colors.transparent,
                           isDense: true,
                           border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
                           suffixIcon:
                           Icon(Icons.edit_outlined, size: 16, color: _muted),
                         ),
@@ -879,6 +885,14 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                         style: const TextStyle(fontSize: 12.5, color: _muted),
                       ),
                     ],
+                  ),
+                ),
+                InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () => Navigator.pop(ctx),
+                  child: const Padding(
+                    padding: EdgeInsets.all(6),
+                    child: Icon(Icons.close, size: 22, color: _muted),
                   ),
                 ),
               ],
@@ -899,6 +913,8 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                     _fileGrid(
                       files: room.photos,
                       isImage: true,
+                      tileWidth: 80,
+                      tileHeight: 80,
                       onAdd: () async {
                         try {
                           final picked =
@@ -999,6 +1015,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                           (v) => setD(() => roomPayDate = v),
                       hint: 'Select',
                       itemLabel: (v) => '$v',
+                      height: 40,
                     ),
                     _gap,
                     Row(
@@ -1135,123 +1152,355 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
     );
     if (ok == true && mounted) setState(() => room.setBedCount(count));
   }
-
   Future<void> _openBedDialog(_PgRoomDraft room, _PgBedDraft bed) async {
-    var occupied = bed.isOccupied;
+    final floorName = floors
+        .firstWhere((f) => f.rooms.contains(room),
+        orElse: () => _PgFloorDraft(name: ''))
+        .name;
+    final wasOccupied = bed.isOccupied;
     DateTime? start = bed.tenantStart;
-    final bedNoC = TextEditingController(text: bed.bedNumber);
+    String? error;
+
+    String fmtAmt(int v) => v > 0 ? _money(v) : '';
+
+    final rentCtl = TextEditingController(text: fmtAmt(_bedRent(room, bed)));
+    final advCtl = TextEditingController(text: fmtAmt(_bedAdvance(room, bed)));
     final nameCtl = TextEditingController(text: bed.tenantName);
     final phoneCtl = TextEditingController(text: bed.tenantPhone);
     final emailCtl = TextEditingController(text: bed.tenantEmail);
+    final dateCtl = TextEditingController(
+      text: start == null ? '' : DateFormat('dd-MM-yyyy').format(start!),
+    );
 
-    final ok = await showDialog<bool>(
+    InputDecoration deco(String hint, {IconData? icon, String? prefix}) {
+      OutlineInputBorder b(Color c, [double w = 1]) => OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: c, width: w),
+      );
+      return InputDecoration(
+        filled: true,
+        fillColor: const Color(0xFFFAFAFA),
+        hoverColor: Colors.transparent,
+        hintText: hint,
+        hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+        prefixText: prefix,
+        prefixIcon: icon == null ? null : Icon(icon, color: _blue, size: 20),
+        isDense: true,
+        contentPadding:
+        const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        border: b(_line),
+        enabledBorder: b(_line),
+        focusedBorder: b(_blue, 1.5),
+      );
+    }
+
+    Widget label(String t) => Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: RichText(
+        text: TextSpan(
+          text: t,
+          style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF475569)),
+          children: const [
+            TextSpan(
+                text: ' *',
+                style: TextStyle(
+                    color: Color(0xFFDC2626),
+                    fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
+    );
+
+    const fieldStyle = TextStyle(fontSize: 15, color: _ink);
+
+    final res = await showDialog<String>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setD) => AlertDialog(
+        builder: (ctx, setD) => Dialog(
           backgroundColor: Colors.white,
+          insetPadding:
+          const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
           shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text('Bed ${bed.bedNumber} · ${room.name}'),
-          content: SizedBox(
-            width: 440,
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520, maxHeight: 700),
             child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _uField('Bed number', 'e.g. A1', bedNoC),
-                  const SizedBox(height: 10),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Occupied'),
-                    subtitle: Text(
-                      occupied ? 'Add the tenant details' : 'Bed is vacant',
-                      style: const TextStyle(fontSize: 12, color: _muted),
-                    ),
-                    value: occupied,
-                    activeThumbColor: _blue,
-                    onChanged: (v) => setD(() => occupied = v),
-                  ),
-                  if (occupied) ...[
-                    const SizedBox(height: 8),
-                    _uField('Tenant name', 'Full name', nameCtl),
-                    _gap,
-                    _uField(
-                      'Tenant phone',
-                      '10-digit number',
-                      phoneCtl,
-                      prefix: '+91 ',
-                      keyboard: TextInputType.number,
-                      formatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(10),
-                      ],
-                    ),
-                    _gap,
-                    _uField('Tenant email', 'tenant@example.com', emailCtl,
-                        keyboard: TextInputType.emailAddress),
-                    _gap,
-                    Row(
-                      children: [
-                        const Text('Tenancy start',
-                            style: TextStyle(fontSize: 12.5, color: _muted)),
-                        const Spacer(),
-                        TextButton.icon(
-                          onPressed: () async {
-                            final d = await showDatePicker(
-                              context: ctx,
-                              initialDate: start ?? DateTime.now(),
-                              firstDate: DateTime(2000),
-                              lastDate: DateTime(2100),
-                            );
-                            if (d != null) setD(() => start = d);
-                          },
-                          icon: const Icon(Icons.calendar_today_outlined,
-                              size: 16),
-                          label: Text(start == null
-                              ? 'Select date'
-                              : DateFormat('dd MMM yyyy').format(start!)),
+                  Row(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: wasOccupied
+                              ? const Color(0xFFDCFCE7)
+                              : const Color(0xFFFEE2E2),
+                          borderRadius: BorderRadius.circular(14),
                         ),
-                      ],
+                        child: Icon(
+                          Icons.single_bed_outlined,
+                          size: 26,
+                          color: wasOccupied
+                              ? const Color(0xFF16A34A)
+                              : const Color(0xFFDC2626),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              wasOccupied ? 'Tenant details' : 'Move tenant in',
+                              style: const TextStyle(
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.bold,
+                                  color: _ink),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '$floorName · ${room.name} · ${bed.bedNumber}',
+                              style: const TextStyle(
+                                  fontSize: 13, color: _muted),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: wasOccupied
+                              ? const Color(0xFFDCFCE7)
+                              : const Color(0xFFFEE2E2),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          wasOccupied ? 'Occupied' : 'Vacant',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: wasOccupied
+                                ? const Color(0xFF16A34A)
+                                : const Color(0xFFDC2626),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        icon: const Icon(Icons.close_rounded, color: _muted),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Rent amount',
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF475569))),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: rentCtl,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [_IndianAmountFormatter()],
+                              style: fieldStyle.copyWith(
+                                  fontWeight: FontWeight.w600),
+                              decoration: deco('6,000', prefix: '₹ '),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Advance amount',
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF475569))),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: advCtl,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [_IndianAmountFormatter()],
+                              style: fieldStyle,
+                              decoration: deco('Enter amount', prefix: '₹ '),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  label('Full name'),
+                  TextField(
+                    controller: nameCtl,
+                    style: fieldStyle,
+                    decoration: deco("Tenant's name",
+                        icon: Icons.person_outline_rounded),
+                  ),
+                  const SizedBox(height: 18),
+                  label('Phone number'),
+                  TextField(
+                    controller: phoneCtl,
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(10),
+                    ],
+                    style: fieldStyle,
+                    decoration:
+                    deco('90000 00000', icon: Icons.phone_outlined),
+                  ),
+                  const SizedBox(height: 18),
+                  label('Gmail'),
+                  TextField(
+                    controller: emailCtl,
+                    keyboardType: TextInputType.emailAddress,
+                    style: fieldStyle,
+                    decoration: deco('tenant@gmail.com',
+                        icon: Icons.mail_outline_rounded),
+                  ),
+                  const SizedBox(height: 18),
+                  label('Tenancy start date'),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () async {
+                      final now = DateTime.now();
+                      final d = await showDatePicker(
+                        context: ctx,
+                        initialDate: start ?? now,
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2100),
+                      );
+                      if (d != null) {
+                        setD(() {
+                          start = d;
+                          dateCtl.text = DateFormat('dd-MM-yyyy').format(d);
+                        });
+                      }
+                    },
+                    child: IgnorePointer(
+                      child: TextField(
+                        controller: dateCtl,
+                        style: fieldStyle,
+                        decoration: deco('dd-mm-yyyy',
+                            icon: Icons.calendar_today_outlined),
+                      ),
+                    ),
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 14),
+                    Text(error!,
+                        style: const TextStyle(
+                            color: Color(0xFFDC2626), fontSize: 13)),
+                  ],
+                  const SizedBox(height: 26),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final n = nameCtl.text.trim();
+                        final p = phoneCtl.text.trim();
+                        final e = emailCtl.text.trim();
+                        String? err;
+                        if (n.isEmpty) {
+                          err = 'Full name is required.';
+                        } else if (p.length != 10) {
+                          err = 'Please enter a valid 10-digit phone number.';
+                        } else if (e.isEmpty || !GetUtils.isEmail(e)) {
+                          err = 'Please enter a valid email address.';
+                        } else if (start == null) {
+                          err = 'Tenancy start date is required.';
+                        }
+                        if (err != null) {
+                          setD(() => error = err);
+                          return;
+                        }
+                        Navigator.pop(ctx, 'save');
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _blue,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: Text(
+                        wasOccupied ? 'Update tenant' : 'Move tenant in',
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                  if (wasOccupied) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(ctx, 'vacate'),
+                        child: const Text('Mark bed as vacant',
+                            style: TextStyle(color: Color(0xFFDC2626))),
+                      ),
                     ),
                   ],
                 ],
               ),
             ),
           ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: _saveStyle,
-              child: const Text('Save'),
-            ),
-          ],
         ),
       ),
     );
 
-    final bedNo = bedNoC.text.trim();
     final tName = nameCtl.text.trim();
     final tPhone = phoneCtl.text.trim();
     final tEmail = emailCtl.text.trim();
-    bedNoC.dispose();
+    final newRent = _amount(rentCtl.text);
+    final newAdv = _amount(advCtl.text);
+    rentCtl.dispose();
+    advCtl.dispose();
     nameCtl.dispose();
     phoneCtl.dispose();
     emailCtl.dispose();
-    if (ok != true || !mounted) return;
+    dateCtl.dispose();
+    if (res == null || !mounted) return;
 
     setState(() {
-      if (bedNo.isNotEmpty) bed.bedNumber = bedNo;
-      bed.isOccupied = occupied;
-      bed.tenantName = occupied ? tName : '';
-      bed.tenantPhone = occupied ? tPhone : '';
-      bed.tenantEmail = occupied ? tEmail : '';
-      bed.tenantStart = occupied ? start : null;
+      if (res == 'vacate') {
+        bed.isOccupied = false;
+        bed.tenantName = '';
+        bed.tenantPhone = '';
+        bed.tenantEmail = '';
+        bed.tenantStart = null;
+        return;
+      }
+      bed.isOccupied = true;
+      bed.tenantName = tName;
+      bed.tenantPhone = tPhone;
+      bed.tenantEmail = tEmail;
+      bed.tenantStart = start;
+      bed.rent = (newRent > 0 && newRent != _roomRent(room)) ? newRent : null;
+      bed.advance = newAdv > 0 ? newAdv : null;
     });
   }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
       Get.snackbar('Missing details', 'Please fix the highlighted fields.');
@@ -1743,15 +1992,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
             (v) => setState(() => paymentDate = v),
             hint: 'Select',
             itemLabel: (v) => '$v',
-          ),
-          _gap,
-          _boxField(
-            'Advance / security deposit',
-            '10,000',
-            advanceC,
-            prefix: '₹ ',
-            keyboard: TextInputType.number,
-            formatters: [_IndianAmountFormatter()],
+            height: 40,
           ),
         ],
       ),
@@ -2520,42 +2761,47 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
       T? value,
       List<T> items,
       ValueChanged<T?> onChanged, {
-        String? hint,
+        String hint = 'Select',
         String Function(T)? itemLabel,
+        double? height,
+        double menuMaxHeight = 220,
       }) {
-    OutlineInputBorder b(Color c) => OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: c),
-    );
+    final list =
+    (value != null && !items.contains(value)) ? [...items, value] : items;
+
     return _labeled(
       label,
-      DropdownButtonFormField<T>(
-        initialValue: items.contains(value) ? value : null,
-        isExpanded: true,
-        hint: hint != null
-            ? Text(hint,
-            style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14))
-            : null,
-        decoration: InputDecoration(
-          filled: true,
-          fillColor: const Color(0xFFF8FAFC),
-          isDense: true,
-          border: b(_line),
-          enabledBorder: b(_line),
-          focusedBorder: b(_blue),
-          contentPadding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      Container(
+        height: height,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          border: Border.all(color: _line),
+          borderRadius: BorderRadius.circular(12),
+          color: const Color(0xFFF8FAFC),
         ),
-        items: items
-            .map((it) => DropdownMenuItem<T>(
-          value: it,
-          child: Text(
-            itemLabel != null ? itemLabel(it) : it.toString(),
-            style: const TextStyle(fontSize: 14),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<T>(
+            value: value,
+            hint: Text(hint,
+                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14)),
+            isExpanded: true,
+            isDense: height != null,
+            menuMaxHeight: menuMaxHeight,
+            borderRadius: BorderRadius.circular(12),
+            dropdownColor: Colors.white,
+            items: list
+                .map((e) => DropdownMenuItem<T>(
+              value: e,
+              child: Text(
+                itemLabel != null ? itemLabel(e) : '$e',
+                style: const TextStyle(fontSize: 14),
+              ),
+            ))
+                .toList(),
+            onChanged: onChanged,
           ),
-        ))
-            .toList(),
-        onChanged: onChanged,
+        ),
       ),
     );
   }
@@ -2610,9 +2856,11 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
     required bool isImage,
     List<String> existingUrls = const [],
     ValueChanged<int>? onRemoveExisting,
+    double? tileWidth,
+    double? tileHeight,
   }) {
-    final double w = 130;
-    final double h = isImage ? 170 : 130;
+    final double w = tileWidth ?? 130;
+    final double h = tileHeight ?? (isImage ? 170 : 130);
 
     return Wrap(
       spacing: 12,

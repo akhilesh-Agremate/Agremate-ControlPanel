@@ -44,7 +44,9 @@ class FinanceView extends StatelessWidget {
       final records = fc.revenueRecords;
       final selected = fc.selectedPropertyId.value != null;
 
-      return SingleChildScrollView(
+      return ColoredBox(
+          color: const Color(0xFFF8FAFD),
+          child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(28),
         child: Column(
@@ -108,13 +110,16 @@ class FinanceView extends StatelessWidget {
               _propertyList(fc, nav, fmtFull),
           ],
         ),
+          ),
       );
     });
   }
 
   Widget _chartCard(NumberFormat fmt, List<RevenueRecord> records) {
     return GlassCard(
-      glowColor: AppTheme.accentGreen,
+      color: Colors.white,
+      borderColor: const Color(0xFFE3ECF7),
+      glowColor: Colors.transparent,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -220,6 +225,9 @@ class FinanceView extends StatelessWidget {
         else
           ...list.map(
                 (prop) => GlassCard(
+              color: Colors.white,
+              borderColor: const Color(0xFFE3ECF7),
+              glowColor: Colors.transparent,
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(16),
               onTap: () => fc.selectProperty(prop.propertyId, prop.propertyName),

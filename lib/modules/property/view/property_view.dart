@@ -326,6 +326,9 @@ class _PropertyCard extends StatelessWidget {
         ? prop.primaryTenantName!
         : 'N/A';
     final hasImage = prop.imageUrl != null && prop.imageUrl!.trim().isNotEmpty;
+    final priceLabel = (prop.isPg && prop.pgRentRangeLabel != null)
+        ? prop.pgRentRangeLabel!
+        : '₹ ${NumberFormat.decimalPattern('en_IN').format(prop.rentAmount)}/ Month';
 
     Widget statusBadge;
     switch (prop.status) {
@@ -410,7 +413,7 @@ class _PropertyCard extends StatelessWidget {
                                 color: Colors.white.withValues(alpha: 0.6)),
                           ),
                           child: Text(
-                            '₹ ${NumberFormat.decimalPattern('en_IN').format(prop.rentAmount)}/ Month',
+                            priceLabel,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 13,

@@ -66,6 +66,8 @@ class PropertyModel {
   final DateTime? agreementStartDate;
   final int? agreementPeriodMonths;
   final double? agreementRentAmount;
+  final String rentRange;
+  final int rentPaymentDate;
 
   final String category;
   final int? totalRooms;
@@ -112,6 +114,8 @@ class PropertyModel {
     this.agreementStartDate,
     this.agreementPeriodMonths,
     this.agreementRentAmount,
+    this.rentRange = '',
+    this.rentPaymentDate = 0,
     this.category = '',
     this.totalRooms,
     this.totalBeds,
@@ -232,6 +236,10 @@ class PropertyModel {
       if (thumbnailUrl.isNotEmpty && !images.contains(thumbnailUrl)) {
         images.insert(0, thumbnailUrl);
       }
+      final rentInfoObj = json['rentInfo'];
+      final rentRange = rentInfoObj is Map
+          ? (rentInfoObj['rentRange']?.toString().trim() ?? '')
+          : '';
 
       return PropertyModel(
         id: json['propertyId']?.toString() ?? json['id']?.toString() ?? '',
@@ -275,6 +283,10 @@ class PropertyModel {
         agreementStartDate: agreementStartDate,
         agreementPeriodMonths: agreementPeriodMonths,
         agreementRentAmount: agreementRentAmount,
+        rentRange: rentRange,
+        rentPaymentDate: (json['rentPaymentDate'] as num?)?.toInt() ??
+            (agreementObj?['rentPaymentDate'] as num?)?.toInt() ??
+            0,
         propertyType: json['propertyType']?.toString() ?? 'Apartment',
         category: json['category']?.toString() ??
             json['propertyCategory']?.toString() ??
@@ -327,6 +339,11 @@ class PropertyModel {
         pType.contains('pg') ||
         (totalBeds != null && totalBeds! > 0) ||
         (totalRooms != null && totalRooms! > 0);
+  }
+  String? get pgRentRangeLabel {
+    final r = rentRange.trim();
+    if (r.isEmpty || r == '0') return null;
+    return '₹$r';
   }
 
   bool get isIndividual {

@@ -339,6 +339,13 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                 ),
               ),
         const SizedBox(height: 16),
+        _buildSectionHeader('Rent Payment Date'),
+        const SizedBox(height: 8),
+        _buildFeatureIcon(
+          Icons.event_repeat_rounded,
+          _rentDateLabel(widget.property.rentPaymentDate),
+        ),
+        const SizedBox(height: 16),
         Row(
           children: [
             _buildSectionHeader('Finance'),
@@ -791,6 +798,14 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
         color: Colors.black54,
       ),
     );
+  }
+  String _rentDateLabel(int d) {
+    if (d < 1 || d > 31) return 'Not set';
+    final mod100 = d % 100;
+    final suffix = (mod100 >= 11 && mod100 <= 13)
+        ? 'th'
+        : switch (d % 10) { 1 => 'st', 2 => 'nd', 3 => 'rd', _ => 'th' };
+    return '$d$suffix of every month';
   }
 
   Widget _buildFeatureIcon(IconData icon, String label) {

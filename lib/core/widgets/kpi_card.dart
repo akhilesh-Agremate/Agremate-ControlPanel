@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:agremate_admin/core/theme/theme.dart';
+import 'package:intl/intl.dart';
 
 class KpiCard extends StatefulWidget {
   final String title;
@@ -29,6 +30,8 @@ class _KpiCardState extends State<KpiCard> {
   bool _hovering = false;
   int? _selectedIndex;
 
+  final _numFmt = NumberFormat.decimalPattern('en_IN');
+
   Widget _buildInteractiveSparkline(List<double> data) {
     if (data.isEmpty) return const SizedBox();
     final maxVal = data.reduce((a, b) => a > b ? a : b);
@@ -52,9 +55,9 @@ class _KpiCardState extends State<KpiCard> {
             onExit: (_) => setState(() => _selectedIndex = null),
             child: Tooltip(
               message: (widget.sparkLabels != null &&
-                      i < widget.sparkLabels!.length)
-                  ? '${widget.sparkLabels![i]}: ${val.toStringAsFixed(0)}'
-                  : val.toStringAsFixed(0),
+                  i < widget.sparkLabels!.length)
+                  ? '${widget.sparkLabels![i]}: ${_numFmt.format(val.round())}'
+                  : _numFmt.format(val.round()),
               child: Container(
                 margin: EdgeInsets.only(right: i == data.length - 1 ? 0 : 3),
                 height: 28 * hFactor,

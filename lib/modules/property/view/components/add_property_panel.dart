@@ -59,12 +59,11 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
   double? latitude, longitude;
 
   String? propertyType;
-  static const propertyTypes = ['Individual', 'PG'];
+  static const propertyTypes = ['Residential', 'PG'];
 
   final advanceC = TextEditingController();
   final rentC = TextEditingController();
   int? paymentDate;
-
   bool hasTenant = true;
   final tenantNameC = TextEditingController();
   final tenantPhoneC = TextEditingController();

@@ -43,7 +43,7 @@ class PropertyController extends GetxController {
   final isFeaturesLoading = false.obs;
 
   final scrollController = ScrollController();
-  static const int perPage = 30;
+  static const int perPage = 32;
 
   Timer? _autoRefreshTimer;
 

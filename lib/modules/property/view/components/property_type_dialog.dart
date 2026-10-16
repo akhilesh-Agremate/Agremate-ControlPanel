@@ -49,7 +49,7 @@ class _PropertyTypeDialog extends StatelessWidget {
                   Expanded(
                     child: _TypeOption(
                       icon: Icons.home_rounded,
-                      title: 'Individual',
+                      title: 'Residential',
                       description:
                       'Villa, flat or house rented to a single tenant.',
                       onTap: () => Navigator.of(context)
