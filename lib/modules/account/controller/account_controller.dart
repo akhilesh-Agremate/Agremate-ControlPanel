@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:agremate_admin/modules/account/repository/account_repository.dart';
+import 'package:agremate_admin/modules/account/model/role_model.dart';
+import 'package:agremate_admin/core/theme/theme.dart';
 import '../../auth/controller/auth_controller.dart';
 import '../model/account_model.dart';
 
@@ -19,6 +21,11 @@ class AccountController extends GetxController {
   final passwordError = Rxn<String>();
   final roleError = Rxn<String>();
 
+  final roles = <RoleModel>[].obs;
+  final isLoadingRoles = false.obs;
+  final rolesError = ''.obs;
+  final isCreatingUser = false.obs;
+
   Worker? _authWorker;
   bool _syncScheduled = false;
 
@@ -26,6 +33,7 @@ class AccountController extends GetxController {
   void onInit() {
     super.onInit();
     _syncWithAuth();
+    fetchRoles();
     _authWorker = everAll(
       [
         _auth.isLoggedIn,
@@ -78,6 +86,19 @@ class AccountController extends GetxController {
   }
 
   Future<void> fetchProfile() => _loadRemote();
+
+  Future<void> fetchRoles() async {
+    try {
+      isLoadingRoles.value = true;
+      rolesError.value = '';
+      final fetched = await _repo.getRoles();
+      roles.assignAll(fetched);
+    } catch (e) {
+      rolesError.value = e.toString();
+    } finally {
+      isLoadingRoles.value = false;
+    }
+  }
 
   Future<void> _loadRemote() async {
     final expectedId = _auth.userId.value;
@@ -190,6 +211,43 @@ class AccountController extends GetxController {
     } catch (e) {
       errorMessage.value = e.toString();
       return false;
+    }
+  }
+
+  Future<bool> createUser({
+    required String phoneNumber,
+    required String roleId,
+  }) async {
+    try {
+      isCreatingUser.value = true;
+      final formattedPhone = phoneNumber.startsWith('+91')
+          ? phoneNumber
+          : '+91$phoneNumber';
+      await _repo.createUser(
+        roleId: roleId,
+        phoneNumber: formattedPhone,
+      );
+      Get.snackbar(
+        'Success',
+        'User created successfully.',
+        backgroundColor: AppTheme.accentGreen,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+      );
+      return true;
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        e.toString().replaceAll('Exception: ', ''),
+        backgroundColor: AppTheme.accentRed,
+        colorText: Colors.white,
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+      );
+      return false;
+    } finally {
+      isCreatingUser.value = false;
     }
   }
 }

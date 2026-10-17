@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:get/get.dart';
 import 'package:agremate_admin/network_utils/dio_client.dart';
 import 'package:agremate_admin/network_utils/app_end_points.dart';
@@ -298,7 +299,188 @@ class PropertyRepository {
     }
   }
 
-  Map<String, dynamic> _imageObject(String url) {
+  Future<void> createPgProperty(Map<String, dynamic> data) async {
+    try {
+      AppLogger.i('PropertyRepository', 'Create PG property API started');
+      final photos = (data['photos'] as List<PickedFile>? ?? []);
+      final docs = (data['documents'] as List<PickedFile>? ?? []);
+      final images = <Map<String, dynamic>>[];
+      final documents = <Map<String, dynamic>>[];
+      for (final p in photos) {
+        images.add(await _uploadFile(p));
+      }
+      for (final d in docs) {
+        documents.add(await _uploadFile(d));
+      }
+
+      final selected = (data['amenities'] as List? ?? [])
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+      final amenityIds = <String>[];
+
+      for (final a in selected) {
+        final id = a['id']?.toString() ?? '';
+        if (id.isEmpty) continue;
+        amenityIds.add(id);
+      }
+
+      final body = <String, dynamic>{
+        'name': data['name'],
+        'description': data['description'] ?? '',
+        'category': 'PG',
+        'propertyType': 7,
+        'status': 0,
+        'pgType': data['pgType'] ?? 1,
+        'genderAllowed': data['genderAllowed'] ?? 1,
+        'city': data['city'] ?? 'Bengaluru',
+        'pincode': data['pincode'] ?? '560001',
+        'rentPaymentDate': data['rentPaymentDate'] ?? 5,
+        'zone': data['zone'] ?? 1,
+        'contractReference': data['contractReference'] ??
+            'PG-CON-${DateTime.now().millisecondsSinceEpoch % 10000}',
+        'placeDetails': {
+          'address': data['address'] ?? '',
+          'latitude': data['latitude'] ?? 0.0,
+          'longitude': data['longitude'] ?? 0.0,
+          'floor': (data['floor'] ?? 'Ground Floor').toString(),
+          'doorNumber': (data['doorNumber'] ?? '').toString(),
+        },
+        'houseRules': data['houseRules'] ?? <String>[],
+        'amenityIds': amenityIds,
+        'floors': data['floors'] ?? <Map<String, dynamic>>[],
+        if (images.isNotEmpty) 'images': images,
+        if (documents.isNotEmpty) 'documents': documents,
+      };
+
+      AppLogger.i('PropertyRepository', 'Creating PG property payload: $body');
+
+      final response = await DioClient.instance.post(
+        '${AppEndpoints.adminDashboardProperties}?category=PG',
+        data: body,
+      );
+
+      AppLogger.i('PropertyRepository', 'Create PG property API success: ${response.statusCode}');
+
+      final d = response.data;
+      if (d is Map && d['status'] == false) {
+        throw Exception(d['message'] ?? 'Failed to create PG property');
+      }
+    } on dio.DioException catch (e) {
+      final msg = _errorText(e);
+      AppLogger.e('PropertyRepository', 'Create PG property Dio error: $msg', e);
+      throw Exception(msg);
+    } catch (e, stack) {
+      AppLogger.e('PropertyRepository', 'Create PG property error', e, stack);
+      rethrow;
+    }
+  }
+
+  Future<void> updatePgProperty(String propertyId, Map<String, dynamic> data) async {
+    try {
+      AppLogger.i('PropertyRepository', 'Update PG property API started id=$propertyId');
+
+      final existingPg = await getPropertyById(propertyId);
+      final rawPgImages = existingPg.rawJson['images'] is List
+          ? existingPg.rawJson['images'] as List
+          : const [];
+      final images = <Map<String, dynamic>>[
+        for (final u in (data['existingImages'] as List? ?? []))
+          _imageObject(u.toString(), rawPgImages),
+      ];
+      final documents = <Map<String, dynamic>>[
+        for (final d in (data['existingDocuments'] as List? ?? []))
+          if (d is Map) _documentObject(d),
+      ];
+      for (final p in (data['photos'] as List<PickedFile>? ?? [])) {
+        images.add(await _uploadFile(p));
+      }
+      for (final d in (data['documents'] as List<PickedFile>? ?? [])) {
+        documents.add(await _uploadFile(d));
+      }
+
+      final selected = (data['amenities'] as List? ?? [])
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+      final amenityIds = selected.map((a) => a['id'].toString()).toList();
+
+      final rentAmt = (data['rent'] as num?)?.toInt() ?? 0;
+      var advAmt = (data['advance'] as num?)?.toInt() ?? 0;
+      if (advAmt < rentAmt) advAmt = rentAmt;
+
+      final body = <String, dynamic>{
+        'name': data['name'],
+        'description': data['description'] ?? '',
+        'category': 'PG',
+        'propertyType': 7,
+        'status': data['status'] ?? 0,
+        'pgType': data['pgType'] ?? 1,
+        'genderAllowed': data['genderAllowed'] ?? 1,
+        'city': data['city'] ?? '',
+        'pincode': data['pincode'] ?? '',
+        'rent': rentAmt,
+        'advance': advAmt,
+        'rentPaymentDate': data['rentPaymentDate'] ?? 5,
+        'bedrooms': data['bedrooms'] ?? 0,
+        'bathrooms': data['bathrooms'] ?? 0,
+        'kitchen': data['kitchen'] ?? 1,
+        'builtYear': data['builtYear'] ?? DateTime.now().year,
+        'zone': data['zone'] ?? 1,
+        'contractReference': data['contractReference'] ?? '',
+        'placeDetails': {
+          'address': data['address'] ?? '',
+          'latitude': data['latitude'] ?? 0.0,
+          'longitude': data['longitude'] ?? 0.0,
+          'floor': (data['floor'] ?? 'Ground Floor').toString(),
+          'doorNumber': (data['doorNumber'] ?? '').toString(),
+        },
+        'houseRules': data['houseRules'] ?? <String>[],
+        'amenityIds': amenityIds,
+        'amenitiesDetails': <Map<String, dynamic>>[],
+        'documents': documents,
+        'images': images,
+        'isSelfOwned': data['isSelfOwned'] ?? true,
+        'extraProperties': data['extraProperties'],
+        if (data['floors'] != null) 'floors': data['floors'],
+      };
+
+      AppLogger.i('PropertyRepository', 'Update PG property payload: $body');
+
+      final response = await DioClient.instance.put(
+        '${AppEndpoints.adminDashboardProperties}/$propertyId',
+        data: body,
+      );
+
+      AppLogger.i('PropertyRepository', 'Update PG property API success: ${response.statusCode}');
+
+      final d = response.data;
+      if (d is Map && d['status'] == false) {
+        throw Exception(d['message'] ?? 'Failed to update PG property');
+      }
+    } on dio.DioException catch (e) {
+      final msg = _errorText(e);
+      AppLogger.e('PropertyRepository', 'Update PG property Dio error: $msg', e);
+      throw Exception(msg);
+    } catch (e, stack) {
+      AppLogger.e('PropertyRepository', 'Update PG property error', e, stack);
+      rethrow;
+    }
+  }
+
+  Map<String, dynamic> _imageObject(String url, [List rawImages = const []]) {
+    for (final e in rawImages) {
+      if (e is! Map) continue;
+      final candidates = [
+        e['absolutePath'],
+        e['originalUrl'],
+        e['thumbnailUrl'],
+        e['fileUrl'],
+        e['url'],
+        e['relativePath'],
+      ].map((v) => v?.toString().trim() ?? '').where((v) => v.isNotEmpty);
+      if (candidates.any((c) => c == url || url.endsWith(c))) {
+        return _documentObject(e);
+      }
+    }
     final i = url.indexOf('.amazonaws.com/');
     final rel = i == -1 ? url : url.substring(i + '.amazonaws.com/'.length);
     return {
@@ -322,13 +504,16 @@ class PropertyRepository {
       }
       final raw = existing.rawJson;
 
+      final rawImages = raw['images'] is List ? raw['images'] as List : const [];
       final images = <Map<String, dynamic>>[
-        for (final u in (data['existingImages'] as List? ?? [])) _imageObject(u.toString()),
+        for (final u in (data['existingImages'] as List? ?? []))
+          _imageObject(u.toString(), rawImages),
       ];
       final documents = <Map<String, dynamic>>[
         for (final d in (data['existingDocuments'] as List? ?? []))
           if (d is Map) _documentObject(d),
       ];
+
       for (final p in (data['photos'] as List<PickedFile>? ?? [])) {
         images.add(await _uploadFile(p));
       }
@@ -406,6 +591,9 @@ class PropertyRepository {
         'propertyType': data['propertyType'] ?? 0,
         'contractReference': raw['contractReference']?.toString() ?? '',
       };
+      AppLogger.i('PropertyRepository',
+          'Update docs count=${documents.length}: ${jsonEncode(documents)}');
+      AppLogger.i('PropertyRepository', 'IMAGES >> ${jsonEncode(images)}');
 
       final response = await DioClient.instance.put(
         '${AppEndpoints.adminDashboardProperties}/${existing.id}',
@@ -431,10 +619,17 @@ class PropertyRepository {
         if (d['status'] == false) {
           throw Exception(d['message'] ?? 'Failed to delete property');
         }
-        return d['message']?.toString() ??
-            'Property delete request submitted. It will be hidden after 24 hours and permanently deleted after 3 days.';
+        final resultMsg = d['result']?.toString().trim() ?? '';
+        if (resultMsg.isNotEmpty && resultMsg.toLowerCase() != 'null') {
+          return resultMsg;
+        }
+        final msg = d['message']?.toString().trim() ?? '';
+        if (msg.isNotEmpty && msg.toLowerCase() != 'null' && msg.toLowerCase() != 'success') {
+          return msg;
+        }
+        return 'Property soft-deleted successfully.';
       }
-      return 'Property delete request submitted. It will be hidden after 24 hours and permanently deleted after 3 days.';
+      return 'Property soft-deleted successfully.';
     } on dio.DioException catch (e) {
       final msg = _errorText(e);
       AppLogger.e('PropertyRepository', 'deleteProperty Dio error: $msg', e);
@@ -488,7 +683,7 @@ class PropertyRepository {
     final uploaded = s(['uploadedTime', 'uploadedDate']);
 
     return {
-      'id': d['id'],
+      if ((d['id']?.toString() ?? '').isNotEmpty) 'id': d['id'],
       'fileName': s(['fileName', 'documentName', 'name']),
       'absolutePath': abs,
       'relativePath': rel,

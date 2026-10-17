@@ -12,6 +12,7 @@ import 'package:agremate_admin/modules/property/repository/property_repository.d
 import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
 import 'package:agremate_admin/core/utils/app_logger.dart';
 import '../model/amenity_model.dart';
+import '../view/components/property_type_dialog.dart';
 
 enum PropertyCategoryFilter { all, pg, individual }
 
@@ -35,13 +36,14 @@ class PropertyController extends GetxController {
   final stats = Rxn<PropertyStatsModel>();
   final kpiStats = PropertyStatsModel.empty().obs;
   final isAddOpen = false.obs;
+  final addType = PropertyAddType.individual.obs;
   final amenities = <AmenityModel>[].obs;
   final isAmenitiesLoading = false.obs;
   final featureOptions = <AmenityModel>[].obs;
   final isFeaturesLoading = false.obs;
 
   final scrollController = ScrollController();
-  static const int perPage = 30;
+  static const int perPage = 32;
 
   Timer? _autoRefreshTimer;
 
@@ -179,31 +181,39 @@ class PropertyController extends GetxController {
   }
 
   Future<void> deleteProperty(String id) async {
-    final auth = Get.find<AuthController>();
-    if (!(auth.isSuperAdmin || auth.isLandlord)) {
-      Get.snackbar(
-        'Permission Denied',
-        'You do not have permission to delete properties',
-        snackPosition: SnackPosition.BOTTOM,
-      );
-      return;
+    if (Get.isRegistered<AuthController>()) {
+      final auth = Get.find<AuthController>();
+      if (auth.isTenant) {
+        Get.snackbar(
+          'Permission Denied',
+          'You do not have permission to delete properties',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+        return;
+      }
     }
     try {
       isLoading.value = true;
       final message = await _repository.deleteProperty(id);
+      properties.removeWhere((p) => p.id == id);
+      _applyFilters();
       closePropertyDetails();
       await refreshProperties();
       Get.snackbar(
         'Success',
         message,
         snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 5),
+        duration: const Duration(seconds: 4),
+        backgroundColor: Colors.white,
+        colorText: Colors.black,
       );
     } catch (e) {
       Get.snackbar(
         'Error',
         'Failed to delete property: $e',
         snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.white,
+        colorText: Colors.red,
       );
       rethrow;
     } finally {
@@ -211,7 +221,8 @@ class PropertyController extends GetxController {
     }
   }
 
-  void openAddProperty() {
+  void openAddProperty({PropertyAddType type = PropertyAddType.individual}) {
+    addType.value = type;
     isAddOpen.value = true;
     if (amenities.isEmpty) fetchAmenities();
     if (featureOptions.isEmpty) fetchFeatures();
@@ -249,6 +260,40 @@ class PropertyController extends GetxController {
       );
     } catch (e) {
       AppLogger.e('PropertyController', 'Create property failed', e);
+      rethrow;
+    }
+  }
+
+  Future<void> createPgProperty(Map<String, dynamic> data) async {
+    AppLogger.i('PropertyController', 'Create PG property started');
+    try {
+      await _repository.createPgProperty(data);
+      await refreshProperties();
+      AppLogger.i('PropertyController', 'Create PG property success');
+      Get.snackbar(
+        'Success',
+        'PG Property created successfully',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } catch (e) {
+      AppLogger.e('PropertyController', 'Create PG property failed', e);
+      rethrow;
+    }
+  }
+
+  Future<void> updatePgProperty(String propertyId, Map<String, dynamic> data) async {
+    AppLogger.i('PropertyController', 'Update PG property started id=$propertyId');
+    try {
+      await _repository.updatePgProperty(propertyId, data);
+      await refreshProperties();
+      AppLogger.i('PropertyController', 'Update PG property success');
+      Get.snackbar(
+        'Success',
+        'PG Property updated successfully',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } catch (e) {
+      AppLogger.e('PropertyController', 'Update PG property failed', e);
       rethrow;
     }
   }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import '../../../auth/controller/auth_controller.dart';
 import '../../model/amenity_model.dart';
 import '../../model/property_model.dart';
 import 'map_picker_dialog.dart';
@@ -58,12 +59,11 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
   double? latitude, longitude;
 
   String? propertyType;
-  static const propertyTypes = ['Individual', 'PG'];
+  static const propertyTypes = ['Residential', 'PG'];
 
   final advanceC = TextEditingController();
   final rentC = TextEditingController();
   int? paymentDate;
-
   bool hasTenant = true;
   final tenantNameC = TextEditingController();
   final tenantPhoneC = TextEditingController();
@@ -91,6 +91,11 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
   bool get _isEdit => widget.initial != null;
   final List<String> existingPhotoUrls = [];
   final List<Map<String, dynamic>> existingDocs = [];
+  bool get _showLandlordSection {
+    final auth =
+    Get.isRegistered<AuthController>() ? Get.find<AuthController>() : null;
+    return auth != null && auth.isSuperAdmin;
+  }
 
   @override
   void initState() {
@@ -104,8 +109,14 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
   @override
   void didUpdateWidget(covariant AddPropertyPanel old) {
     super.didUpdateWidget(old);
-    if (_isEdit && old.amenityOptions.isEmpty && widget.amenityOptions.isNotEmpty) {
-      _prefillAmenities();
+    if (_isEdit) {
+      if (old.initial != widget.initial && widget.initial != null) {
+        _prefill(widget.initial!);
+      }
+      if (widget.amenityOptions.isNotEmpty &&
+          (old.amenityOptions.isEmpty || selectedAmenityIds.isEmpty)) {
+        _prefillAmenities();
+      }
     }
   }
 
@@ -124,66 +135,266 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
         : <String, dynamic>{};
 
     nameC.text = p.name;
-    descC.text = p.description ?? '';
-    addressC.text = p.address.address;
-    if (p.address.latitude != 0) latitude = p.address.latitude;
-    if (p.address.longitude != 0) longitude = p.address.longitude;
+    descC.text = p.description ?? raw['description']?.toString() ?? '';
+    addressC.text = p.address.address.isNotEmpty
+        ? p.address.address
+        : (place['address'] ?? raw['address'] ?? '').toString();
+    if (p.address.latitude != 0) {
+      latitude = p.address.latitude;
+    } else {
+      latitude = (place['latitude'] as num?)?.toDouble() ??
+          (raw['latitude'] as num?)?.toDouble();
+    }
+    if (p.address.longitude != 0) {
+      longitude = p.address.longitude;
+    } else {
+      longitude = (place['longitude'] as num?)?.toDouble() ??
+          (raw['longitude'] as num?)?.toDouble();
+    }
     doorC.text = (place['doorNumber'] ?? raw['doorNumber'] ?? '').toString();
     floorC.text = (place['floor'] ?? raw['floor'] ?? raw['floorNumber'] ?? '').toString();
 
-    final t = raw['propertyType']?.toString().trim().toLowerCase() ?? '';
+    final t = (raw['propertyType'] ?? p.propertyType).toString().trim().toLowerCase();
     final idx = int.tryParse(t) ??
         propertyTypes.indexWhere((e) => e.toLowerCase() == t);
-    if (idx >= 0 && idx < propertyTypes.length) propertyType = propertyTypes[idx];
+    if (idx >= 0 && idx < propertyTypes.length) {
+      propertyType = propertyTypes[idx];
+    } else if (t == '7' || t == 'pg') {
+      propertyType = 'PG';
+    } else {
+      propertyType = 'Individual';
+    }
 
-    landlordNameC.text = p.landlordName == 'N/A' ? '' : p.landlordName;
-    landlordPhoneC.text = _tenDigits(p.landlordPhone);
-    landlordEmailC.text = p.landlordEmail ?? '';
+    final landlordObj = raw['landlord'] is Map
+        ? Map<String, dynamic>.from(raw['landlord'])
+        : <String, dynamic>{};
+    final lName = (p.landlordName.isNotEmpty && p.landlordName != 'N/A')
+        ? p.landlordName
+        : (landlordObj['name'] ?? raw['landlordName'] ?? raw['ownerName'] ?? '').toString();
+    landlordNameC.text = lName;
 
-    if (p.bedrooms > 0) { selectedFeatures.add('Bedrooms'); bedrooms = p.bedrooms; }
-    if (p.bathrooms > 0) { selectedFeatures.add('Bathrooms'); bathrooms = p.bathrooms; }
-    if (p.kitchen > 0) { selectedFeatures.add('Kitchen'); kitchens = p.kitchen; }
-    if (p.builtYear > 0) { selectedFeatures.add('Built Year'); builtYear = p.builtYear; }
+    final lPhone = (p.landlordPhone != null && p.landlordPhone!.isNotEmpty)
+        ? p.landlordPhone
+        : (landlordObj['phoneNumber'] ??
+            landlordObj['phone'] ??
+            landlordObj['mobile'] ??
+            landlordObj['contactNumber'] ??
+            raw['landlordPhoneNumber'] ??
+            raw['landlordPhone'] ??
+            raw['landlordContactNumber'] ??
+            raw['phone'] ??
+            raw['phoneNumber'])?.toString();
+    landlordPhoneC.text = _tenDigits(lPhone);
 
-    advanceC.text = _fmtAmount(p.advanceAmount);
-    rentC.text = _fmtAmount(p.rentAmount);
+    final lEmail = (p.landlordEmail != null && p.landlordEmail!.isNotEmpty)
+        ? p.landlordEmail
+        : (landlordObj['email'] ??
+            raw['landlordEmail'] ??
+            raw['ownerEmail'] ??
+            raw['email'])?.toString();
+    landlordEmailC.text = (lEmail ?? '').trim();
+
+    final featuresMap = raw['features'] is Map
+        ? Map<String, dynamic>.from(raw['features'])
+        : <String, dynamic>{};
+    final bedCount = p.bedrooms > 0
+        ? p.bedrooms
+        : ((raw['bedrooms'] ?? featuresMap['bedrooms']) as num?)?.toInt() ?? 0;
+    if (bedCount > 0) {
+      selectedFeatures.add('Bedrooms');
+      bedrooms = bedCount;
+    }
+    final bathCount = p.bathrooms > 0
+        ? p.bathrooms
+        : ((raw['bathrooms'] ?? featuresMap['bathrooms']) as num?)?.toInt() ?? 0;
+    if (bathCount > 0) {
+      selectedFeatures.add('Bathrooms');
+      bathrooms = bathCount;
+    }
+    final kCount = p.kitchen > 0
+        ? p.kitchen
+        : ((raw['kitchen'] ?? raw['kitchens'] ?? featuresMap['kitchens']) as num?)?.toInt() ?? 0;
+    if (kCount > 0) {
+      selectedFeatures.add('Kitchen');
+      kitchens = kCount;
+    }
+    final bYear = p.builtYear > 0
+        ? p.builtYear
+        : ((raw['builtYear'] ?? raw['builtInYear'] ?? featuresMap['builtYear']) as num?)?.toInt() ?? 0;
+    if (bYear > 0) {
+      selectedFeatures.add('Built Year');
+      builtYear = bYear;
+    }
+
+    final advVal = p.advanceAmount > 0
+        ? p.advanceAmount
+        : (raw['advance'] as num?)?.toDouble() ?? 0.0;
+    advanceC.text = _fmtAmount(advVal);
+
+    final rentVal = p.rentAmount > 0
+        ? p.rentAmount
+        : (raw['rent'] as num?)?.toDouble() ?? 0.0;
+    rentC.text = _fmtAmount(rentVal);
+
     final d = (raw['rentPaymentDate'] as num?)?.toInt();
     if (d != null && d >= 1 && d <= 30) paymentDate = d;
 
-    hasTenant = (p.primaryTenantName ?? '').isNotEmpty;
-    tenantNameC.text = p.primaryTenantName ?? '';
-    tenantPhoneC.text = _tenDigits(p.primaryTenantPhone);
-    tenantEmailC.text = p.primaryTenantEmail ?? '';
-    if (p.tenancyStartDate != null) {
-      _startDate = p.tenancyStartDate;
+    final tenantObj = raw['tenant'] is Map
+        ? Map<String, dynamic>.from(raw['tenant'])
+        : <String, dynamic>{};
+    final tName = (p.primaryTenantName != null && p.primaryTenantName!.isNotEmpty)
+        ? p.primaryTenantName!
+        : (tenantObj['name'] ?? raw['tenantName'] ?? raw['primaryTenantName'] ?? '').toString();
+    hasTenant = tName.isNotEmpty;
+    tenantNameC.text = tName;
+
+    final tPhone = (p.primaryTenantPhone != null && p.primaryTenantPhone!.isNotEmpty)
+        ? p.primaryTenantPhone
+        : (tenantObj['phoneNumber'] ??
+            tenantObj['phone'] ??
+            tenantObj['mobile'] ??
+            raw['tenantPhoneNumber'] ??
+            raw['primaryTenantPhone'] ??
+            raw['tenantPhone'])?.toString();
+    tenantPhoneC.text = _tenDigits(tPhone);
+
+    final tEmail = (p.primaryTenantEmail != null && p.primaryTenantEmail!.isNotEmpty)
+        ? p.primaryTenantEmail
+        : (tenantObj['email'] ??
+            raw['tenantEmail'] ??
+            raw['primaryTenantEmail'])?.toString();
+    tenantEmailC.text = (tEmail ?? '').trim();
+
+    DateTime? tStartDate = p.tenancyStartDate;
+    if (tStartDate == null && tenantObj['tenancyStartDate'] != null) {
+      tStartDate = DateTime.tryParse(tenantObj['tenancyStartDate'].toString());
+    }
+    if (tStartDate == null && raw['tenancyStartDate'] != null) {
+      tStartDate = DateTime.tryParse(raw['tenancyStartDate'].toString());
+    }
+    if (tStartDate != null) {
+      _startDate = tStartDate;
       startDateC.text = DateFormat('dd/MMM/yyyy').format(_startDate!).toUpperCase();
     }
 
-    existingPhotoUrls.addAll(p.images);
-    for (final doc in p.documents) {
-      if (doc is Map) existingDocs.add(Map<String, dynamic>.from(doc));
+    existingPhotoUrls.clear();
+    for (final img in p.images) {
+      if (img.isNotEmpty && !existingPhotoUrls.contains(img)) {
+        existingPhotoUrls.add(img);
+      }
+    }
+    if (existingPhotoUrls.isEmpty && raw['images'] is List) {
+      for (final e in raw['images']) {
+        if (e is Map) {
+          final u = (e['absolutePath'] ?? e['fileUrl'] ?? e['url'] ?? e['relativePath'] ?? '').toString();
+          if (u.isNotEmpty && !existingPhotoUrls.contains(u)) existingPhotoUrls.add(u);
+        } else if (e != null && e.toString().trim().isNotEmpty) {
+          final u = e.toString().trim();
+          if (!existingPhotoUrls.contains(u)) existingPhotoUrls.add(u);
+        }
+      }
+    }
+    if (p.imageUrl != null && p.imageUrl!.isNotEmpty && !existingPhotoUrls.contains(p.imageUrl)) {
+      existingPhotoUrls.insert(0, p.imageUrl!);
+    }
+
+    existingDocs.clear();
+    final rawDocs = p.documents.isNotEmpty
+        ? p.documents
+        : (raw['documents'] as List? ?? []);
+    for (final doc in rawDocs) {
+      if (doc is Map) {
+        existingDocs.add(Map<String, dynamic>.from(doc));
+      } else if (doc is String && doc.isNotEmpty) {
+        existingDocs.add({
+          'fileName': doc.split('/').last,
+          'url': doc,
+          'absolutePath': doc,
+        });
+      }
     }
   }
 
   void _prefillAmenities() {
     final p = widget.initial;
     if (p == null || widget.amenityOptions.isEmpty) return;
+    final raw = p.rawJson;
+
+    if (raw['amenityIds'] is List) {
+      for (final id in raw['amenityIds']) {
+        final sId = id?.toString().trim() ?? '';
+        if (sId.isNotEmpty && widget.amenityOptions.any((a) => a.id == sId)) {
+          selectedAmenityIds.add(sId);
+        }
+      }
+    }
+
+    if (raw['amenities'] is List) {
+      for (final item in raw['amenities']) {
+        if (item is Map) {
+          final id = (item['id'] ?? item['amenityId'] ?? '').toString().trim();
+          final name = (item['name'] ?? item['amenityName'] ?? '').toString().trim().toLowerCase();
+          final matches = widget.amenityOptions.where((a) =>
+              (id.isNotEmpty && a.id == id) ||
+              (name.isNotEmpty && a.name.trim().toLowerCase() == name));
+          for (final m in matches) {
+            selectedAmenityIds.add(m.id);
+          }
+        } else if (item != null) {
+          final str = item.toString().trim();
+          final matches = widget.amenityOptions.where((a) =>
+              a.id == str || a.name.trim().toLowerCase() == str.toLowerCase());
+          for (final m in matches) {
+            selectedAmenityIds.add(m.id);
+          }
+        }
+      }
+    }
+
     for (final item in p.amenitiesList) {
-      final name = (item['name'] ?? '').toLowerCase();
-      final matches = widget.amenityOptions.where((a) => a.name.toLowerCase() == name);
-      if (matches.isEmpty) continue;
-      final a = matches.first;
-      selectedAmenityIds.add(a.id);
-      final m = RegExp(r'^(.*?) - (.*?)(?:\. (.*))?$').firstMatch(item['details'] ?? '');
-      if (m == null) continue;
-      if (a.isPool) {
-        poolFromC.text = m.group(1)!.trim();
-        poolToC.text = m.group(2)!.trim();
-        poolCommentC.text = m.group(3) ?? '';
-      } else if (a.isGym) {
-        gymFromC.text = m.group(1)!.trim();
-        gymToC.text = m.group(2)!.trim();
-        gymCommentC.text = m.group(3) ?? '';
+      final id = (item['id'] ?? '').toString().trim();
+      final name = (item['name'] ?? '').trim().toLowerCase();
+      final matches = widget.amenityOptions.where((a) =>
+          (id.isNotEmpty && a.id == id) ||
+          (name.isNotEmpty && a.name.trim().toLowerCase() == name));
+      for (final a in matches) {
+        selectedAmenityIds.add(a.id);
+        final m = RegExp(r'^(.*?) - (.*?)(?:\. (.*))?$').firstMatch(item['details'] ?? '');
+        if (m != null) {
+          if (a.isPool) {
+            poolFromC.text = m.group(1)!.trim();
+            poolToC.text = m.group(2)!.trim();
+            poolCommentC.text = m.group(3) ?? '';
+          } else if (a.isGym) {
+            gymFromC.text = m.group(1)!.trim();
+            gymToC.text = m.group(2)!.trim();
+            gymCommentC.text = m.group(3) ?? '';
+          }
+        }
+      }
+    }
+
+    if (raw['amenitiesDetails'] is List) {
+      for (final ad in raw['amenitiesDetails']) {
+        if (ad is Map) {
+          final id = ad['id']?.toString() ?? '';
+          final details = ad['details']?.toString() ?? '';
+          final a = widget.amenityOptions.where((opt) => opt.id == id).firstOrNull;
+          if (a != null && details.isNotEmpty) {
+            final m = RegExp(r'^(.*?) - (.*?)(?:\. (.*))?$').firstMatch(details);
+            if (m != null) {
+              if (a.isPool) {
+                poolFromC.text = m.group(1)!.trim();
+                poolToC.text = m.group(2)!.trim();
+                poolCommentC.text = m.group(3) ?? '';
+              } else if (a.isGym) {
+                gymFromC.text = m.group(1)!.trim();
+                gymToC.text = m.group(2)!.trim();
+                gymCommentC.text = m.group(3) ?? '';
+              }
+            }
+          }
+        }
       }
     }
   }
@@ -395,6 +606,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
   }
 
   List<Widget> _leftColumn() => [
+    if (_showLandlordSection)
     _card(
       icon: Icons.person_pin_outlined,
       title: 'Landlord Details',
@@ -467,14 +679,6 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
             'Property Description',
             descC,
             validator: (v) => _required(v, 'Property Description'),
-          ),
-          const SizedBox(height: 12),
-          _dropdownBox<String>(
-            'Property Type',
-            propertyType,
-            propertyTypes,
-            (v) => setState(() => propertyType = v),
-            hint: 'Select',
           ),
         ],
       ),
@@ -791,7 +995,16 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
         onAdd: _pickDocuments,
         onRemove: (i) => setState(() => documents.removeAt(i)),
         isImage: false,
-        existingUrls: existingDocs.map((d) => (d['url'] ?? d['documentUrl'] ?? '').toString()).toList(),
+        existingUrls: existingDocs
+            .map((d) => (d['absolutePath'] ??
+                    d['fileUrl'] ??
+                    d['url'] ??
+                    d['documentUrl'] ??
+                    d['relativePath'] ??
+                    '')
+                .toString())
+            .where((u) => u.isNotEmpty)
+            .toList(),
         onRemoveExisting: (i) => setState(() => existingDocs.removeAt(i)),
       ),
     ),

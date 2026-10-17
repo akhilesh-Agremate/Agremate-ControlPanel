@@ -51,4 +51,8 @@ class AppEndpoints {
   static String financePropertyDetail(String id) =>
       '/AdminDashboard/finance/properties/$id';
   static const String adminControlSettings = '/AdminDashboard/admin-control/settings';
+  static const String landlordContactAccess = '/User/landlord-contact-access';
+  static const String getRoles = '/UserRole/get-roles';
+  static const String adminDashboardUsers = '/AdminDashboard/users';
 }
+

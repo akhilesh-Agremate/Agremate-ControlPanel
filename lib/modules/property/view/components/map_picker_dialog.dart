@@ -9,7 +9,15 @@ class PickedLocation {
   final String address;
   final double latitude;
   final double longitude;
-  const PickedLocation(this.address, this.latitude, this.longitude);
+  final String city;
+  final String pincode;
+  const PickedLocation(
+    this.address,
+    this.latitude,
+    this.longitude, {
+    this.city = '',
+    this.pincode = '',
+  });
 }
 
 String cleanAddress(String raw) {
@@ -64,6 +72,8 @@ class _MapPickerState extends State<_MapPicker> {
   GoogleMapController? _map;
   late LatLng _pos = widget.initial ?? _defaultCenter;
   String _address = '';
+  String _city = '';
+  String _pincode = '';
   String? _error;
   bool _loading = false;
 
@@ -97,8 +107,7 @@ class _MapPickerState extends State<_MapPicker> {
       final status = r.data['status'];
       final results = r.data['results'] as List?;
       if (status == 'OK' && results != null && results.isNotEmpty) {
-        setState(() => _address =
-            cleanAddress(results.first['formatted_address'] ?? ''));
+        setState(() => _applyGeoResult(results.first as Map));
       } else {
         setState(() {
           _address = '';
@@ -137,7 +146,8 @@ class _MapPickerState extends State<_MapPicker> {
             (loc['lat'] as num).toDouble(), (loc['lng'] as num).toDouble());
         setState(() {
           _pos = p;
-          _address = cleanAddress(results.first['formatted_address'] ?? q);
+          _applyGeoResult(results.first as Map);
+          if (_address.isEmpty) _address = cleanAddress(q);
         });
         _map?.animateCamera(CameraUpdate.newLatLngZoom(p, 16));
       } else {
@@ -204,8 +214,50 @@ class _MapPickerState extends State<_MapPicker> {
     _reverse(p);
   }
 
-  void _confirm() =>
-      Navigator.pop(context, PickedLocation(_address, _pos.latitude, _pos.longitude));
+  void _applyGeoResult(Map result) {
+    _address = cleanAddress((result['formatted_address'] ?? '').toString());
+    var locality = '';
+    var area2 = '';
+    var area3 = '';
+    var sublocality = '';
+    var pin = '';
+    final comps = result['address_components'] as List? ?? [];
+    for (final c in comps) {
+      if (c is! Map) continue;
+      final types =
+          (c['types'] as List? ?? []).map((e) => e.toString()).toList();
+      final name = (c['long_name'] ?? '').toString();
+      if (types.contains('postal_code')) pin = name;
+      if (types.contains('locality')) locality = name;
+      if (types.contains('administrative_area_level_3')) area3 = name;
+      if (types.contains('administrative_area_level_2')) area2 = name;
+      if (types.contains('sublocality') ||
+          types.contains('sublocality_level_1')) {
+        if (sublocality.isEmpty) sublocality = name;
+      }
+    }
+    _city = locality.isNotEmpty
+        ? locality
+        : (area3.isNotEmpty
+            ? area3
+            : (sublocality.isNotEmpty ? sublocality : area2));
+    if (pin.isEmpty) {
+      final m = RegExp(r'\b(\d{6})\b').firstMatch(_address);
+      if (m != null) pin = m.group(1)!;
+    }
+    _pincode = pin;
+  }
+
+  void _confirm() => Navigator.pop(
+        context,
+        PickedLocation(
+          _address,
+          _pos.latitude,
+          _pos.longitude,
+          city: _city,
+          pincode: _pincode,
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {

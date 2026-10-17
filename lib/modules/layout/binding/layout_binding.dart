@@ -10,6 +10,8 @@ import 'package:agremate_admin/modules/documents/controller/document_controller.
 import 'package:agremate_admin/modules/support/controller/support_controller.dart';
 import 'package:agremate_admin/modules/account/controller/account_controller.dart';
 import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
+import 'package:agremate_admin/modules/admin_control/repository/admin_control_repository.dart';
+import 'package:agremate_admin/modules/admin_control/controller/admin_control_controller.dart';
 
 class LayoutBinding extends Bindings {
   @override
@@ -33,5 +35,10 @@ class LayoutBinding extends Bindings {
     
     Get.lazyPut<SupportController>(() => SupportController());
     Get.lazyPut<AccountController>(() => AccountController());
+    Get.lazyPut<AdminControlRepository>(() => AdminControlRepository());
+    Get.lazyPut<AdminControlController>(
+      () => AdminControlController(Get.find<AdminControlRepository>()),
+    );
   }
 }
+

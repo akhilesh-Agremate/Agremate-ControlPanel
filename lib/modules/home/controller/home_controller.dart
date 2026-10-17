@@ -394,37 +394,6 @@ class HomeController extends GetxController {
   }
   var selectedSubscription = Rxn<Map<String, dynamic>>();
 
-   final Map<String, Map<String, String>> mockData = {
-    'Total Rent Collections': {
-      'This Month': '₹4,50,000',
-      'Last Month': '₹4,20,000',
-      'Last 3 Months': '₹12,80,000',
-      'Last 6 Months': '₹25,40,000',
-      'Last Year': '₹52,00,000',
-    },
-    'Pending Payments': {
-      'This Month': '₹85,000',
-      'Last Month': '₹62,000',
-      'Last 3 Months': '₹1,45,000',
-      'Last 6 Months': '₹2,10,000',
-      'Last Year': '₹3,50,000',
-    },
-    'Total Subscriptions': {
-      'This Month': '₹1,20,000',
-      'Last Month': '₹1,15,000',
-      'Last 3 Months': '₹3,50,000',
-      'Last 6 Months': '₹6,80,000',
-      'Last Year': '₹14,20,000',
-    },
-    'Subscription Expired': {
-      'This Month': '12',
-      'Last Month': '8',
-      'Last 3 Months': '45',
-      'Last 6 Months': '92',
-      'Last Year': '185',
-    },
-  };
-
   var expandedLists = <String, bool>{}.obs;
 
   void toggleList(String key) {
@@ -446,31 +415,6 @@ class HomeController extends GetxController {
     }
     return n.toString();
   }
-
-  final List<String> _indianNames = [
-    'Aarav',
-    'Vivaan',
-    'Aditya',
-    'Vihaan',
-    'Arjun',
-    'Sai',
-    'Ayaan',
-    'Krishna',
-    'Ishaan',
-    'Shaurya',
-  ];
-  final List<String> _indianLastNames = [
-    'Patel',
-    'Sharma',
-    'Singh',
-    'Kumar',
-    'Das',
-    'Bose',
-    'Gupta',
-    'Mehta',
-    'Trivedi',
-    'Jain',
-  ];
 
   final recentSubs = <Map<String, dynamic>>[].obs;
 

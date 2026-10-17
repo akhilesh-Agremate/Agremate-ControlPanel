@@ -8,8 +8,23 @@ import 'package:agremate_admin/modules/property/model/landlord_model.dart';
 import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
 import 'package:agremate_admin/modules/tenant/model/tenant_model.dart';
 
-class UserView extends StatelessWidget {
+class UserView extends StatefulWidget {
   const UserView({super.key});
+
+  @override
+  State<UserView> createState() => _UserViewState();
+}
+
+class _UserViewState extends State<UserView> {
+  final _landlordSearch = TextEditingController();
+  final _tenantSearch = TextEditingController();
+
+  @override
+  void dispose() {
+    _landlordSearch.dispose();
+    _tenantSearch.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,10 +32,25 @@ class UserView extends StatelessWidget {
 
     return Obx(() {
       if (pc.isLoading.value) {
-        return const Center(
-          child: CircularProgressIndicator(color: AppTheme.accentCyan),
+        return const ColoredBox(
+          color: Color(0xFFF8FAFD),
+          child: Center(
+            child: CircularProgressIndicator(color: AppTheme.accentCyan),
+          ),
         );
       }
+
+      final lq = _landlordSearch.text.trim().toLowerCase();
+      final tq = _tenantSearch.text.trim().toLowerCase();
+      final landlords = pc.landlords
+          .where((l) => lq.isEmpty || l.name.toLowerCase().contains(lq))
+          .toList();
+      final tenants = pc.tenants
+          .where((t) =>
+      tq.isEmpty ||
+          t.name.toLowerCase().contains(tq) ||
+          (t.property?.name.toLowerCase().contains(tq) ?? false))
+          .toList();
 
       return ColoredBox(
         color: const Color(0xFFF8FAFD),
@@ -29,38 +59,60 @@ class UserView extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('User Management', style: AppTheme.heading1),
-              const SizedBox(height: 8),
-              Text(
-                'Landlords and tenants linked to properties in the dashboard.',
-                style: AppTheme.bodyText,
+              Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8F1FD),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(Icons.groups_rounded,
+                        color: Color(0xFF2083D5), size: 26),
+                  ),
+                  const SizedBox(width: 16),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('User Management', style: AppTheme.heading1),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Landlords and tenants linked to properties in the dashboard.',
+                        style: AppTheme.bodyText,
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 24),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: _UserListCard(
                       title: 'Landlords',
-                      count: pc.landlords.length,
+                      subtitle: 'Manage landlords and their properties',
+                      total: pc.landlords.length,
                       icon: Icons.real_estate_agent_rounded,
                       fill: AppTheme.landlordFill,
-                      textColor: AppTheme.landlordText,
-                      borderColor: AppTheme.landlordBorder,
+                      searchHint: 'Search landlords...',
+                      searchController: _landlordSearch,
+                      onSearch: (_) => setState(() {}),
                       emptyText: 'No landlords to display.',
+                      isEmpty: landlords.isEmpty,
                       child: ListView.separated(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        itemCount: pc.landlords.length,
+                        itemCount: landlords.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 10),
                         itemBuilder: (context, index) {
-                          final landlord = pc.landlords[index];
+                          final landlord = landlords[index];
                           return _UserTile(
                             name: landlord.name,
                             subtitle:
-                                '${landlord.totalProperties} ${landlord.totalProperties == 1 ? 'property' : 'properties'}',
+                            '${landlord.totalProperties} ${landlord.totalProperties == 1 ? 'property' : 'properties'}',
                             color: AppTheme.landlordFill,
-                            textColor: AppTheme.landlordText,
                             onTap: () =>
                                 _showLandlordDetailDialog(context, landlord),
                           );
@@ -72,26 +124,28 @@ class UserView extends StatelessWidget {
                   Expanded(
                     child: _UserListCard(
                       title: 'Tenants',
-                      count: pc.tenants.length,
+                      subtitle: 'Manage tenants and their rented properties',
+                      total: pc.tenants.length,
                       icon: Icons.groups_rounded,
                       fill: AppTheme.tenantFill,
-                      textColor: AppTheme.tenantText,
-                      borderColor: AppTheme.tenantBorder,
+                      searchHint: 'Search tenants...',
+                      searchController: _tenantSearch,
+                      onSearch: (_) => setState(() {}),
                       emptyText: 'No tenants to display.',
+                      isEmpty: tenants.isEmpty,
                       child: ListView.separated(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        itemCount: pc.tenants.length,
+                        itemCount: tenants.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 10),
                         itemBuilder: (context, index) {
-                          final tenant = pc.tenants[index];
+                          final tenant = tenants[index];
                           return _UserTile(
                             name: tenant.name,
                             subtitle: tenant.property != null
                                 ? tenant.property!.name
                                 : 'No property',
                             color: AppTheme.tenantFill,
-                            textColor: AppTheme.tenantText,
                             onTap: () =>
                                 _showTenantDetailDialog(context, tenant),
                           );
@@ -144,8 +198,11 @@ class UserView extends StatelessWidget {
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
-          child: Padding(
+          constraints: BoxConstraints(
+            maxWidth: 480,
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -610,64 +667,95 @@ class UserView extends StatelessWidget {
 class _UserListCard extends StatelessWidget {
   const _UserListCard({
     required this.title,
-    required this.count,
+    required this.subtitle,
+    required this.total,
     required this.icon,
     required this.fill,
-    required this.textColor,
-    required this.borderColor,
+    required this.searchHint,
+    required this.searchController,
+    required this.onSearch,
     required this.emptyText,
+    required this.isEmpty,
     required this.child,
   });
 
   final String title;
-  final int count;
+  final String subtitle;
+  final int total;
   final IconData icon;
   final Color fill;
-  final Color textColor;
-  final Color borderColor;
+  final String searchHint;
+  final TextEditingController searchController;
+  final ValueChanged<String> onSearch;
   final String emptyText;
+  final bool isEmpty;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return GlassCard(
-      color: Colors.white,
-      borderColor: borderColor,
+    return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE3ECF7)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1565C0).withValues(alpha: 0.05),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                width: 46,
+                height: 46,
                 decoration: BoxDecoration(
-                  color: fill,
+                  color: fill.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: Colors.white, size: 22),
+                child: Icon(icon, color: fill, size: 24),
               ),
-              const SizedBox(width: 12),
-              Text(
-                title,
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Color(0xFF0F2A5C),
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: AppTheme.caption.copyWith(color: AppTheme.textMuted),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ),
-              const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: fill,
+                  color: const Color(0xFFE8F1FD),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  '$count',
+                  '$total Total',
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2083D5),
+                    fontWeight: FontWeight.w700,
                     fontSize: 12,
                   ),
                 ),
@@ -675,9 +763,34 @@ class _UserListCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 18),
-          const Divider(height: 1),
+          SizedBox(
+            height: 44,
+            child: TextField(
+              controller: searchController,
+              onChanged: onSearch,
+              style: const TextStyle(fontSize: 14),
+              decoration: InputDecoration(
+                hintText: searchHint,
+                hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+                prefixIcon: const Icon(Icons.search, size: 20, color: Color(0xFF64748B)),
+                filled: true,
+                fillColor: Colors.white,
+                focusColor: Colors.transparent,
+                hoverColor: Colors.transparent,
+                contentPadding: EdgeInsets.zero,
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFE3ECF7)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFF2083D5)),
+                ),
+              ),
+            ),
+          ),
           const SizedBox(height: 16),
-          if (count == 0)
+          if (isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: Text(
@@ -698,62 +811,86 @@ class _UserTile extends StatelessWidget {
     required this.name,
     required this.subtitle,
     required this.color,
-    required this.textColor,
     required this.onTap,
   });
 
   final String name;
   final String subtitle;
   final Color color;
-  final Color textColor;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GlassCard(
+    return Material(
       color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      onTap: onTap,
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: color,
-            child: Text(
-              name.isNotEmpty && !name.startsWith('+')
-                  ? name[0].toUpperCase()
-                  : 'U',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE3ECF7)),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: AppTheme.heading3.copyWith(color: textColor),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: AppTheme.caption.copyWith(
-                    color: textColor.withValues(alpha: 0.7),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: color,
+                child: Text(
+                  name.isNotEmpty && !name.startsWith('+')
+                      ? name[0].toUpperCase()
+                      : 'U',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0F2A5C),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        const Icon(Icons.home_outlined,
+                            size: 14, color: Color(0xFF64748B)),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTheme.caption.copyWith(
+                              color: const Color(0xFF64748B),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: Color(0xFF64748B)),
+            ],
           ),
-          Icon(Icons.chevron_right_rounded, color: AppTheme.textMuted),
-        ],
+        ),
       ),
     );
   }
 }
+

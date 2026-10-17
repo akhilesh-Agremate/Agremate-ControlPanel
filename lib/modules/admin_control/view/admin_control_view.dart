@@ -26,15 +26,82 @@ class AdminControlView extends StatelessWidget {
             const SizedBox(height: 28),
             Text('Tenant Visibility Settings', style: AppTheme.heading3),
             const SizedBox(height: 16),
-            Obx(() => _SettingCard(
-                  title: 'Landlord Contact Mask',
-                  description:
-                      'When enabled, tenant users will not see the landlord\'s contact details (phone number and email). Their information will be hidden across the platform.',
-                  icon: Icons.contacts_outlined,
-                  iconColor: const Color(0xFF2F6BFF),
-                  isEnabled: controller.isContactMaskEnabled.value,
-                  onToggle: controller.toggleContactMask,
-                )),
+            Obx(() {
+              if (controller.isLoading.value) {
+                return Container(
+                  height: 140,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: const Color(0xFFD6E8FA),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(Color(0xFF2F6BFF)),
+                    ),
+                  ),
+                );
+              }
+
+              if (controller.errorMessage.value.isNotEmpty) {
+                return Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: const Color(0xFFEF4444).withValues(alpha: 0.3),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline,
+                          color: Color(0xFFEF4444), size: 28),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          controller.errorMessage.value,
+                          style: const TextStyle(
+                            color: Color(0xFFEF4444),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      ElevatedButton.icon(
+                        onPressed: controller.fetchLandlordContactAccess,
+                        icon: const Icon(Icons.refresh, size: 16),
+                        label: const Text('Retry'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2F6BFF),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return _SettingCard(
+                title: 'Landlord Contact Mask',
+                description:
+                    'When enabled, tenant users will not see the landlord\'s contact details (phone number and email). Their information will be hidden across the platform.',
+                icon: Icons.contacts_outlined,
+                iconColor: const Color(0xFF2F6BFF),
+                isEnabled: controller.isContactMaskEnabled.value,
+                onToggle: controller.toggleContactMask,
+              );
+            }),
           ],
         ),
       ),
@@ -142,9 +209,8 @@ class _SettingCard extends StatelessWidget {
           Switch(
             value: isEnabled,
             onChanged: onToggle,
-            activeColor: const Color(0xFF2F6BFF),
-            activeTrackColor:
-                const Color(0xFF2F6BFF).withValues(alpha: 0.25),
+            activeThumbColor: const Color(0xFF2F6BFF),
+            activeTrackColor: const Color(0xFF2F6BFF).withValues(alpha: 0.25),
             inactiveThumbColor: AppTheme.textMuted,
             inactiveTrackColor: AppTheme.textMuted.withValues(alpha: 0.15),
           ),
