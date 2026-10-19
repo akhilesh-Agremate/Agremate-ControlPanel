@@ -7,6 +7,7 @@ import 'package:agremate_admin/modules/property/controller/property_controller.d
 import 'package:agremate_admin/modules/property/model/landlord_model.dart';
 import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
 import 'package:agremate_admin/modules/tenant/model/tenant_model.dart';
+import '../../../core/widgets/app_toast.dart';
 
 class UserView extends StatefulWidget {
   const UserView({super.key});
@@ -178,7 +179,7 @@ class _UserViewState extends State<UserView> {
       nav.currentIndex.value = 1;
       Navigator.pop(ctx);
     } else {
-      Get.snackbar('Info', 'Full property details not found');
+      AppToast.warning('Full property details not found');
     }
   }
 

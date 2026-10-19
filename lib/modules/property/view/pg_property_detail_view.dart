@@ -10,6 +10,7 @@ import 'package:agremate_admin/modules/property/model/pg_property_detail_model.d
 import 'package:agremate_admin/modules/property/controller/pg_property_detail_controller.dart';
 import 'package:agremate_admin/modules/property/view/components/create_pg_property_panel.dart';
 import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
+import '../../auth/controller/auth_controller.dart';
 
 class PgPropertyDetailView extends StatefulWidget {
   final PropertyModel property;
@@ -531,6 +532,124 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
     );
   }
 
+  AuthController? get _auth =>
+      Get.isRegistered<AuthController>() ? Get.find<AuthController>() : null;
+
+  /// Only Super Admin and Landlord can open the tenant list.
+  bool get _canViewTenants {
+    final a = _auth;
+    return a != null && (a.isSuperAdmin || a.isLandlord);
+  }
+
+  void _showOccupiedTenantsDialog(PgPropertyDetailData pg) {
+    final entries = <({PgFloor floor, PgRoom room, PgBed bed})>[];
+    for (final f in pg.floors) {
+      for (final r in f.rooms) {
+        for (final b in r.beds) {
+          if (b.isOccupied) entries.add((floor: f, room: r, bed: b));
+        }
+      }
+    }
+
+    String startDate(String? raw) {
+      final s = (raw ?? '').trim();
+      if (s.isEmpty) return '-';
+      final d = DateTime.tryParse(s);
+      return d != null ? DateFormat('dd-MM-yyyy').format(d.toLocal()) : s;
+    }
+
+    String val(String? v) => (v == null || v.trim().isEmpty) ? '-' : v.trim();
+
+    Widget line(IconData icon, String text) => Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(
+        children: [
+          Icon(icon, size: 15, color: const Color(0xFF64748B)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text,
+                style: const TextStyle(fontSize: 13, color: Color(0xFF334155))),
+          ),
+        ],
+      ),
+    );
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480, maxHeight: 640),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 8, 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Occupied beds (${entries.length})',
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: entries.isEmpty
+                    ? const Center(child: Text('No occupied beds.'))
+                    : ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: entries.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (_, i) {
+                    final e = entries[i];
+                    return Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${e.floor.floorName} · ${e.room.roomName} · ${e.bed.bedNumber}',
+                            style: const TextStyle(
+                                fontSize: 12, color: Color(0xFF64748B)),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            val(e.bed.tenantName),
+                            style: const TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.w700),
+                          ),
+                          line(Icons.phone_outlined, val(e.bed.tenantPhone)),
+                          line(Icons.mail_outline_rounded, val(e.bed.tenantEmail)),
+                          line(Icons.calendar_today_outlined,
+                              'Start date: ${startDate(e.bed.joinDate)}'),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBuildingLayoutSection(PgPropertyDetailData pg) {
     final totalBeds = pg.totalBeds;
     final occupiedBeds = pg.occupiedBeds;
@@ -553,10 +672,16 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: _buildLayoutStatBox(
-                  label: 'Occupied',
-                  value: '$occupiedBeds',
-                  valueColor: const Color(0xFF16A34A),
+                child: InkWell(
+                  onTap: (_canViewTenants && occupiedBeds > 0)
+                      ? () => _showOccupiedTenantsDialog(pg)
+                      : null,
+                  borderRadius: BorderRadius.circular(12),
+                  child: _buildLayoutStatBox(
+                    label: 'Occupied',
+                    value: '$occupiedBeds',
+                    valueColor: const Color(0xFF16A34A),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1381,6 +1506,113 @@ class _PgFloorBedDetailsDialogState extends State<_PgFloorBedDetailsDialog> {
     }
   }
 
+  AuthController? get _auth =>
+      Get.isRegistered<AuthController>() ? Get.find<AuthController>() : null;
+
+  String _last10(String? v) {
+    final d = (v ?? '').replaceAll(RegExp(r'[^\d]'), '');
+    return d.length > 10 ? d.substring(d.length - 10) : d;
+  }
+
+  bool _isMyBed(PgBed bed) {
+    final a = _auth;
+    if (a == null) return false;
+
+    final myId = a.userId.value.trim();
+    final tId = (bed.tenant?['id'] ?? bed.tenant?['userId'] ?? '').toString().trim();
+    if (myId.isNotEmpty && tId.isNotEmpty && myId == tId) return true;
+
+    final myPhone = _last10(a.userPhone.value);
+    if (myPhone.length == 10 && myPhone == _last10(bed.tenantPhone)) return true;
+
+    final myEmail = a.userEmail.value.trim().toLowerCase();
+    final bedEmail = (bed.tenantEmail ?? '').trim().toLowerCase();
+    return myEmail.isNotEmpty && myEmail == bedEmail;
+  }
+
+  /// Super Admin and Landlord see every tenant; a tenant sees only their own bed.
+  bool _canSeeTenant(PgBed bed) {
+    final a = _auth;
+    if (a == null) return false;
+    if (a.isSuperAdmin || a.isLandlord) return true;
+    if (a.isTenant) return _isMyBed(bed);
+    return false;
+  }
+
+  void _showTenantDetailsDialog(PgRoom room, PgBed bed) {
+    String start = '-';
+    final raw = (bed.joinDate ?? '').trim();
+    if (raw.isNotEmpty) {
+      final d = DateTime.tryParse(raw);
+      start = d != null ? DateFormat('dd-MM-yyyy').format(d.toLocal()) : raw;
+    }
+
+    Widget row(IconData icon, String label, String? value) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEAF1FF),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 18, color: const Color(0xFF2F6BFF)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                Text(
+                  (value == null || value.trim().isEmpty) ? '-' : value,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Tenant details · ${room.roomName} · ${bed.bedNumber}',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+            ),
+            IconButton(
+              onPressed: () => Navigator.pop(ctx),
+              icon: const Icon(Icons.close_rounded),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 380,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              row(Icons.person_outline_rounded, 'Name', bed.tenantName),
+              row(Icons.phone_outlined, 'Mobile number', bed.tenantPhone),
+              row(Icons.mail_outline_rounded, 'Email ID', bed.tenantEmail),
+              row(Icons.calendar_today_outlined, 'Start date', start),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showRoomDetailsModal(BuildContext context, PgRoom room) {
     showDialog(
       context: context,
@@ -1706,47 +1938,55 @@ class _PgFloorBedDetailsDialogState extends State<_PgFloorBedDetailsDialog> {
                                                 : '₹0';
 
                                             if (isOccupied) {
-                                              return Container(
-                                                width: 120,
-                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                                                decoration: BoxDecoration(
-                                                  color: const Color(0xFFF8FAFC),
-                                                  borderRadius: BorderRadius.circular(14),
-                                                  border: Border.all(color: const Color(0xFFCBD5E1)),
-                                                ),
-                                                child: Column(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    const Icon(
-                                                      Icons.single_bed_outlined,
-                                                      color: Color(0xFF64748B),
-                                                      size: 24,
-                                                    ),
-                                                    const SizedBox(height: 6),
-                                                    const Text(
-                                                      'Occupied',
-                                                      style: TextStyle(
-                                                        color: Color(0xFF475569),
-                                                        fontWeight: FontWeight.w600,
-                                                        fontSize: 13,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 4),
-                                                    Text(
-                                                      bed.tenantName ?? rentFormatted,
-                                                      style: const TextStyle(
+                                              final showName = _canSeeTenant(bed);
+                                              final label = (showName && (bed.tenantName ?? '').trim().isNotEmpty)
+                                                  ? bed.tenantName!
+                                                  : 'Occupied';
+
+                                              return InkWell(
+                                                onTap: showName ? () => _showTenantDetailsDialog(room, bed) : null,
+                                                borderRadius: BorderRadius.circular(14),
+                                                child: Container(
+                                                  width: 120,
+                                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                                                  decoration: BoxDecoration(
+                                                    color: const Color(0xFFF8FAFC),
+                                                    borderRadius: BorderRadius.circular(14),
+                                                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                                                  ),
+                                                  child: Column(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      const Icon(
+                                                        Icons.single_bed_outlined,
                                                         color: Color(0xFF64748B),
-                                                        fontWeight: FontWeight.w500,
-                                                        fontSize: 12,
+                                                        size: 24,
                                                       ),
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
-                                                    ),
-                                                  ],
+                                                      const SizedBox(height: 6),
+                                                      Text(
+                                                        label,
+                                                        style: const TextStyle(
+                                                          color: Color(0xFF475569),
+                                                          fontWeight: FontWeight.w600,
+                                                          fontSize: 13,
+                                                        ),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                      const SizedBox(height: 4),
+                                                      Text(
+                                                        rentFormatted,
+                                                        style: const TextStyle(
+                                                          color: Color(0xFF64748B),
+                                                          fontWeight: FontWeight.w500,
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
                                                 ),
                                               );
                                             }
-
                                             return InkWell(
                                               onTap: () {
                                                 _showMoveTenantInDialog(

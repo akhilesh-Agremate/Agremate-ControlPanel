@@ -178,9 +178,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
             email: widget.property.primaryTenantEmail?.isNotEmpty == true
                 ? widget.property.primaryTenantEmail!
                 : 'N/A',
-            address: widget.property.address.address.isNotEmpty
-                ? widget.property.address.address
-                : 'N/A',
+      address: '',
             accentColor: AppTheme.accentGreen,
           )
         : _buildEmptyTenantCard();

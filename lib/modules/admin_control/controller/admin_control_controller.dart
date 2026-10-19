@@ -17,27 +17,6 @@ class AdminControlController extends GetxController {
   final isUpdating = false.obs;
   final errorMessage = ''.obs;
 
-  @override
-  void onInit() {
-    super.onInit();
-    fetchLandlordContactAccess();
-  }
-
-  Future<void> fetchLandlordContactAccess() async {
-    isLoading.value = true;
-    errorMessage.value = '';
-    try {
-      final access = await _repository.getLandlordContactAccess();
-      isContactMaskEnabled.value = access;
-      AppLogger.i('AdminControlController', 'Fetched landlord contact access: maskEnabled=$access');
-    } catch (e) {
-      errorMessage.value = e.toString();
-      AppLogger.e('AdminControlController', 'Failed to fetch landlord contact access', e);
-    } finally {
-      isLoading.value = false;
-    }
-  }
-
   Future<void> toggleContactMask(bool value) async {
     if (isUpdating.value) return;
     final prevValue = isContactMaskEnabled.value;
