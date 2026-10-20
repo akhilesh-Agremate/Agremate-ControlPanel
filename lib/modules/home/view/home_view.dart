@@ -214,7 +214,7 @@ class HomeView extends StatelessWidget {
                             isService
                                 ? 'No recent service requests found.'
                                 : isRent && data.isEmpty
-                                ? 'Loading rent collections...'
+                                ? 'No recent rent collections found.'
                                 : null,
                       ),
                     );

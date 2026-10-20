@@ -11,6 +11,7 @@ import 'package:agremate_admin/modules/property/model/property_stats_model.dart'
 import 'package:agremate_admin/modules/property/repository/property_repository.dart';
 import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
 import 'package:agremate_admin/core/utils/app_logger.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../model/amenity_model.dart';
 import '../view/components/property_type_dialog.dart';
 
@@ -177,7 +178,7 @@ class PropertyController extends GetxController {
     await _repository.updateProperty(fresh, data);
     selectedProperty.value = await _repository.getPropertyById(property.id);
     unawaited(refreshProperties());
-    Get.snackbar('Success', 'Property updated', snackPosition: SnackPosition.BOTTOM);
+    AppToast.success('Property updated');
   }
 
   Future<void> deleteProperty(String id) async {

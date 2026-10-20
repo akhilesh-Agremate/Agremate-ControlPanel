@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -52,6 +54,8 @@ Future<PickedLocation?> showMapPicker(BuildContext context,
   );
 }
 
+enum _GeoIssue { blocked, timeout }
+
 class _MapPicker extends StatefulWidget {
   final LatLng? initial;
   const _MapPicker({this.initial});
@@ -61,6 +65,7 @@ class _MapPicker extends StatefulWidget {
 }
 
 class _MapPickerState extends State<_MapPicker> {
+  _GeoIssue? _geoIssue;
   static const _blue = Color(0xFF2F6BFF);
   static const _navy = Color(0xFF0B1F5C);
   static const _blueMuted = Color(0xFF6B7FB5);
@@ -76,6 +81,7 @@ class _MapPickerState extends State<_MapPicker> {
   String _pincode = '';
   String? _error;
   bool _loading = false;
+  late bool _hasPick = widget.initial != null;
 
   @override
   void initState() {
@@ -146,6 +152,7 @@ class _MapPickerState extends State<_MapPicker> {
             (loc['lat'] as num).toDouble(), (loc['lng'] as num).toDouble());
         setState(() {
           _pos = p;
+          _hasPick = true;
           _applyGeoResult(results.first as Map);
           if (_address.isEmpty) _address = cleanAddress(q);
         });
@@ -165,10 +172,12 @@ class _MapPickerState extends State<_MapPicker> {
     setState(() {
       _loading = true;
       _error = null;
+      _geoIssue = null;
     });
     try {
       if (!await Geolocator.isLocationServiceEnabled()) {
-        throw 'Location is turned off on this device.';
+        _failLocation(_GeoIssue.blocked);
+        return;
       }
       var perm = await Geolocator.checkPermission();
       if (perm == LocationPermission.denied) {
@@ -176,25 +185,41 @@ class _MapPickerState extends State<_MapPicker> {
       }
       if (perm == LocationPermission.denied ||
           perm == LocationPermission.deniedForever) {
-        throw 'Location permission denied. Allow it in the browser settings.';
+        _failLocation(_GeoIssue.blocked);
+        return;
       }
       final pos = await Geolocator.getCurrentPosition(
-        locationSettings:
-        const LocationSettings(accuracy: LocationAccuracy.high),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
       );
       if (!mounted) return;
       final p = LatLng(pos.latitude, pos.longitude);
-      setState(() => _pos = p);
+      setState(() {
+        _pos = p;
+        _hasPick = true;
+      });
       _map?.animateCamera(CameraUpdate.newLatLngZoom(p, 17));
       await _reverse(p);
+    } on TimeoutException {
+      _failLocation(_GeoIssue.timeout);
     } catch (e) {
       debugPrint('Current location error: $e');
       if (!mounted) return;
       setState(() {
         _loading = false;
-        if (!silent) _error = e is String ? e : 'Could not get current location.';
+        if (!silent) _error = 'Could not get current location.';
       });
     }
+  }
+
+  void _failLocation(_GeoIssue issue) {
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _geoIssue = issue;
+    });
   }
 
   String _friendly(Object e) {
@@ -208,9 +233,11 @@ class _MapPickerState extends State<_MapPicker> {
     }
     return 'Could not load address: $e';
   }
-
   void _onTap(LatLng p) {
-    setState(() => _pos = p);
+    setState(() {
+      _pos = p;
+      _hasPick = true;
+    });
     _reverse(p);
   }
 
@@ -258,6 +285,72 @@ class _MapPickerState extends State<_MapPicker> {
           pincode: _pincode,
         ),
       );
+
+  Widget _geoBanner() {
+    final timeout = _geoIssue == _GeoIssue.timeout;
+    final mobile = defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.location_off_outlined,
+                  color: Colors.orange, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  timeout
+                      ? 'Could not get your location in time. Tap on the map to pick it manually, or try again.'
+                      : 'Location is turned off. Please enable location access in your device settings and browser settings to continue.',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: _navy,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (!timeout) ...[
+            const SizedBox(height: 6),
+            Text(
+              mobile
+                  ? '1. Turn on Location in your phone settings.\n'
+                  '2. In Chrome, tap the lock icon by the address bar > Permissions > Location > Allow.\n'
+                  '3. Reload the page and tap Try again.'
+                  : '1. Click the lock icon at the left of the address bar > Site settings > Location > Allow.\n'
+                  '2. Make sure your computer\'s location service is on.\n'
+                  '3. Reload the page and click Try again.',
+              style: const TextStyle(
+                fontSize: 11,
+                color: Color(0xFF64748B),
+                height: 1.5,
+              ),
+            ),
+          ],
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => _useCurrentLocation(),
+              child: const Text('Try again'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -323,14 +416,16 @@ class _MapPickerState extends State<_MapPicker> {
               if (widget.initial == null) _useCurrentLocation(silent: true);
             },
             onTap: _onTap,
-            markers: {
+            markers: _hasPick
+                ? {
               Marker(
                 markerId: const MarkerId('p'),
                 position: _pos,
                 draggable: true,
                 onDragEnd: _onTap,
               ),
-            },
+            }
+                : <Marker>{},
             myLocationButtonEnabled: false,
             mapToolbarEnabled: false,
             zoomControlsEnabled: true,

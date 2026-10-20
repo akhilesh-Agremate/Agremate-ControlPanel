@@ -52,6 +52,7 @@ class _PgRoomDraft {
   List<String> roomAmenities;
   List<_PgBedDraft> beds;
   List<PickedFile> photos;
+  List<String> existingPhotoUrls = [];
 
   _PgRoomDraft({
     required this.id,
@@ -243,6 +244,16 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
   String _pincodeFromAddress(String address) =>
       RegExp(r'\b\d{6}\b').firstMatch(address)?.group(0) ?? '';
 
+  String _cityFromAddress(String address) {
+    final parts = address
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    final i = parts.indexWhere((s) => RegExp(r'\b\d{6}\b').hasMatch(s));
+    return i > 0 ? parts[i - 1] : '';
+  }
+
   String _plural(int n, String word) => '$n ${n == 1 ? word : '${word}s'}';
 
   String _money(int v) => NumberFormat.decimalPattern('en_IN').format(v);
@@ -299,7 +310,10 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
       raw['propertyDetails'],
       raw['location'],
     ];
-    cityC.text = _pick(sources, ['city', 'City', 'cityName']);
+    cityC.text = _pick(sources, ['city', 'City', 'cityName', 'town', 'district']);
+    if (cityC.text.isEmpty) {
+      cityC.text = _cityFromAddress(addressC.text);
+    }
     pincodeC.text = _pick(
         sources, ['pincode', 'pinCode', 'PinCode', 'postalCode', 'zipCode', 'zip']);
     if (pincodeC.text.isEmpty) {
@@ -430,7 +444,12 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
           bedCount: bedCount,
           roomAmenities: List<String>.from(r.amenitiesList),
         );
-        if (r.rentPerBed > 0) room.rentOverride = r.rentPerBed.round();
+        room.existingPhotoUrls =
+            r.images.map((i) => i.url).where((u) => u.isNotEmpty).toList();
+
+        final roomRent = r.rentPerBed > 0 ? r.rentPerBed.round() : 0;
+        if (roomRent > 0) room.rentOverride = roomRent;
+
         if (r.beds.isNotEmpty) {
           room.beds.clear();
           for (final b in r.beds) {
@@ -445,8 +464,13 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
             if (b.advance != null && b.advance! > 0) {
               room.advanceOverride = b.advance!.round();
             }
+
+            final bedRent = (b.rent > 0 ? b.rent : b.rentAmount).round();
+            if (bedRent > 0 && bedRent != roomRent) bed.rent = bedRent;
+
             room.beds.add(bed);
           }
+
           final advances = r.beds
               .map((b) => (b.advance ?? 0).round())
               .where((a) => a > 0)
@@ -460,19 +484,12 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
         }
         floor.rooms.add(room);
       }
-      if (floor.rooms.isEmpty) {
-        floor.rooms.add(_newRoom(fi, 0));
-      }
+      if (floor.rooms.isEmpty) floor.rooms.add(_newRoom(fi, 0));
       floors.add(floor);
     }
     floorsCount = floors.length;
-    roomsPerFloor = floors
-        .map((f) => f.rooms.length)
-        .fold<int>(1, (a, b) => a > b ? a : b);
-    bedsPerRoom = floors
-        .expand((f) => f.rooms)
-        .map((r) => r.beds.length)
-        .fold<int>(1, (a, b) => a > b ? a : b);
+    roomsPerFloor = floors.map((f) => f.rooms.length).fold<int>(1, (a, b) => a > b ? a : b);
+    bedsPerRoom = floors.expand((f) => f.rooms).map((r) => r.beds.length).fold<int>(1, (a, b) => a > b ? a : b);
     expandedFloor = 0;
     selectedRoomIndex = 0;
   }
@@ -915,6 +932,8 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                       isImage: true,
                       tileWidth: 80,
                       tileHeight: 80,
+                      existingUrls: room.existingPhotoUrls,
+                      onRemoveExisting: (i) => setD(() => room.existingPhotoUrls.removeAt(i)),
                       onAdd: () async {
                         try {
                           final picked =
@@ -1532,6 +1551,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
           return {
             'index': rIdx + 1,
             'roomName': r.name,
+            'existingImages': r.existingPhotoUrls,
             'roomType': r.sharingType,
             'rentPerBed': roomRent,
             'totalBeds': r.beds.length,
@@ -1541,19 +1561,33 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
               final bedRent = b.rent ?? roomRent;
               var bedAdvance = b.advance ?? roomAdvance;
               if (bedAdvance < bedRent) bedAdvance = bedRent;
+
               return {
                 'index': bIdx + 1,
                 'bedNumber': b.bedNumber,
                 'status': b.isOccupied ? 1 : 0,
                 'rent': bedRent,
                 'advance': bedAdvance,
+                if (b.isOccupied && b.tenantName.trim().isNotEmpty)
+                  'tenant': {
+                    'fullName': b.tenantName.trim(),
+                    'phone': b.tenantPhone.trim(),
+                    'email': b.tenantEmail.trim(),
+                    'tenancyStart': b.tenantStart == null
+                        ? DateTime.now().toUtc().toIso8601String()
+                        : DateTime.utc(
+                      b.tenantStart!.year,
+                      b.tenantStart!.month,
+                      b.tenantStart!.day,
+                    ).toIso8601String(),
+                    'isSelfOwned': true,
+                  },
               };
             }).toList(),
           };
         }).toList(),
       };
     }).toList();
-
     final amenityIds = selectedAmenityIds.toList();
     final amenitiesList = amenityIds.map((id) {
       final match = widget.amenityOptions.firstWhereOrNull((a) => a.id == id);
@@ -1600,6 +1634,12 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
       'existingImages': existingImageUrls,
       'existingDocuments': existingDocs,
       'isSelfOwned': true,
+      if (_showLandlordSection)
+        'landlord': {
+          'name': landlordNameC.text.trim(),
+          'phone': landlordPhoneC.text.trim(),
+          'email': landlordEmailC.text.trim(),
+        },
       'status': _status,
     };
 

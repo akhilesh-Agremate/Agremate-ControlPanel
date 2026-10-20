@@ -336,8 +336,13 @@ class PropertyRepository {
         'pincode': data['pincode'] ?? '560001',
         'rentPaymentDate': data['rentPaymentDate'] ?? 5,
         'zone': data['zone'] ?? 1,
-        'contractReference': data['contractReference'] ??
-            'PG-CON-${DateTime.now().millisecondsSinceEpoch % 10000}',
+        if (data['landlord'] is Map) ...{
+          'landlordName': (data['landlord'] as Map)['name'],
+          'landlordPhoneNumber':
+          _withCountryCode((data['landlord'] as Map)['phone']),
+          if (((data['landlord'] as Map)['email'] ?? '').toString().isNotEmpty)
+            'landlordEmail': (data['landlord'] as Map)['email'],
+        },
         'placeDetails': {
           'address': data['address'] ?? '',
           'latitude': data['latitude'] ?? 0.0,
