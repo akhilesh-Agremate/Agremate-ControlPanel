@@ -171,7 +171,7 @@ class _TopBarState extends State<TopBar> {
       }
 
       return Container(
-        height: 64,
+        height: 70,
         padding: const EdgeInsets.symmetric(horizontal: 28),
         decoration: const BoxDecoration(
           color: AppTheme.bgDark,

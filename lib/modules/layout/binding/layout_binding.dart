@@ -5,14 +5,20 @@ import 'package:agremate_admin/modules/property/controller/property_controller.d
 import 'package:agremate_admin/modules/property/repository/property_repository.dart';
 import 'package:agremate_admin/modules/services/controller/services_controller.dart';
 import 'package:agremate_admin/modules/finance/controller/finance_controller.dart';
+import 'package:agremate_admin/modules/documents/repository/document_repository.dart';
 import 'package:agremate_admin/modules/documents/controller/document_controller.dart';
 import 'package:agremate_admin/modules/support/controller/support_controller.dart';
 import 'package:agremate_admin/modules/account/controller/account_controller.dart';
 import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
+import 'package:agremate_admin/modules/admin_control/repository/admin_control_repository.dart';
+import 'package:agremate_admin/modules/admin_control/controller/admin_control_controller.dart';
 
 class LayoutBinding extends Bindings {
   @override
   void dependencies() {
+    if (!Get.isRegistered<AuthController>()) {
+      Get.put<AuthController>(AuthController(), permanent: true);
+    }
     Get.lazyPut<NavigationController>(() => NavigationController());
     Get.lazyPut<HomeController>(() => HomeController());
     Get.lazyPut<PropertyRepository>(() => PropertyRepository());
@@ -21,9 +27,18 @@ class LayoutBinding extends Bindings {
     );
     Get.lazyPut<ServicesController>(() => ServicesController());
     Get.lazyPut<FinanceController>(() => FinanceController());
-    Get.lazyPut<DocumentController>(() => DocumentController());
+    
+    Get.lazyPut<DocumentRepository>(() => DocumentRepository());
+    Get.lazyPut<DocumentController>(
+      () => DocumentController(Get.find<DocumentRepository>()),
+    );
+    
     Get.lazyPut<SupportController>(() => SupportController());
     Get.lazyPut<AccountController>(() => AccountController());
-    Get.lazyPut<AuthController>(() => AuthController());
+    Get.lazyPut<AdminControlRepository>(() => AdminControlRepository());
+    Get.lazyPut<AdminControlController>(
+      () => AdminControlController(Get.find<AdminControlRepository>()),
+    );
   }
 }
+

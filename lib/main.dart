@@ -3,8 +3,10 @@ import 'package:get/get.dart';
 import 'core/theme/theme.dart';
 import 'routes/app_routes.dart';
 import 'routes/app_pages.dart';
+import 'modules/auth/controller/auth_controller.dart';
 
 void main() {
+  Get.put(AuthController(), permanent: true);
   runApp(const AgremateAdmin());
 }
 

@@ -6,6 +6,7 @@ import 'package:agremate_admin/modules/services/controller/services_controller.d
 import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
 import 'package:agremate_admin/core/widgets/glass_card.dart';
 import 'package:agremate_admin/core/widgets/status_badge.dart';
+import 'package:intl/intl.dart';
 
 class ServicesView extends StatelessWidget {
   const ServicesView({super.key});
@@ -16,7 +17,6 @@ class ServicesView extends StatelessWidget {
     final nav = Get.find<NavigationController>();
 
     return Obx(() {
-      // Loading state
       if (sc.isLoading.value) {
         return const Center(
           child: Column(
@@ -33,7 +33,6 @@ class ServicesView extends StatelessWidget {
         );
       }
 
-      // Error state
       if (sc.errorMessage.value.isNotEmpty) {
         return Center(
           child: Column(
@@ -69,7 +68,9 @@ class ServicesView extends StatelessWidget {
 
       sc.search(nav.searchQuery.value);
 
-      return SingleChildScrollView(
+      return ColoredBox(
+        color: const Color(0xFFF8FAFD),
+          child: SingleChildScrollView(
         padding: const EdgeInsets.all(28),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,10 +82,9 @@ class ServicesView extends StatelessWidget {
               style: AppTheme.caption,
             ),
             const SizedBox(height: 24),
-            // Service cards grid
             Wrap(
-              spacing: 16,
-              runSpacing: 16,
+              spacing: 12,
+              runSpacing: 12,
               children:
                   AppConstants.serviceTypes.map((type) {
                     final color =
@@ -95,7 +95,7 @@ class ServicesView extends StatelessWidget {
                     final isSelected = sc.selectedServiceType.value == type;
 
                     return SizedBox(
-                      width: 220,
+                      width: 140,
                       child: GlassCard(
                         color: Colors.white,
                         borderColor:
@@ -103,7 +103,7 @@ class ServicesView extends StatelessWidget {
                         glowColor:
                             isSelected ? color : color.withValues(alpha: 0.5),
                         onTap: () => sc.selectServiceType(type),
-                        padding: const EdgeInsets.all(20),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
                         child: SizedBox(
                           width: double.infinity,
                           child: Column(
@@ -144,8 +144,11 @@ class ServicesView extends StatelessWidget {
                                 type,
                                 style: AppTheme.heading3.copyWith(
                                   color: AppTheme.textPrimary,
+                                  fontSize: 14,
                                 ),
                                 textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: 6),
                               Text(
@@ -175,7 +178,6 @@ class ServicesView extends StatelessWidget {
                   }).toList(),
             ),
             const SizedBox(height: 32),
-            // Dynamic section: either Category results or Recent requests
             Obx(() {
               if (sc.searchQuery.value.isNotEmpty) {
                 return Column(
@@ -246,11 +248,10 @@ class ServicesView extends StatelessWidget {
                   ],
                 );
               } else {
-                // Default: Show Recent Service Requests
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Recent Service Requests', style: AppTheme.heading2),
+                    _sectionHeader('Recent Service Requests'),
                     const SizedBox(height: 16),
                     if (sc.recentRequests.isEmpty)
                       const Center(
@@ -270,64 +271,97 @@ class ServicesView extends StatelessWidget {
             }),
           ],
         ),
+          ),
       );
     });
   }
 
   Widget _buildRequestList(BuildContext context, List<dynamic> requests) {
+    final dateFmt = DateFormat('MMM d, yyyy');
+
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: requests.length,
       itemBuilder: (context, index) {
         final req = requests[index];
+        final isDone = req.status == 'completed';
+        final pillColor =
+        isDone ? const Color(0xFF2E9E5B) : _statusColor(req.status);
+
         return Container(
-          margin: const EdgeInsets.only(bottom: 12),
+          margin: const EdgeInsets.only(bottom: 14),
           child: Material(
             color: Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(18),
             child: InkWell(
               onTap: () => _showServiceChatDialog(context, req),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(18),
               child: Container(
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppTheme.border, width: 1),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFE3ECF7)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF1565C0).withValues(alpha: 0.05),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
                       width: 5,
-                      height: 60,
+                      height: 64,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2083D5), // Uniform Agremate Blue
+                        color: const Color(0xFF2083D5),
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
-                    const SizedBox(width: 20),
+                    const SizedBox(width: 18),
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFE8F1FD),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.build_rounded,
+                        color: Color(0xFF2083D5),
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(req.propertyName, style: AppTheme.heading3),
+                          Text(
+                            req.propertyName,
+                            style: AppTheme.heading3.copyWith(fontSize: 17),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              Icon(
-                                Icons.person_outline_rounded,
-                                size: 14,
-                                color: AppTheme.textMuted,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                req.tenantName.isNotEmpty
-                                    ? 'By ${req.tenantName}'
-                                    : 'No Tenant',
-                                style: AppTheme.caption.copyWith(
-                                  fontWeight: FontWeight.w600,
+                              const Icon(Icons.person_outline_rounded,
+                                  size: 15, color: AppTheme.textMuted),
+                              const SizedBox(width: 5),
+                              Flexible(
+                                child: Text(
+                                  req.tenantName.isNotEmpty
+                                      ? 'By ${req.tenantName}'
+                                      : 'No Tenant',
+                                  style: AppTheme.caption.copyWith(
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],
@@ -335,143 +369,93 @@ class ServicesView extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            SizedBox(
-                              width: 140,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 4,
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      width: 190,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF1DC),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              req.description,
+                              style: const TextStyle(
+                                color: Color(0xFFB45F06),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 7),
+                            decoration: BoxDecoration(
+                              color: pillColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isDone
+                                      ? Icons.check_circle_rounded
+                                      : Icons.schedule_rounded,
+                                  size: 15,
+                                  color: pillColor,
                                 ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: AppTheme.accentCyan.withValues(
-                                      alpha: 0.5,
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    req.status
+                                        .replaceAll('_', ' ')
+                                        .toUpperCase(),
+                                    style: TextStyle(
+                                      color: pillColor,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
                                     ),
-                                    width: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  req.description,
-                                  style: const TextStyle(
-                                    color: AppTheme.accentCyan,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
+                              ],
                             ),
-                            const SizedBox(width: 10),
-                            SizedBox(
-                              width: 170,
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.calendar_today_outlined,
-                                    size: 14,
-                                    color: Colors.black,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      'Requested: ${req.requestDate.day}/${req.requestDate.month}/${req.requestDate.year}',
-                                      style: AppTheme.caption.copyWith(
-                                        fontSize: 10.5,
-                                        color: Colors.black,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            SizedBox(
-                              width: 140,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: (req.status == 'pending'
-                                            ? AppTheme.brandRed
-                                            : (req.status == 'in_progress'
-                                                ? AppTheme.accentGreen
-                                                : (req.status == 'completed'
-                                                    ? AppTheme.accentBlue
-                                                    : AppTheme.accentCyan)))
-                                        .withValues(alpha: 0.5),
-                                    width: 1,
-                                  ),
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  req.status.replaceAll('_', ' ').toUpperCase(),
-                                  style: TextStyle(
-                                    color:
-                                        req.status == 'pending'
-                                            ? AppTheme.brandRed
-                                            : (req.status == 'in_progress'
-                                                ? AppTheme.accentGreen
-                                                : (req.status == 'completed'
-                                                    ? AppTheme.accentBlue
-                                                    : AppTheme.accentCyan)),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            SizedBox(
-                              width: 170,
-                              child:
-                                  req.isCompleted && req.completedDate != null
-                                      ? Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.check_circle_outline,
-                                            size: 14,
-                                            color: Colors.black,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Expanded(
-                                            child: Text(
-                                              'Completed: ${req.completedDate!.day}/${req.completedDate!.month}/${req.completedDate!.year}',
-                                              style: AppTheme.caption.copyWith(
-                                                fontSize: 10.5,
-                                                color: Colors.black,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ],
-                                      )
-                                      : const SizedBox.shrink(),
-                            ),
-                          ],
-                        ),
-                      ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    Container(
+                      width: 1,
+                      height: 64,
+                      margin: const EdgeInsets.symmetric(horizontal: 18),
+                      color: const Color(0xFFE3ECF7),
+                    ),
+
+                    SizedBox(
+                      width: 200,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _dateRow('Requested', dateFmt.format(req.requestDate)),
+                          const SizedBox(height: 10),
+                          _dateRow(
+                            'Completed',
+                            (isDone && req.completedDate != null)
+                                ? dateFmt.format(req.completedDate!)
+                                : '—',
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -483,11 +467,67 @@ class ServicesView extends StatelessWidget {
     );
   }
 
+  Widget _dateRow(String label, String value) {
+    return Row(
+      children: [
+        const Icon(Icons.calendar_today_outlined,
+            size: 16, color: Color(0xFF475569)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: '$label: ',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+                TextSpan(
+                  text: value,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF1E293B),
+                  ),
+                ),
+              ],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _sectionHeader(String title) {
+    return Row(
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: const Color(0xFFE8F1FD),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(Icons.fact_check_outlined,
+              color: Color(0xFF2083D5), size: 22),
+        ),
+        const SizedBox(width: 12),
+        Text(title, style: AppTheme.heading2),
+      ],
+    );
+  }
+
   void _showServiceChatDialog(BuildContext context, dynamic req) {
     final List<Map<String, dynamic>> messages = req.chatMessages;
     final String propertyName = req.propertyName;
     final String issue = req.description;
-    final String status = req.status == 'completed' ? 'Solved' : 'Pending';
+    final String status = req.status == 'completed'
+        ? 'Solved'
+        : req.status.replaceAll('_', ' ');
     final String tenantName = req.tenantName;
     final String landlordName = req.landlordName;
     final String location = req.location;
@@ -525,7 +565,6 @@ class ServicesView extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Chat Header
                       Container(
                         decoration: const BoxDecoration(
                           gradient: LinearGradient(
@@ -599,47 +638,44 @@ class ServicesView extends StatelessWidget {
                                   ),
                                   const SizedBox(width: 8),
                                   Flexible(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.end,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color:
-                                                status == 'Solved'
-                                                    ? const Color(0xFF43A047)
-                                                    : const Color(0xFFE53935),
-                                            borderRadius: BorderRadius.circular(
-                                              20,
+                                    child: Align(
+                                      alignment: Alignment.topRight,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                              vertical: 7,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: req.status == 'completed'
+                                                  ? const Color(0xFF2E9E5B)
+                                                  : _statusColor(req.status),
+                                              borderRadius: BorderRadius.circular(20),
+                                            ),
+                                            child: Text(
+                                              status,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w700,
+                                              ),
                                             ),
                                           ),
-                                          child: Text(
-                                            status,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w700,
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            location,
+                                            style: TextStyle(
+                                              color: Colors.white.withValues(alpha: 0.75),
+                                              fontSize: 10,
                                             ),
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 1,
                                           ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          location,
-                                          style: TextStyle(
-                                            color: Colors.white.withValues(
-                                              alpha: 0.75,
-                                            ),
-                                            fontSize: 10,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                          maxLines: 1,
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -669,7 +705,6 @@ class ServicesView extends StatelessWidget {
                         ),
                       ),
 
-                      // Participants Bar
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 20,
@@ -697,7 +732,6 @@ class ServicesView extends StatelessWidget {
 
                       Container(height: 1, color: const Color(0xFFE0E0E0)),
 
-                      // Chat Messages
                       Expanded(
                         child:
                             messages.isEmpty
@@ -763,7 +797,6 @@ class ServicesView extends StatelessWidget {
                                 ),
                       ),
 
-                      // Footer
                       Container(
                         padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
                         decoration: const BoxDecoration(
@@ -991,5 +1024,21 @@ class ServicesView extends StatelessWidget {
         color: isTenant ? const Color(0xFF1E88E5) : const Color(0xFF43A047),
       ),
     );
+  }
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'pending':
+        return AppTheme.brandRed;
+      case 'rejected':
+        return AppTheme.brandRed;
+      case 'accepted':
+      case 'in_progress':
+        return AppTheme.accentGreen;
+      case 'completed':
+        return AppTheme.accentBlue;
+      default:
+        return AppTheme.accentCyan;
+    }
   }
 }

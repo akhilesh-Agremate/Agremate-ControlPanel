@@ -7,4 +7,3 @@ class AccountBinding extends Bindings {
     Get.lazyPut<AccountController>(() => AccountController());
   }
 }
-

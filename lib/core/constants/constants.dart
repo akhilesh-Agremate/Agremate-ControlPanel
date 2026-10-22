@@ -6,7 +6,6 @@ class AppConstants {
   static const String currency = '₹';
   static const String currencyCode = 'INR';
 
-  // Service types
   static const List<String> serviceTypes = [
     'Plumbing',
     'Electricity',
@@ -30,19 +29,18 @@ class AppConstants {
   };
 
   static const Map<String, Color> serviceColors = {
-    'Plumbing':     Color(0xFF2083D5), // Steel Blue
-    'Electricity':  Color(0xFF6CA0DA), // Blue Grey
-    'Pest Control': Color(0xFF2083D5), // Steel Blue
-    'Community':    Color(0xFF6CA0DA), // Blue Grey
-    'Mechanical':   Color(0xFF2083D5), // Steel Blue
-    'Maintenance':  Color(0xFFE24B4A), // Red (error/maintenance)
-    'Security':     Color(0xFF6CA0DA), // Blue Grey
-    'Others':       Color(0xFFCEE1F3), // Pale Sky
+    'Plumbing':     Color(0xFF2083D5),
+    'Electricity':  Color(0xFF6CA0DA),
+    'Pest Control': Color(0xFF2083D5),
+    'Community':    Color(0xFF6CA0DA),
+    'Mechanical':   Color(0xFF2083D5),
+    'Maintenance':  Color(0xFFE24B4A),
+    'Security':     Color(0xFF6CA0DA),
+    'Others':       Color(0xFFCEE1F3),
   };
 
   static const int propertiesPerPage = 30;
 
-  // Nav items
   static const List<Map<String, dynamic>> navItems = [
     {'icon': Icons.home_rounded, 'label': 'Home', 'index': 0},
     {'icon': Icons.apartment_rounded, 'label': 'Property', 'index': 1},
