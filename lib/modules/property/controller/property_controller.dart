@@ -11,6 +11,7 @@ import 'package:agremate_admin/modules/property/model/property_stats_model.dart'
 import 'package:agremate_admin/modules/property/repository/property_repository.dart';
 import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
 import 'package:agremate_admin/core/utils/app_logger.dart';
+import 'package:intl/intl.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../model/amenity_model.dart';
 import '../view/components/property_type_dialog.dart';
@@ -336,31 +337,63 @@ class PropertyController extends GetxController {
       );
       return;
     }
-
-    final api = stats.value ?? PropertyStatsModel.empty();
-    kpiStats.value = PropertyStatsModel(
-      totalProperties: api.totalProperties,
-      rentedCount: api.rentedCount,
-      availableCount: api.availableCount,
-      maintenanceCount: api.maintenanceCount,
-      totalLandlords: landlords.length,
-      activeLandlordCount: landlords.where((l) => l.isActive).length,
-      totalTenants: tenants.length,
-      tenantsAcrossProperties: api.tenantsAcrossProperties,
-      totalRevenue: api.totalRevenue,
-      propertiesSparkline: api.propertiesSparkline,
-      landlordsSparkline: api.landlordsSparkline,
-      tenantsSparkline: api.tenantsSparkline,
-      revenueSparkline: api.revenueSparkline,
-      chartLabels: api.chartLabels,
-    );
+    kpiStats.value = stats.value ?? PropertyStatsModel.empty();
   }
 
   PropertyStatsModel get displayStats => kpiStats.value;
 
+  static const _createdKeys = [
+    'createdAt', 'createdDate', 'createdOn', 'createdTime',
+    'creationDate', 'addedOn', 'dateCreated',
+  ];
+
+  DateTime? _parseDate(dynamic v) {
+    if (v == null) return null;
+    if (v is DateTime) return v;
+    return DateTime.tryParse(v.toString());
+  }
+
+  DateTime? _createdDate(PropertyModel p) {
+    for (final k in _createdKeys) {
+      final d = _parseDate(p.rawJson[k]);
+      if (d != null) return d;
+    }
+    return null;
+  }
+
+  DateTime? _tenancyStart(PropertyModel p) =>
+      p.tenancyStartDate ?? _parseDate(p.rawJson['tenancyStartDate']);
+
+  List<DateTime> _last12Months() {
+    final now = DateTime.now();
+    return List.generate(12, (i) => DateTime(now.year, now.month - 11 + i));
+  }
+
+  List<double> _bucketByMonth(
+      Iterable<MapEntry<DateTime?, double>> items,
+      List<DateTime> months,
+      ) {
+    final out = List<double>.filled(months.length, 0);
+    for (final e in items) {
+      final d = e.key?.toLocal();
+      if (d == null) continue;
+      for (var i = 0; i < months.length; i++) {
+        if (d.year == months[i].year && d.month == months[i].month) {
+          out[i] += e.value;
+          break;
+        }
+      }
+    }
+    return out;
+  }
+
   PropertyStatsModel _statsFromAssociatedProperties() {
-    final uniqueLandlords = <String>{};
+    final months = _last12Months();
     final uniqueTenants = <String>{};
+    final landlordFirstSeen = <String, DateTime?>{};
+    final propertyItems = <MapEntry<DateTime?, double>>[];
+    final tenantItems = <MapEntry<DateTime?, double>>[];
+    final revenueItems = <MapEntry<DateTime?, double>>[];
     var rented = 0;
     var available = 0;
     var maintenance = 0;
@@ -371,31 +404,61 @@ class PropertyController extends GetxController {
       if (p.isRented) rented++;
       if (p.status == PropertyStatus.available) available++;
       if (p.status == PropertyStatus.maintenance) maintenance++;
-      revenue += p.rentAmount;
 
-      final landlordKey =
-          p.landlordId.isNotEmpty ? p.landlordId : p.landlordName.trim();
-      if (landlordKey.isNotEmpty) uniqueLandlords.add(landlordKey.toLowerCase());
+      final created = _createdDate(p);
+      propertyItems.add(MapEntry(created, 1));
+
+      final landlordKey = (p.landlordId.isNotEmpty
+          ? p.landlordId
+          : p.landlordName.trim())
+          .toLowerCase();
+      if (landlordKey.isNotEmpty) {
+        final prev = landlordFirstSeen[landlordKey];
+        if (!landlordFirstSeen.containsKey(landlordKey) ||
+            (created != null && (prev == null || created.isBefore(prev)))) {
+          landlordFirstSeen[landlordKey] = created;
+        }
+      }
 
       final tenantKey = (p.tenantIds.isNotEmpty
-              ? p.tenantIds.first
-              : (p.primaryTenantName ?? '').trim());
+          ? p.tenantIds.first
+          : (p.primaryTenantName ?? '').trim())
+          .toLowerCase();
       if (tenantKey.isNotEmpty) {
-        uniqueTenants.add(tenantKey.toLowerCase());
         tenantsAcross++;
+        if (uniqueTenants.add(tenantKey)) {
+          tenantItems.add(MapEntry(_tenancyStart(p), 1));
+        }
+      }
+
+      if (p.isRented) {
+        revenue += p.rentAmount;
+        revenueItems.add(MapEntry(_tenancyStart(p), p.rentAmount.toDouble()));
       }
     }
+
+    final dated = propertyItems.where((e) => e.key != null).length;
+    AppLogger.i('PropertyController',
+        'KPI sparkline: $dated/${properties.length} properties have a created date');
 
     return PropertyStatsModel(
       totalProperties: properties.length,
       rentedCount: rented,
       availableCount: available,
       maintenanceCount: maintenance,
-      totalLandlords: uniqueLandlords.length,
-      activeLandlordCount: uniqueLandlords.length,
+      totalLandlords: landlordFirstSeen.length,
+      activeLandlordCount: landlordFirstSeen.length,
       totalTenants: uniqueTenants.length,
       tenantsAcrossProperties: tenantsAcross,
       totalRevenue: revenue,
+      propertiesSparkline: _bucketByMonth(propertyItems, months),
+      landlordsSparkline: _bucketByMonth(
+        landlordFirstSeen.values.map((d) => MapEntry<DateTime?, double>(d, 1)),
+        months,
+      ),
+      tenantsSparkline: _bucketByMonth(tenantItems, months),
+      revenueSparkline: _bucketByMonth(revenueItems, months),
+      chartLabels: months.map((m) => DateFormat('MMM').format(m)).toList(),
     );
   }
 

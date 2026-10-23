@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:agremate_admin/core/theme/theme.dart';
 import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
+import 'components/resizable_sidebar_layout.dart';
 import 'components/sidebar.dart';
 import 'components/top_bar.dart';
+import 'components/app_footer.dart';
 import 'package:agremate_admin/modules/home/view/home_view.dart';
 import 'package:agremate_admin/modules/property/view/property_view.dart';
 import 'package:agremate_admin/modules/services/view/services_view.dart';
@@ -58,34 +60,31 @@ class MainLayout extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppTheme.bgDark,
-      body: Row(
-        children: [
-          const Sidebar(),
-          Expanded(
-            child: Column(
-              children: [
-                const TopBar(),
-                Expanded(
-                  child: Obx(() {
-                    final index = nav.currentIndex.value;
-                    if (index >= pages.length) {
-                      return const Center(child: Text('Page not found'));
-                    }
-                    return AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      child: SizedBox(
-                        key: ValueKey(index),
-                        width: double.infinity,
-                        height: double.infinity,
-                        child: pages[index],
-                      ),
-                    );
-                  }),
-                ),
-              ],
+      body: ResizableSidebarLayout(
+        sidebarBuilder: (context, collapsed) => Sidebar(collapsed: collapsed),
+        body: Column(
+          children: [
+            const TopBar(),
+            Expanded(
+              child: Obx(() {
+                final index = nav.currentIndex.value;
+                if (index >= pages.length) {
+                  return const Center(child: Text('Page not found'));
+                }
+                return AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: SizedBox(
+                    key: ValueKey(index),
+                    width: double.infinity,
+                    height: double.infinity,
+                    child: pages[index],
+                  ),
+                );
+              }),
             ),
-          ),
-        ],
+            const AppFooter(),
+          ],
+        ),
       ),
     );
   }

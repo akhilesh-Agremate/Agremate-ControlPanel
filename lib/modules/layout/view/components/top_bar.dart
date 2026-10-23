@@ -124,7 +124,6 @@ class _TopBarState extends State<TopBar> {
   @override
   void initState() {
     super.initState();
-    // Hide overlay when search results change
     ever(nav.searchResults, (results) {
       if (results.isNotEmpty && _overlayEntry == null) {
         _showOverlay();
@@ -132,7 +131,6 @@ class _TopBarState extends State<TopBar> {
         _hideOverlay();
       }
     });
-    // Hide overlay when a property card is tapped (selectedProperty changes)
     ever(Get.find<PropertyController>().selectedProperty, (_) {
       if (_overlayEntry != null) {
         nav.searchResults.clear();
@@ -140,7 +138,6 @@ class _TopBarState extends State<TopBar> {
         _hideOverlay();
       }
     });
-    // Hide overlay when tab changes
     ever(nav.currentIndex, (_) {
       if (_overlayEntry != null) {
         _hideOverlay();
@@ -179,6 +176,13 @@ class _TopBarState extends State<TopBar> {
         ),
         child: Row(
           children: [
+            if (MediaQuery.of(context).size.width < 800)
+              Builder(
+                builder: (ctx) => IconButton(
+                  icon: const Icon(Icons.menu_rounded, color: AppTheme.textPrimary),
+                  onPressed: () => Scaffold.of(ctx).openDrawer(),
+                ),
+              ),
             Text(title, style: AppTheme.heading2),
             const Spacer(),
             if (showSearch)

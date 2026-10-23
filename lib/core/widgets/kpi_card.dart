@@ -42,7 +42,9 @@ class _KpiCardState extends State<KpiCard> {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: List.generate(data.length, (i) {
         final val = data[i];
-        final hFactor = range > 0 ? ((val - minVal) / range) * 0.7 + 0.3 : 0.5;
+        final hFactor = range > 0
+            ? ((val - minVal) / range) * 0.7 + 0.3
+            : (maxVal > 0 ? 0.5 : 0.12);
         final isSelected = _selectedIndex == i;
         const baseBlue = Color(0xFF2083D5);
         final barColor = isSelected

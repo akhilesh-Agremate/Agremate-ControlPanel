@@ -16,7 +16,7 @@ class AgremateAdmin extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
-      title: 'Agremate Admin',
+      title: 'Agremate Dashboard',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       initialRoute: AppRoutes.login,

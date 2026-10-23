@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:get/get.dart';
 import 'package:agremate_admin/routes/app_routes.dart';
 import 'package:agremate_admin/core/utils/app_logger.dart';
+import '../../../core/constants/app_strings.dart';
 import '../model/model.dart';
 import 'auth_service.dart';
 
@@ -32,10 +33,10 @@ class AuthController extends GetxController {
   bool get isRestrictedRole => isLandlord || isTenant;
 
   String get roleLabel {
-    if (isSuperAdmin) return 'Super Admin';
-    if (isLandlord) return 'Landlord';
-    if (isTenant) return 'Tenant';
-    return role.value.isNotEmpty ? role.value : 'N/A';
+    if (isSuperAdmin) return AppStrings.superAdmin;
+    if (isLandlord) return AppStrings.landlord;
+    if (isTenant) return AppStrings.tenant;
+    return role.value.isNotEmpty ? role.value : AppStrings.notAvailable;
   }
 
   final phoneNumber = ''.obs;
@@ -51,17 +52,18 @@ class AuthController extends GetxController {
   AccessCheckResult? _pendingAccess;
 
   Timer? _timer;
-  String get headingText => isOtpSent.value ? 'Verify OTP' : 'Login';
+  String get headingText =>
+      isOtpSent.value ? AppStrings.verifyOtp : AppStrings.login;
 
   String get subtitleText => isOtpSent.value
-      ? 'Enter the $otpLength-digit code sent to ${phoneNumber.value}'
-      : 'Enter your phone number to continue';
+      ? AppStrings.otpSentTo(otpLength, phoneNumber.value)
+      : AppStrings.loginSubtitle;
 
-  String get otpHint => 'Enter $otpLength-digit OTP';
+  String get otpHint => AppStrings.enterOtpHint(otpLength);
 
   String get resendLabel => secondsRemaining.value > 0
-      ? 'Resend OTP in ${formatTime(secondsRemaining.value)}'
-      : 'Resend OTP';
+      ? AppStrings.resendOtpIn(formatTime(secondsRemaining.value))
+      : AppStrings.resendOtp;
 
   bool get canResend => !isLoading.value && secondsRemaining.value == 0;
 
@@ -108,11 +110,11 @@ class AuthController extends GetxController {
 
     phone = phone.trim();
     if (phone.isEmpty) {
-      phoneError.value = 'Phone number is required.';
+      phoneError.value =AppStrings.phoneRequired;
       return;
     }
     if (phone.length != phoneLength) {
-      phoneError.value = 'Phone number must be exactly $phoneLength digits.';
+      phoneError.value = AppStrings.phoneLengthError(phoneLength);
       return;
     }
 
@@ -128,7 +130,7 @@ class AuthController extends GetxController {
         AppLogger.w('AuthController', 'Access denied for login');
         errorMessage.value = access.message.isNotEmpty
             ? access.message
-            : 'This phone number is not authorized as Super Admin, Landlord, or Tenant.';
+            : AppStrings.notAuthorized;
         return;
       }
 
@@ -166,15 +168,15 @@ class AuthController extends GetxController {
 
     otp = otp.trim();
     if (otp.isEmpty) {
-      otpError.value = 'OTP is required.';
+      otpError.value = AppStrings.otpRequired;
       return;
     }
     if (otp.length != otpLength) {
-      otpError.value = 'Verification code must be $otpLength digits.';
+      otpError.value = AppStrings.otpLengthError(otpLength);
       return;
     }
     if (secondsRemaining.value <= 0) {
-      otpError.value = 'Invalid OTP. Code has expired.';
+      otpError.value = AppStrings.otpExpired;
       return;
     }
 
@@ -186,7 +188,7 @@ class AuthController extends GetxController {
       if (!res.status || authSession == null || !authSession.isSuccess) {
         AppLogger.w('AuthController', 'OTP verification failed');
         errorMessage.value =
-        res.message.isNotEmpty ? res.message : 'OTP verification failed';
+        res.message.isNotEmpty ? res.message : AppStrings.otpVerificationFailed;
         return;
       }
 
@@ -221,7 +223,7 @@ class AuthController extends GetxController {
     } else {
       AppLogger.w('AuthController', 'Failed to send OTP');
       errorMessage.value =
-      res.message.isNotEmpty ? res.message : 'Failed to send OTP';
+      res.message.isNotEmpty ? res.message : AppStrings.failedToSendOtp;
     }
   }
 
