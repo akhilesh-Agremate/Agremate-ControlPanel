@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:agremate_admin/modules/account/repository/account_repository.dart';
 import 'package:agremate_admin/modules/account/model/role_model.dart';
 import 'package:agremate_admin/core/theme/theme.dart';
+import '../../../core/constants/app_strings.dart';
 import '../../auth/controller/auth_controller.dart';
 import '../model/account_model.dart';
 
@@ -170,24 +171,23 @@ class AccountController extends GetxController {
     bool hasError = false;
 
     if (emailPhone.isEmpty) {
-      emailPhoneError.value = 'Phone number or Email is required.';
+      emailPhoneError.value = AppStrings.emailOrPhoneRequired;
       hasError = true;
     } else if (!_isValidEmail(emailPhone) && !_isValidPhone(emailPhone)) {
-      emailPhoneError.value = 'Enter a valid Email or 10-digit Phone number.';
+      emailPhoneError.value = AppStrings.emailOrPhoneInvalid;
       hasError = true;
     }
 
     if (password.isEmpty) {
-      passwordError.value = 'Password is required.';
+      passwordError.value =  AppStrings.passwordRequired;
       hasError = true;
     } else if (password.length < 6 || !_isPasswordComplex(password)) {
-      passwordError.value =
-      r'Must be at least 6 chars and include uppercase, lowercase, number, and special char (@#$%&).';
+      passwordError.value = AppStrings.passwordComplexity;
       hasError = true;
     }
 
     if (selectedRole == null) {
-      roleError.value = 'Please select a role.';
+      roleError.value = AppStrings.roleRequired;
       hasError = true;
     }
 
@@ -200,8 +200,8 @@ class AccountController extends GetxController {
         role: selectedRole!,
       );
       Get.snackbar(
-        'Success',
-        'Account registered successfully!',
+        AppStrings.success,
+        AppStrings.accountRegistered,
         backgroundColor: const Color(0xFF10B981),
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
@@ -228,8 +228,8 @@ class AccountController extends GetxController {
         phoneNumber: formattedPhone,
       );
       Get.snackbar(
-        'Success',
-        'User created successfully.',
+        AppStrings.success,
+        AppStrings.userCreated,
         backgroundColor: AppTheme.accentGreen,
         colorText: Colors.white,
         snackPosition: SnackPosition.BOTTOM,
@@ -238,7 +238,7 @@ class AccountController extends GetxController {
       return true;
     } catch (e) {
       Get.snackbar(
-        'Error',
+        AppStrings.error,
         e.toString().replaceAll('Exception: ', ''),
         backgroundColor: AppTheme.accentRed,
         colorText: Colors.white,

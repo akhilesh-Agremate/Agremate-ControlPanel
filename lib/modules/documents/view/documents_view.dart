@@ -5,7 +5,8 @@ import 'package:agremate_admin/core/widgets/web_network_image.dart';
 import 'package:agremate_admin/modules/documents/controller/document_controller.dart';
 import 'package:agremate_admin/modules/documents/model/document_model.dart';
 import 'package:agremate_admin/modules/property/model/property_model.dart';
-
+import '../../../core/constants/app_strings.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/full_pdf_page.dart';
 import '../../../core/widgets/pdf_iframe_view.dart';
 
@@ -27,17 +28,17 @@ class DocumentsView extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, color: Color(0xFFEF4444), size: 48),
+              const Icon(Icons.error_outline, color: AppColors.error, size: 48),
               const SizedBox(height: 16),
               Text(
                 dc.errorMessage.value,
-                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+                style: const TextStyle(color: AppColors.hintGrey, fontSize: 14),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: dc.refreshData,
-                child: const Text('Retry'),
+                child: const Text(AppStrings.retry),
               ),
             ],
           ),
@@ -64,7 +65,7 @@ class _PropertyCardsView extends StatelessWidget {
     final items = dc.visibleProperties;
 
     return ColoredBox(
-      color: const Color(0xFFF8FAFD),
+      color: AppColors.scaffoldLight,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(28),
         child: items.isEmpty
@@ -72,11 +73,11 @@ class _PropertyCardsView extends StatelessWidget {
                 padding: EdgeInsets.only(top: 80),
                 child: Center(
                   child: Text(
-                    'No properties found.',
+                    AppStrings.noPropertiesFound,
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF94A3B8),
+                      color: AppColors.hintGrey,
                     ),
                   ),
                 ),
@@ -125,7 +126,7 @@ class _DocumentPropertyCard extends StatelessWidget {
     final tenantName =
         (prop.primaryTenantName != null && prop.primaryTenantName!.isNotEmpty)
             ? prop.primaryTenantName!
-            : 'N/A';
+            :  AppStrings.notAvailable;
     final hasImage = prop.imageUrl != null && prop.imageUrl!.trim().isNotEmpty;
 
     return SizedBox(
@@ -135,7 +136,7 @@ class _DocumentPropertyCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF2563EB).withValues(alpha: 0.10),
+              color: AppColors.shadowBlue.withValues(alpha: 0.10),
               blurRadius: 16,
               offset: const Offset(0, 8),
             ),
@@ -147,11 +148,11 @@ class _DocumentPropertyCard extends StatelessWidget {
           ],
         ),
         child: Material(
-          color: Colors.white,
+          color: AppColors.white,
           clipBehavior: Clip.antiAlias,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: Color(0xFFD6E8FA), width: 1.5),
+            side: const BorderSide(color: AppColors.borderLight, width: 1.5),
           ),
           child: InkWell(
             onTap: onTap,
@@ -200,7 +201,7 @@ class _DocumentPropertyCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: AppColors.white,
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
                           ),
@@ -211,14 +212,14 @@ class _DocumentPropertyCard extends StatelessWidget {
                             Expanded(
                               child: _personLabel(
                                 icon: Icons.person_rounded,
-                                text: 'Landlord: ${prop.landlordName}',
+                                text: AppStrings.landlordLabel(prop.landlordName),
                               ),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: _personLabel(
                                 icon: Icons.groups_outlined,
-                                text: 'Tenant: $tenantName',
+                                text: AppStrings.tenantLabel(tenantName),
                               ),
                             ),
                           ],
@@ -281,15 +282,15 @@ class _PropertyDocumentsView extends StatelessWidget {
     final files = dc.currentFiles;
 
     return ColoredBox(
-      color: const Color(0xFFFBFDFF),
+      color: AppColors.documentsBg,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
             decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: Color(0xFFEDF2F7))),
+              color: AppColors.white,
+              border: Border(bottom: BorderSide(color: AppColors.dividerLight)),
             ),
             child: Row(
               children: [
@@ -305,18 +306,18 @@ class _PropertyDocumentsView extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Documents',
+                        AppStrings.documents,
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF1E293B),
+                          color: AppColors.textDark,
                         ),
                       ),
                       Text(
                         property.name,
                         style: const TextStyle(
                           fontSize: 13,
-                          color: Color(0xFF94A3B8),
+                          color: AppColors.hintGrey,
                         ),
                       ),
                     ],
@@ -338,16 +339,16 @@ class _PropertyDocumentsView extends StatelessWidget {
                                 children: [
                                   Icon(
                                     Icons.folder_off_rounded,
-                                    color: Color(0xFFE2E8F0),
+                                    color: AppColors.inputBorder,
                                     size: 80,
                                   ),
                                   SizedBox(height: 16),
                                   Text(
-                                    'No documents found for this property',
+                                    AppStrings.noDocumentsFound,
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
-                                      color: Color(0xFF94A3B8),
+                                      color: AppColors.hintGrey,
                                     ),
                                   ),
                                 ],
@@ -370,7 +371,7 @@ class _PropertyDocumentsView extends StatelessWidget {
                                     vertical: 18,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
+                                    color: AppColors.white,
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
                                       color: const Color(0xFFEDF2F7),
@@ -402,7 +403,7 @@ class _PropertyDocumentsView extends StatelessWidget {
                                               style: const TextStyle(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.w700,
-                                                color: Color(0xFF1E293B),
+                                                color:AppColors.textDark,
                                               ),
                                             ),
                                             const SizedBox(height: 2),
@@ -412,7 +413,7 @@ class _PropertyDocumentsView extends StatelessWidget {
                                               style: const TextStyle(
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.w500,
-                                                color: Color(0xFF94A3B8),
+                                                color: AppColors.hintGrey,
                                               ),
                                             ),
                                           ],
@@ -454,7 +455,7 @@ class _PropertyDocumentsView extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.white,
         insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Container(
@@ -479,7 +480,7 @@ class _PropertyDocumentsView extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF1E293B),
+                        color:AppColors.textDark,
                       ),
                     ),
                   ),
@@ -494,9 +495,9 @@ class _PropertyDocumentsView extends StatelessWidget {
                 child: Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
+                    color: AppColors.inputFill,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    border: Border.all(color: AppColors.inputBorder),
                   ),
                   child: _buildPreviewBody(file),
                 ),
@@ -510,11 +511,11 @@ class _PropertyDocumentsView extends StatelessWidget {
                       onPressed: () {
                         downloadFileWeb(file.relativePath!, file.name);
                       },
-                      child: const Text('Open / Download'),
+                      child: const Text(AppStrings.openDownload),
                     ),
                   TextButton(
                     onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Close'),
+                    child: const Text(AppStrings.close),
                   ),
                 ],
               ),
@@ -532,8 +533,8 @@ class _PropertyDocumentsView extends StatelessWidget {
     if (url.isEmpty) {
       return const Center(
         child: Text(
-          'Document preview is not available.',
-          style: TextStyle(color: Color(0xFF94A3B8)),
+          AppStrings.previewNotAvailable,
+          style: TextStyle(color: AppColors.hintGrey),
         ),
       );
     }

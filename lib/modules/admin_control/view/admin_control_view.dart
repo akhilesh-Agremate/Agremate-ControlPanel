@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:agremate_admin/core/theme/theme.dart';
 import 'package:agremate_admin/modules/admin_control/controller/admin_control_controller.dart';
+import '../../../core/constants/app_strings.dart';
+import '../../../core/theme/app_colors.dart';
 
 class AdminControlView extends StatelessWidget {
   const AdminControlView({super.key});
@@ -11,27 +13,26 @@ class AdminControlView extends StatelessWidget {
     final controller = Get.find<AdminControlController>();
 
     return ColoredBox(
-      color: const Color(0xFFF8FAFD),
+      color: AppColors.scaffoldLight,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(28),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Admin Control', style: AppTheme.heading2),
+            Text(AppStrings.adminControl, style: AppTheme.heading2),
             const SizedBox(height: 4),
             Text(
-              'Manage platform-level settings and configurations.',
+              AppStrings.adminControlSubtitle,
               style: AppTheme.caption,
             ),
             const SizedBox(height: 28),
-            Text('Tenant Visibility Settings', style: AppTheme.heading3),
+            Text(AppStrings.tenantVisibilitySettings, style: AppTheme.heading3),
             const SizedBox(height: 16),
             Obx(() => _SettingCard(
-              title: 'Landlord Contact Mask',
-              description:
-              'When enabled, tenant users will not see the landlord\'s contact details (phone number and email). Their information will be hidden across the platform.',
+              title: AppStrings.landlordContactMask,
+              description: AppStrings.landlordContactMaskDescription,
               icon: Icons.contacts_outlined,
-              iconColor: const Color(0xFF2F6BFF),
+              iconColor: AppColors.primaryBlue,
               isEnabled: controller.isContactMaskEnabled.value,
               onToggle: controller.toggleContactMask,
             )),
@@ -67,13 +68,13 @@ class _SettingCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: isEnabled
-              ? const Color(0xFF2F6BFF).withValues(alpha: 0.3)
-              : const Color(0xFFD6E8FA),
+              ? AppColors.primaryBlue.withValues(alpha: 0.3)
+              : AppColors.borderLight,
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF2563EB).withValues(alpha: 0.07),
+            color: AppColors.shadowBlue.withValues(alpha: 0.07),
             blurRadius: 20,
             offset: const Offset(0, 6),
           ),
@@ -120,17 +121,17 @@ class _SettingCard extends StatelessWidget {
                   const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: isEnabled
-                        ? const Color(0xFF22C55E).withValues(alpha: 0.1)
+                        ? AppColors.success.withValues(alpha: 0.1)
                         : AppTheme.textMuted.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    isEnabled ? 'Enabled' : 'Disabled',
+                    isEnabled ? AppStrings.enabled : AppStrings.disabled,
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                       color: isEnabled
-                          ? const Color(0xFF22C55E)
+                          ? AppColors.success
                           : AppTheme.textMuted,
                     ),
                   ),
@@ -142,8 +143,8 @@ class _SettingCard extends StatelessWidget {
           Switch(
             value: isEnabled,
             onChanged: onToggle,
-            activeThumbColor: const Color(0xFF2F6BFF),
-            activeTrackColor: const Color(0xFF2F6BFF).withValues(alpha: 0.25),
+            activeThumbColor: AppColors.primaryBlue,
+            activeTrackColor: AppColors.primaryBlue.withValues(alpha: 0.25),
             inactiveThumbColor: AppTheme.textMuted,
             inactiveTrackColor: AppTheme.textMuted.withValues(alpha: 0.15),
           ),

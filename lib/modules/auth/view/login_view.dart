@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
+import '../../../core/constants/app_strings.dart';
+import '../../../core/theme/app_colors.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
@@ -71,27 +73,27 @@ class _LoginViewState extends State<LoginView> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                isOtpSent ? 'Verify OTP' : 'Login',
+                                isOtpSent ? AppStrings.verifyOtp : AppStrings.login,
                                 style: GoogleFonts.inter(
                                   fontSize: 28,
                                   fontWeight: FontWeight.w800,
-                                  color: const Color(0xFF1E293B),
+                                  color: AppColors.textDark,
                                 ),
                               ),
                               const SizedBox(height: 6),
                               Text(
                                 isOtpSent
-                                    ? 'Enter the ${AuthController.otpLength}-digit code sent to ${auth.phoneNumber.value}'
-                                    : 'Enter your phone number to continue',
+                                    ? AppStrings.otpSentTo(AuthController.otpLength, auth.phoneNumber.value)
+                                    : AppStrings.loginSubtitle,
                                 style: GoogleFonts.inter(
                                   fontSize: 14,
-                                  color: const Color(0xFF64748B),
+                                  color: AppColors.textGrey,
                                 ),
                               ),
                               const SizedBox(height: 32),
 
                               if (!isOtpSent) ...[
-                                _label('Phone Number'),
+                                _label(AppStrings.phoneNumber),
                                 const SizedBox(height: 10),
                                 TextField(
                                   controller: _phoneController,
@@ -101,7 +103,7 @@ class _LoginViewState extends State<LoginView> {
                                     LengthLimitingTextInputFormatter(10),
                                   ],
                                   style: GoogleFonts.inter(
-                                    color: const Color(0xFF1E293B),
+                                    color: AppColors.textDark,
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -114,14 +116,14 @@ class _LoginViewState extends State<LoginView> {
                                       crossAxisAlignment: CrossAxisAlignment.center,
                                       children: [
                                         const SizedBox(width: 16),
-                                        const Icon(Icons.phone_outlined, color: Color(0xFF4A90D9), size: 20),
+                                        const Icon(Icons.phone_outlined, color: AppColors.loginPrimary, size: 20),
                                         const SizedBox(width: 8),
                                         Padding(
                                           padding: const EdgeInsets.only(top: 3),
                                           child: Text(
-                                            '+91',
+                                            AppStrings.countryCode,
                                             style: GoogleFonts.inter(
-                                              color: const Color(0xFF1E293B),
+                                              color: AppColors.textDark,
                                               fontSize: 14,
                                               fontWeight: FontWeight.w600,
                                             ),
@@ -143,10 +145,10 @@ class _LoginViewState extends State<LoginView> {
                                         ? null
                                         : () => auth.onSendOtpPressed(_phoneController.text.trim()),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF4A90D9),
-                                      foregroundColor: Colors.white,
+                                      backgroundColor: AppColors.loginPrimary,
+                                      foregroundColor: AppColors.white,
                                       disabledBackgroundColor:
-                                      const Color(0xFF4A90D9).withValues(alpha: 0.6),
+                                      AppColors.loginPrimary.withValues(alpha: 0.6),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(14),
                                       ),
@@ -158,11 +160,11 @@ class _LoginViewState extends State<LoginView> {
                                       height: 22,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2.5,
-                                        color: Colors.white,
+                                        color: AppColors.white,
                                       ),
                                     )
                                         : Text(
-                                      'Send OTP',
+                                      AppStrings.sendOtp,
                                       style: GoogleFonts.inter(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w700,
@@ -172,7 +174,7 @@ class _LoginViewState extends State<LoginView> {
                                   ),
                                 ),
                               ] else ...[
-                                _label('Verification Code'),
+                                _label(AppStrings.verificationCode),
                                 const SizedBox(height: 10),
                                 TextField(
                                   controller: _otpController,
@@ -182,7 +184,7 @@ class _LoginViewState extends State<LoginView> {
                                     LengthLimitingTextInputFormatter(AuthController.otpLength),
                                   ],
                                   style: GoogleFonts.inter(
-                                    color: const Color(0xFF1E293B),
+                                    color:AppColors.textDark,
                                     fontSize: 14,
                                   ),
                                   decoration: _inputDecor(
@@ -203,12 +205,12 @@ class _LoginViewState extends State<LoginView> {
                                           : () => auth.onResendOtpPressed(),
                                       child: Text(
                                         secondsRemaining > 0
-                                            ? 'Resend OTP in ${auth.formatTime(secondsRemaining)}'
-                                            : 'Resend OTP',
+                                            ? AppStrings.resendOtpIn(auth.formatTime(secondsRemaining))
+                                            : AppStrings.resendOtp,
                                         style: GoogleFonts.inter(
                                           color: secondsRemaining > 0
-                                              ? const Color(0xFF94A3B8)
-                                              : const Color(0xFF4A90D9),
+                                              ? AppColors.hintGrey
+                                              : AppColors.loginPrimary,
                                           fontWeight: FontWeight.w600,
                                           fontSize: 13,
                                         ),
@@ -222,9 +224,9 @@ class _LoginViewState extends State<LoginView> {
                                         _otpController.clear();
                                       },
                                       child: Text(
-                                        'Change Number',
+                                        AppStrings.changeNumber,
                                         style: GoogleFonts.inter(
-                                          color: const Color(0xFF64748B),
+                                          color: AppColors.textGrey,
                                           fontWeight: FontWeight.w600,
                                           fontSize: 13,
                                         ),

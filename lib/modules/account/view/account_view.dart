@@ -5,10 +5,11 @@ import 'package:agremate_admin/core/theme/theme.dart';
 import 'package:agremate_admin/modules/account/controller/account_controller.dart';
 import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
 import 'package:agremate_admin/core/widgets/glass_card.dart';
+import '../../../core/constants/app_strings.dart';
 import '../model/account_model.dart';
 import '../model/role_model.dart';
 
-String _na(String v) => v.trim().isEmpty ? 'N/A' : v.trim();
+String _na(String v) => v.trim().isEmpty ? AppStrings.notAvailable : v.trim();
 
 class AccountView extends StatelessWidget {
   const AccountView({super.key});
@@ -93,7 +94,7 @@ class AccountView extends StatelessWidget {
                       ac.isEditing.value ? Icons.close : Icons.edit,
                       size: 16,
                     ),
-                    label: Text(ac.isEditing.value ? 'Cancel' : 'Edit Profile'),
+                    label: Text(ac.isEditing.value ? AppStrings.cancel : AppStrings.editProfile),
                     style: ElevatedButton.styleFrom(
                       backgroundColor:
                           ac.isEditing.value
@@ -138,12 +139,12 @@ class AccountView extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Logout',
+                        AppStrings.logout,
                         style: AppTheme.heading3.copyWith(
                           color: AppTheme.accentRed,
                         ),
                       ),
-                      Text('Sign out of your account', style: AppTheme.caption),
+                      Text(AppStrings.logoutSubtitle, style: AppTheme.caption),
                     ],
                   ),
                   const Spacer(),
@@ -167,18 +168,18 @@ class AccountView extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
             ),
             title: const Text(
-              'Logout',
+              AppStrings.logout,
               style: TextStyle(color: AppTheme.textPrimary),
             ),
             content: const Text(
-              'Are you sure you want to logout?',
+              AppStrings.logoutConfirmation,
               style: TextStyle(color: AppTheme.textSecondary),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
                 child: const Text(
-                  'Cancel',
+                  AppStrings.cancel,
                   style: TextStyle(color: AppTheme.textMuted),
                 ),
               ),
@@ -191,7 +192,7 @@ class AccountView extends StatelessWidget {
                   auth.logout();
                 },
                 child: const Text(
-                  'Logout',
+                  AppStrings.logout,
                   style: TextStyle(color: Colors.white),
                 ),
               ),
@@ -211,21 +212,21 @@ class _ProfileDetails extends StatelessWidget {
       children: [
         _DetailRow(
           icon: Icons.email_rounded,
-          label: 'Email',
+          label: AppStrings.email,
           value: _na(user.email),
           color: AppTheme.accentCyan,
         ),
         const SizedBox(height: 12),
         _DetailRow(
           icon: Icons.phone_rounded,
-          label: 'Phone',
+          label: AppStrings.phone,
           value: _na(user.phone),
           color: AppTheme.accentGreen,
         ),
         const SizedBox(height: 12),
         _DetailRow(
           icon: Icons.badge_rounded,
-          label: 'Role',
+          label: AppStrings.role,
           value: _na(user.role),
           color: AppTheme.accentPurple,
         ),
@@ -300,24 +301,24 @@ class _EditFormState extends State<_EditForm> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Edit Profile', style: AppTheme.heading3),
+          Text(AppStrings.editProfile, style: AppTheme.heading3),
           const SizedBox(height: 20),
           TextField(
             controller: nameC,
             style: const TextStyle(color: AppTheme.textPrimary),
-            decoration: const InputDecoration(labelText: 'Full Name'),
+            decoration: const InputDecoration(labelText: AppStrings.fullName),
           ),
           const SizedBox(height: 16),
           TextField(
             controller: emailC,
             style: const TextStyle(color: AppTheme.textPrimary),
-            decoration: const InputDecoration(labelText: 'Email'),
+            decoration: const InputDecoration(labelText: AppStrings.email),
           ),
           const SizedBox(height: 16),
           TextField(
             controller: phoneC,
             style: const TextStyle(color: AppTheme.textPrimary),
-            decoration: const InputDecoration(labelText: 'Phone'),
+            decoration: const InputDecoration(labelText: AppStrings.phone),
           ),
           const SizedBox(height: 24),
           ElevatedButton(
@@ -327,7 +328,7 @@ class _EditFormState extends State<_EditForm> {
                   emailC.text,
                   phoneC.text,
                 ),
-            child: const Text('Save Changes'),
+            child: const Text(AppStrings.saveChanges),
           ),
         ],
       ),
@@ -375,7 +376,7 @@ class _RegisterNewAccountState extends State<_RegisterNewAccount> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Register New Account', style: AppTheme.heading2),
+          Text(AppStrings.registerNewAccount, style: AppTheme.heading2),
           const SizedBox(height: 24),
           TextField(
             controller: _phoneController,
@@ -386,8 +387,8 @@ class _RegisterNewAccountState extends State<_RegisterNewAccount> {
             ],
             style: const TextStyle(color: AppTheme.textPrimary),
             decoration: const InputDecoration(
-              labelText: 'Phone Number',
-              prefixText: '+91 ',
+              labelText: AppStrings.phoneNumber,
+              prefixText: AppStrings.phonePrefix,
               filled: true,
               fillColor: Colors.white,
             ),
@@ -418,7 +419,7 @@ class _RegisterNewAccountState extends State<_RegisterNewAccount> {
                       controller: _roleDropdownController,
                       width: constraints.maxWidth,
                       initialSelection: _selectedRole,
-                      hintText: isLoading ? 'Loading roles...' : 'Select a role',
+                      hintText: isLoading ? AppStrings.loadingRoles : AppStrings.selectRole,
                       enabled: !isLoading,
                       textStyle: const TextStyle(color: AppTheme.textPrimary),
                       inputDecorationTheme: Theme.of(context)
@@ -459,8 +460,7 @@ class _RegisterNewAccountState extends State<_RegisterNewAccount> {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          'Failed to load roles: $rolesError',
+                        child: Text(AppStrings.failedToLoadRoles(rolesError),
                           style: const TextStyle(
                             color: AppTheme.accentRed,
                             fontSize: 12,
@@ -469,7 +469,7 @@ class _RegisterNewAccountState extends State<_RegisterNewAccount> {
                       ),
                       TextButton(
                         onPressed: ac.fetchRoles,
-                        child: const Text('Retry', style: TextStyle(fontSize: 12)),
+                        child: const Text(AppStrings.retry, style: TextStyle(fontSize: 12)),
                       ),
                     ],
                   ),
@@ -499,12 +499,12 @@ class _RegisterNewAccountState extends State<_RegisterNewAccount> {
                         String? roleErr;
 
                         if (phone.isEmpty) {
-                          phoneErr = 'Phone number is required.';
+                          phoneErr = AppStrings.phoneRequired;
                         } else if (phone.length != 10) {
-                          phoneErr = 'Enter a valid 10-digit phone number.';
+                          phoneErr = AppStrings.phoneInvalid;
                         }
                         if (_selectedRole == null) {
-                          roleErr = 'Please select a role.';
+                          roleErr = AppStrings.roleRequired;
                         }
 
                         if (phoneErr != null || roleErr != null) {
@@ -540,7 +540,7 @@ class _RegisterNewAccountState extends State<_RegisterNewAccount> {
                           color: Colors.white,
                         ),
                       )
-                    : const Text('Register'),
+                    : const Text(AppStrings.register),
               ),
             );
           }),

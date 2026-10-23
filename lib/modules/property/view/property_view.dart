@@ -56,6 +56,10 @@ class PropertyView extends StatelessWidget {
         );
       }
 
+      final k = pc.kpiStats.value;
+      List<double>? spark(List<double> v) => v.isEmpty ? null : v;
+      final labels = k.chartLabels.isEmpty ? null : k.chartLabels;
+
       if (isDetailOpen) {
         final prop = pc.selectedProperty.value!;
         if (prop.isPg) {
@@ -78,65 +82,47 @@ class PropertyView extends StatelessWidget {
                   Expanded(
                     child: KpiCard(
                       title: 'Total Properties',
-                      value: '${pc.kpiStats.value.totalProperties}',
+                      value: '${k.totalProperties}',
                       icon: Icons.apartment_rounded,
                       accentColor: AppTheme.accentGreen,
-                      subtitle: '${pc.kpiStats.value.rentedCount} rented',
-                      sparkData: pc.kpiStats.value.propertiesSparkline.isEmpty
-                          ? const [4.0, 6.0, 5.0, 8.0, 7.0, 9.0, 10.0, 8.0, 11.0, 13.0, 12.0, 16.0]
-                          : pc.kpiStats.value.propertiesSparkline,
-                      sparkLabels: pc.kpiStats.value.chartLabels.isEmpty
-                          ? null
-                          : pc.kpiStats.value.chartLabels,
+                      subtitle: '${k.rentedCount} rented',
+                      sparkData: spark(k.propertiesSparkline),
+                      sparkLabels: labels,
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: KpiCard(
                       title: 'Total Landlords',
-                      value: '${pc.kpiStats.value.totalLandlords}',
+                      value: '${k.totalLandlords}',
                       icon: Icons.person_rounded,
                       accentColor: AppTheme.landlordFill,
-                      subtitle:
-                          '${pc.kpiStats.value.activeLandlordCount} active',
-                      sparkData: pc.kpiStats.value.landlordsSparkline.isEmpty
-                          ? const [3.0, 5.0, 4.0, 7.0, 6.0, 8.0, 9.0, 7.0, 10.0, 12.0, 11.0, 15.0]
-                          : pc.kpiStats.value.landlordsSparkline,
-                      sparkLabels: pc.kpiStats.value.chartLabels.isEmpty
-                          ? null
-                          : pc.kpiStats.value.chartLabels,
+                      subtitle: '${k.activeLandlordCount} active',
+                      sparkData: spark(k.landlordsSparkline),
+                      sparkLabels: labels,
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: KpiCard(
                       title: 'Total Tenants',
-                      value: '${pc.kpiStats.value.totalTenants}',
+                      value: '${k.totalTenants}',
                       icon: Icons.groups_rounded,
                       accentColor: AppTheme.tenantFill,
-                      subtitle:
-                          'across ${pc.kpiStats.value.tenantsAcrossProperties} properties',
-                      sparkData: pc.kpiStats.value.tenantsSparkline.isEmpty
-                          ? const [5.0, 8.0, 7.0, 9.0, 12.0, 10.0, 14.0, 13.0, 16.0, 18.0, 17.0, 25.0]
-                          : pc.kpiStats.value.tenantsSparkline,
-                      sparkLabels: pc.kpiStats.value.chartLabels.isEmpty
-                          ? null
-                          : pc.kpiStats.value.chartLabels,
+                      subtitle: 'across ${k.tenantsAcrossProperties} properties',
+                      sparkData: spark(k.tenantsSparkline),
+                      sparkLabels: labels,
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: KpiCard(
                       title: 'Total Revenue',
-                      value: fmt.format(pc.kpiStats.value.totalRevenue),
+                      value: fmt.format(k.totalRevenue),
                       icon: Icons.trending_up_rounded,
                       accentColor: AppTheme.accentPurple,
-                      sparkData: pc.kpiStats.value.revenueSparkline.isEmpty
-                          ? const [10.0, 12.0, 15.0, 14.0, 18.0, 20.0, 19.0, 22.0, 25.0, 24.0, 28.0, 30.0]
-                          : pc.kpiStats.value.revenueSparkline,
-                      sparkLabels: pc.kpiStats.value.chartLabels.isEmpty
-                          ? null
-                          : pc.kpiStats.value.chartLabels,
+                      sparkData: spark(k.revenueSparkline),
+                      sparkLabels: labels,
                     ),
                   ),
                 ],
@@ -534,13 +520,15 @@ class _PropertyCard extends StatelessWidget {
                                 text: 'Landlord: ${prop.landlordName}',
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _personLabel(
-                                icon: Icons.groups_outlined,
-                                text: 'Tenant: $tenantName',
+                            if (!prop.isPg) ...[
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _personLabel(
+                                  icon: Icons.groups_outlined,
+                                  text: 'Tenant: $tenantName',
+                                ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       ],
