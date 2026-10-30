@@ -1,13 +1,26 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:get/get.dart';
 import 'package:agremate_admin/routes/app_routes.dart';
 import 'package:agremate_admin/core/utils/app_logger.dart';
+import 'package:get_storage/get_storage.dart';
 import '../../../core/constants/app_strings.dart';
 import '../model/model.dart';
 import 'auth_service.dart';
 
 class AuthController extends GetxController {
   final AuthService _service = AuthService();
+  final GetStorage _box = GetStorage();
+
+  static const _kTokenType = 'auth.tokenType';
+  static const _kAccess = 'auth.accessToken';
+  static const _kId = 'auth.idToken';
+  static const _kRefresh = 'auth.refreshToken';
+  static const _kUserId = 'auth.userId';
+  static const _kUserName = 'auth.userName';
+  static const _kUserEmail = 'auth.userEmail';
+  static const _kUserPhone = 'auth.userPhone';
+  static const _kRole = 'auth.role';
 
   static const int phoneLength = 10;
   static const int otpLength = 4;
@@ -73,10 +86,70 @@ class AuthController extends GetxController {
   String? get otpErrorText => otpError.value.isEmpty ? null : otpError.value;
 
   @override
+  void onInit() {
+    super.onInit();
+    _restoreSession();
+  }
+
+  @override
   void onClose() {
     _timer?.cancel();
     super.onClose();
   }
+
+  void _restoreSession() {
+    final access = _box.read<String>(_kAccess) ?? '';
+    if (access.isEmpty) return;
+
+    if (_isExpired(access)) {
+      AppLogger.w('AuthController', 'Stored token expired, clearing');
+      _box.erase();
+      return;
+    }
+
+    accessToken.value = access;
+    idToken.value = _box.read<String>(_kId) ?? '';
+    refreshToken.value = _box.read<String>(_kRefresh) ?? '';
+    userId.value = _box.read<String>(_kUserId) ?? '';
+    userName.value = _box.read<String>(_kUserName) ?? '';
+    userEmail.value = _box.read<String>(_kUserEmail) ?? '';
+    userPhone.value = _box.read<String>(_kUserPhone) ?? '';
+    role.value = _box.read<String>(_kRole) ?? '';
+
+    _service.setAuthToken(_box.read<String>(_kTokenType) ?? 'Bearer', access);
+    isLoggedIn.value = true;
+    AppLogger.i('AuthController', 'Session restored role=${role.value}');
+  }
+
+  /// Reads the JWT "exp" claim. If the token isn't a readable JWT,
+  /// it is treated as valid and the server (401 handler) decides.
+  bool _isExpired(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return false;
+      final payload = utf8.decode(
+        base64Url.decode(base64Url.normalize(parts[1])),
+      );
+      final exp = (jsonDecode(payload) as Map)['exp'];
+      if (exp is! num) return false;
+      return DateTime.now().millisecondsSinceEpoch >= exp.toInt() * 1000;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _persistSession(AuthSession s) {
+    _box.write(_kTokenType, s.tokenType);
+    _box.write(_kAccess, accessToken.value);
+    _box.write(_kId, idToken.value);
+    _box.write(_kRefresh, refreshToken.value);
+    _box.write(_kUserId, userId.value);
+    _box.write(_kUserName, userName.value);
+    _box.write(_kUserEmail, userEmail.value);
+    _box.write(_kUserPhone, userPhone.value);
+    _box.write(_kRole, role.value);
+  }
+
 
   void onPhoneChanged(String _) {
     if (phoneError.value.isNotEmpty) phoneError.value = '';
@@ -198,6 +271,7 @@ class AuthController extends GetxController {
         _applyAccess(_pendingAccess!);
       }
 
+      _persistSession(authSession);
       isLoggedIn.value = true;
       AppLogger.i('AuthController', 'Login success role=${role.value}');
       Get.offAllNamed(AppRoutes.dashboard);
@@ -288,5 +362,6 @@ class AuthController extends GetxController {
     role.value = '';
     _pendingAccess = null;
     _service.clearAuthToken();
+    _box.erase();
   }
 }

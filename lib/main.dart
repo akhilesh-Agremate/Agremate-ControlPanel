@@ -1,17 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'core/theme/theme.dart';
 import 'routes/app_routes.dart';
 import 'routes/app_pages.dart';
 import 'modules/auth/controller/auth_controller.dart';
 
-void main() {
-  Get.put(AuthController(), permanent: true);
-  runApp(const AgremateAdmin());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await GetStorage.init();
+  final auth = Get.put(AuthController(), permanent: true);
+
+  runApp(AgremateAdmin(
+    initialRoute: auth.isLoggedIn.value ? AppRoutes.dashboard : AppRoutes.login,
+  ));
 }
 
 class AgremateAdmin extends StatelessWidget {
-  const AgremateAdmin({super.key});
+  final String initialRoute;
+  const AgremateAdmin({super.key, required this.initialRoute});
 
   @override
   Widget build(BuildContext context) {
@@ -19,8 +26,9 @@ class AgremateAdmin extends StatelessWidget {
       title: 'Agremate Dashboard',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      initialRoute: AppRoutes.login,
+      initialRoute: initialRoute,
       getPages: AppPages.pages,
+      defaultTransition: Transition.fade,
     );
   }
 }

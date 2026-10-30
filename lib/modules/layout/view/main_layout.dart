@@ -25,67 +25,67 @@ class MainLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!Get.isRegistered<AuthController>()) {
-      Get.put(AuthController(), permanent: true);
-    }
     final auth = Get.find<AuthController>();
-    if (!auth.isLoggedIn.value) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (Get.currentRoute != AppRoutes.login) {
-          Get.offAllNamed(AppRoutes.login);
-        }
-      });
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
 
-    if (auth.isSuperAdmin && !Get.isRegistered<AdminControlController>()) {
-      Get.put(AdminControlController());
-    }
+    return Obx(() {
+      if (!auth.isLoggedIn.value) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (Get.currentRoute != AppRoutes.login) {
+            Get.offAllNamed(AppRoutes.login);
+          }
+        });
+        return const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        );
+      }
 
-    final nav = Get.find<NavigationController>();
-    final pages = [
-      const HomeView(),
-      const PropertyView(),
-      const ServicesView(),
-      const FinanceView(),
-      const DocumentsView(),
-      const SupportView(),
-      const UserView(),
-      const AccountView(),
-      const TenantDetailView(),
-      const AdminControlView(),
-    ];
+      if (auth.isSuperAdmin && !Get.isRegistered<AdminControlController>()) {
+        Get.put(AdminControlController());
+      }
 
-    return Scaffold(
-      backgroundColor: AppTheme.bgDark,
-      body: ResizableSidebarLayout(
-        sidebarBuilder: (context, collapsed) => Sidebar(collapsed: collapsed),
-        body: Column(
-          children: [
-            const TopBar(),
-            Expanded(
-              child: Obx(() {
-                final index = nav.currentIndex.value;
-                if (index >= pages.length) {
-                  return const Center(child: Text('Page not found'));
-                }
-                return AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  child: SizedBox(
-                    key: ValueKey(index),
-                    width: double.infinity,
-                    height: double.infinity,
-                    child: pages[index],
-                  ),
-                );
-              }),
-            ),
-            const AppFooter(),
-          ],
+      final nav = Get.find<NavigationController>();
+      final pages = [
+        const HomeView(),
+        const PropertyView(),
+        const ServicesView(),
+        const FinanceView(),
+        const DocumentsView(),
+        const SupportView(),
+        const UserView(),
+        const AccountView(),
+        const TenantDetailView(),
+        const AdminControlView(),
+      ];
+
+      return Scaffold(
+        backgroundColor: AppTheme.bgDark,
+        body: ResizableSidebarLayout(
+          sidebarBuilder: (context, collapsed) => Sidebar(collapsed: collapsed),
+          body: Column(
+            children: [
+              const TopBar(),
+              Expanded(
+                child: Obx(() {
+                  final index = nav.currentIndex.value;
+                  if (index >= pages.length) {
+                    return const Center(child: Text('Page not found'));
+                  }
+                  return AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: SizedBox(
+                      key: ValueKey(index),
+                      width: double.infinity,
+                      height: double.infinity,
+                      child: pages[index],
+                    ),
+                  );
+                }),
+              ),
+              const AppFooter(),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 }

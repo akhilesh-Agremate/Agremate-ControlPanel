@@ -35,8 +35,6 @@ class PropertyView extends StatelessWidget {
       final totalFiltered = pc.filteredProperties.length;
       final pageItems = pc.currentPageProperties;
 
-      debugPrint(
-          'PropertyView build: isAddOpen=${pc.isAddOpen.value} canAdd=$canAddProperty');
       if (isAddOpen) {
         if (pc.addType.value == PropertyAddType.pg) {
           return CreatePgPropertyPanel(
@@ -61,7 +59,13 @@ class PropertyView extends StatelessWidget {
       final labels = k.chartLabels.isEmpty ? null : k.chartLabels;
 
       if (isDetailOpen) {
-        final prop = pc.selectedProperty.value!;
+        final prop = pc.selectedProperty.value;
+        if (prop == null) {
+          return const Scaffold(
+            backgroundColor: Color(0xFFF8FAFD),
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
         if (prop.isPg) {
           return PgPropertyDetailView(property: prop);
         }
