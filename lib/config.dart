@@ -11,6 +11,7 @@ class ConfigEnvironments {
     'environment',
     defaultValue: 'prod',
   );
+
   // String.fromEnvironment('environment', defaultValue: 'sandbox');
   static final List<Map<String, String>> _availableEnvironments = [
     {
