@@ -13,6 +13,8 @@ import 'package:agremate_admin/modules/layout/controller/navigation_controller.d
 import 'package:agremate_admin/core/widgets/status_badge.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:agremate_admin/core/widgets/web_network_image.dart';
+import '../../../core/constants/app_strings.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../../core/widgets/dashboard_kpi_card.dart';
 import '../../../core/widgets/full_pdf_page.dart';
@@ -25,40 +27,40 @@ class HomeView extends StatelessWidget {
     final controller = Get.find<HomeController>();
 
     final metricCards = [
-      {'label': 'Total Rent Collections',  'numberColor': const Color(0xFF2183D5)},
-      {'label': 'Pending Payments',        'numberColor': const Color(0xFF0D4C8C)},
-      {'label': 'Total Subscriptions',     'numberColor': const Color(0xFF2183D5)},
-      {'label': 'Subscription Expired',    'numberColor': const Color(0xFFE5484D)},
+      {'label': AppStrings.totalRentCollections,  'numberColor': AppColors.metricBlue},
+      {'label': AppStrings.pendingPayments,       'numberColor': AppColors.metricDarkBlue},
+      {'label': AppStrings.totalSubscriptions,    'numberColor': AppColors.metricBlue},
+      {'label': AppStrings.subscriptionExpired,   'numberColor': AppColors.metricRed},
     ];
 
     final listData = [
       {
-        'title': 'Recent Rent Collections',
+        'title': AppStrings.recentRentCollections,
         'data': controller.recentRent,
         'color': AppTheme.accentGreen,
       },
       {
-        'title': 'Recent Subscriptions',
+        'title': AppStrings.recentSubscriptions,
         'data': controller.recentSubs,
         'color': AppTheme.accentPurple,
       },
       {
-        'title': 'Recent Service Requests',
+        'title': AppStrings.recentServiceRequests,
         'data': controller.recentServices,
         'color': AppTheme.accentCyan,
       },
       {
-        'title': 'Property',
+        'title': AppStrings.property,
         'data': controller.propertyList,
         'color': AppTheme.accentOrange,
       },
       {
-        'title': 'Document',
+        'title': AppStrings.document,
         'data': controller.documentList,
         'color': AppTheme.accentBlue,
       },
       {
-        'title': 'Support',
+        'title': AppStrings.support,
         'data': controller.supportList,
         'color': AppTheme.accentPink,
       },
@@ -103,10 +105,10 @@ class HomeView extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Dashboard Overview', style: AppTheme.heading1),
+                        Text(AppStrings.dashboardOverview, style: AppTheme.heading1),
                         const SizedBox(height: 8),
                         Text(
-                          'Real-time analytics and performance metrics.',
+                          AppStrings.dashboardSubtitle,
                           style: AppTheme.bodyText,
                         ),
                       ],

@@ -1,12 +1,26 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:get/get.dart';
 import 'package:agremate_admin/routes/app_routes.dart';
 import 'package:agremate_admin/core/utils/app_logger.dart';
+import 'package:get_storage/get_storage.dart';
+import '../../../core/constants/app_strings.dart';
 import '../model/model.dart';
 import 'auth_service.dart';
 
 class AuthController extends GetxController {
   final AuthService _service = AuthService();
+  final GetStorage _box = GetStorage();
+
+  static const _kTokenType = 'auth.tokenType';
+  static const _kAccess = 'auth.accessToken';
+  static const _kId = 'auth.idToken';
+  static const _kRefresh = 'auth.refreshToken';
+  static const _kUserId = 'auth.userId';
+  static const _kUserName = 'auth.userName';
+  static const _kUserEmail = 'auth.userEmail';
+  static const _kUserPhone = 'auth.userPhone';
+  static const _kRole = 'auth.role';
 
   static const int phoneLength = 10;
   static const int otpLength = 4;
@@ -32,10 +46,10 @@ class AuthController extends GetxController {
   bool get isRestrictedRole => isLandlord || isTenant;
 
   String get roleLabel {
-    if (isSuperAdmin) return 'Super Admin';
-    if (isLandlord) return 'Landlord';
-    if (isTenant) return 'Tenant';
-    return role.value.isNotEmpty ? role.value : 'N/A';
+    if (isSuperAdmin) return AppStrings.superAdmin;
+    if (isLandlord) return AppStrings.landlord;
+    if (isTenant) return AppStrings.tenant;
+    return role.value.isNotEmpty ? role.value : AppStrings.notAvailable;
   }
 
   final phoneNumber = ''.obs;
@@ -51,17 +65,18 @@ class AuthController extends GetxController {
   AccessCheckResult? _pendingAccess;
 
   Timer? _timer;
-  String get headingText => isOtpSent.value ? 'Verify OTP' : 'Login';
+  String get headingText =>
+      isOtpSent.value ? AppStrings.verifyOtp : AppStrings.login;
 
   String get subtitleText => isOtpSent.value
-      ? 'Enter the $otpLength-digit code sent to ${phoneNumber.value}'
-      : 'Enter your phone number to continue';
+      ? AppStrings.otpSentTo(otpLength, phoneNumber.value)
+      : AppStrings.loginSubtitle;
 
-  String get otpHint => 'Enter $otpLength-digit OTP';
+  String get otpHint => AppStrings.enterOtpHint(otpLength);
 
   String get resendLabel => secondsRemaining.value > 0
-      ? 'Resend OTP in ${formatTime(secondsRemaining.value)}'
-      : 'Resend OTP';
+      ? AppStrings.resendOtpIn(formatTime(secondsRemaining.value))
+      : AppStrings.resendOtp;
 
   bool get canResend => !isLoading.value && secondsRemaining.value == 0;
 
@@ -71,10 +86,70 @@ class AuthController extends GetxController {
   String? get otpErrorText => otpError.value.isEmpty ? null : otpError.value;
 
   @override
+  void onInit() {
+    super.onInit();
+    _restoreSession();
+  }
+
+  @override
   void onClose() {
     _timer?.cancel();
     super.onClose();
   }
+
+  void _restoreSession() {
+    final access = _box.read<String>(_kAccess) ?? '';
+    if (access.isEmpty) return;
+
+    if (_isExpired(access)) {
+      AppLogger.w('AuthController', 'Stored token expired, clearing');
+      _box.erase();
+      return;
+    }
+
+    accessToken.value = access;
+    idToken.value = _box.read<String>(_kId) ?? '';
+    refreshToken.value = _box.read<String>(_kRefresh) ?? '';
+    userId.value = _box.read<String>(_kUserId) ?? '';
+    userName.value = _box.read<String>(_kUserName) ?? '';
+    userEmail.value = _box.read<String>(_kUserEmail) ?? '';
+    userPhone.value = _box.read<String>(_kUserPhone) ?? '';
+    role.value = _box.read<String>(_kRole) ?? '';
+
+    _service.setAuthToken(_box.read<String>(_kTokenType) ?? 'Bearer', access);
+    isLoggedIn.value = true;
+    AppLogger.i('AuthController', 'Session restored role=${role.value}');
+  }
+
+  /// Reads the JWT "exp" claim. If the token isn't a readable JWT,
+  /// it is treated as valid and the server (401 handler) decides.
+  bool _isExpired(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return false;
+      final payload = utf8.decode(
+        base64Url.decode(base64Url.normalize(parts[1])),
+      );
+      final exp = (jsonDecode(payload) as Map)['exp'];
+      if (exp is! num) return false;
+      return DateTime.now().millisecondsSinceEpoch >= exp.toInt() * 1000;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _persistSession(AuthSession s) {
+    _box.write(_kTokenType, s.tokenType);
+    _box.write(_kAccess, accessToken.value);
+    _box.write(_kId, idToken.value);
+    _box.write(_kRefresh, refreshToken.value);
+    _box.write(_kUserId, userId.value);
+    _box.write(_kUserName, userName.value);
+    _box.write(_kUserEmail, userEmail.value);
+    _box.write(_kUserPhone, userPhone.value);
+    _box.write(_kRole, role.value);
+  }
+
 
   void onPhoneChanged(String _) {
     if (phoneError.value.isNotEmpty) phoneError.value = '';
@@ -108,11 +183,11 @@ class AuthController extends GetxController {
 
     phone = phone.trim();
     if (phone.isEmpty) {
-      phoneError.value = 'Phone number is required.';
+      phoneError.value =AppStrings.phoneRequired;
       return;
     }
     if (phone.length != phoneLength) {
-      phoneError.value = 'Phone number must be exactly $phoneLength digits.';
+      phoneError.value = AppStrings.phoneLengthError(phoneLength);
       return;
     }
 
@@ -128,7 +203,7 @@ class AuthController extends GetxController {
         AppLogger.w('AuthController', 'Access denied for login');
         errorMessage.value = access.message.isNotEmpty
             ? access.message
-            : 'This phone number is not authorized as Super Admin, Landlord, or Tenant.';
+            : AppStrings.notAuthorized;
         return;
       }
 
@@ -166,15 +241,15 @@ class AuthController extends GetxController {
 
     otp = otp.trim();
     if (otp.isEmpty) {
-      otpError.value = 'OTP is required.';
+      otpError.value = AppStrings.otpRequired;
       return;
     }
     if (otp.length != otpLength) {
-      otpError.value = 'Verification code must be $otpLength digits.';
+      otpError.value = AppStrings.otpLengthError(otpLength);
       return;
     }
     if (secondsRemaining.value <= 0) {
-      otpError.value = 'Invalid OTP. Code has expired.';
+      otpError.value = AppStrings.otpExpired;
       return;
     }
 
@@ -186,7 +261,7 @@ class AuthController extends GetxController {
       if (!res.status || authSession == null || !authSession.isSuccess) {
         AppLogger.w('AuthController', 'OTP verification failed');
         errorMessage.value =
-        res.message.isNotEmpty ? res.message : 'OTP verification failed';
+        res.message.isNotEmpty ? res.message : AppStrings.otpVerificationFailed;
         return;
       }
 
@@ -196,6 +271,7 @@ class AuthController extends GetxController {
         _applyAccess(_pendingAccess!);
       }
 
+      _persistSession(authSession);
       isLoggedIn.value = true;
       AppLogger.i('AuthController', 'Login success role=${role.value}');
       Get.offAllNamed(AppRoutes.dashboard);
@@ -221,7 +297,7 @@ class AuthController extends GetxController {
     } else {
       AppLogger.w('AuthController', 'Failed to send OTP');
       errorMessage.value =
-      res.message.isNotEmpty ? res.message : 'Failed to send OTP';
+      res.message.isNotEmpty ? res.message : AppStrings.failedToSendOtp;
     }
   }
 
@@ -286,5 +362,6 @@ class AuthController extends GetxController {
     role.value = '';
     _pendingAccess = null;
     _service.clearAuthToken();
+    _box.erase();
   }
 }

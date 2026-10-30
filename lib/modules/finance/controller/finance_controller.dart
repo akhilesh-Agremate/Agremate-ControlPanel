@@ -3,6 +3,7 @@ import 'package:agremate_admin/modules/finance/model/finance_model.dart';
 import 'package:agremate_admin/network_utils/app_end_points.dart';
 import 'package:agremate_admin/network_utils/dio_client.dart';
 import 'package:agremate_admin/core/utils/app_logger.dart';
+import '../../../core/constants/app_strings.dart';
 
 class FinanceController extends GetxController {
   final overview = Rxn<FinanceOverview>();
@@ -38,10 +39,10 @@ class FinanceController extends GetxController {
         overview.value =
             FinanceOverview.fromJson(Map<String, dynamic>.from(result));
       } else {
-        error.value = 'Invalid finance response';
+        error.value = AppStrings.invalidFinanceResponse;
       }
     } catch (e) {
-      error.value = 'Failed to load finance overview';
+      error.value = AppStrings.failedToLoadFinanceOverview;
     }
   }
 
@@ -74,10 +75,10 @@ class FinanceController extends GetxController {
         detail.value =
             FinancePropertyDetail.fromJson(Map<String, dynamic>.from(result));
       } else {
-        detailError.value = 'Invalid property response';
+        detailError.value = AppStrings.invalidPropertyResponse;
       }
     } catch (e) {
-      detailError.value = 'Failed to load property payments';
+      detailError.value = AppStrings.failedToLoadPropertyPayments;
     } finally {
       if (selectedPropertyId.value == id) isDetailLoading.value = false;
     }

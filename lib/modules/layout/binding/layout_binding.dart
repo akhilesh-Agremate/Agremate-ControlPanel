@@ -12,6 +12,7 @@ import 'package:agremate_admin/modules/account/controller/account_controller.dar
 import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
 import 'package:agremate_admin/modules/admin_control/repository/admin_control_repository.dart';
 import 'package:agremate_admin/modules/admin_control/controller/admin_control_controller.dart';
+import '../controller/sidebar_controller.dart';
 
 class LayoutBinding extends Bindings {
   @override
@@ -32,7 +33,7 @@ class LayoutBinding extends Bindings {
     Get.lazyPut<DocumentController>(
       () => DocumentController(Get.find<DocumentRepository>()),
     );
-    
+    Get.put<SidebarController>(SidebarController(), permanent: true);
     Get.lazyPut<SupportController>(() => SupportController());
     Get.lazyPut<AccountController>(() => AccountController());
     Get.lazyPut<AdminControlRepository>(() => AdminControlRepository());

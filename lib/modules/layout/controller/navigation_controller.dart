@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 import 'package:agremate_admin/modules/property/controller/property_controller.dart';
 import 'package:agremate_admin/modules/services/controller/services_controller.dart';
 import 'package:agremate_admin/core/utils/app_logger.dart';
+import 'package:get_storage/get_storage.dart';
 
 enum SearchResultType { property, landlord, tenant, location, service }
 
@@ -25,6 +26,23 @@ class NavigationController extends GetxController {
   final currentIndex = 0.obs;
   final searchQuery = ''.obs;
   final searchResults = <GlobalSearchResult>[].obs;
+
+  final GetStorage _box = GetStorage();
+  static const _kIndex = 'nav.currentIndex';
+  bool _isRestorable(int i) => i >= 0 && i != 8;
+
+  @override
+  void onInit() {
+    super.onInit();
+    final saved = _box.read<int>(_kIndex);
+    if (saved != null && _isRestorable(saved)) {
+      currentIndex.value = saved;
+    }
+    ever<int>(currentIndex, (i) {
+      if (_isRestorable(i)) _box.write(_kIndex, i);
+    });
+  }
+
 
   void changePage(int index) {
     currentIndex.value = index;
