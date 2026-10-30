@@ -3,15 +3,14 @@ class Environments {
 }
 
 class ConfigEnvironments {
-  // static const String _currentEnvironments = String.fromEnvironment(
-  //   'environment',
-  //   defaultValue: 'dev',
-  // );
   static const String _currentEnvironments = String.fromEnvironment(
     'environment',
-    defaultValue: 'prod',
+    defaultValue: 'dev',
   );
-
+  // static const String _currentEnvironments = String.fromEnvironment(
+  //   'environment',
+  //   defaultValue: 'prod',
+  // );
   // String.fromEnvironment('environment', defaultValue: 'sandbox');
   static final List<Map<String, String>> _availableEnvironments = [
     {

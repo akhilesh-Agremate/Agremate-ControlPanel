@@ -25,13 +25,15 @@ class FinanceView extends StatelessWidget {
     NumberFormat.currency(symbol: '₹', locale: 'en_IN', decimalDigits: 0);
 
     return Obx(() {
-      if (fc.isLoading.value) {
+      final isDetailOpen = fc.selectedPropertyId.value != null;
+      if (fc.isLoading.value && !isDetailOpen) {
         return const Center(
           child: CircularProgressIndicator(color: AppTheme.accentGreen),
         );
       }
+      
       final o = fc.overview.value;
-      if (o == null) {
+      if (o == null && !isDetailOpen) {
         return Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -43,76 +45,75 @@ class FinanceView extends StatelessWidget {
           ),
         );
       }
-      final records = fc.revenueRecords;
-      final selected = fc.selectedPropertyId.value != null;
 
       return ColoredBox(
-          color: AppColors.scaffoldLight,
-          child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: KpiCard(
-                    title: AppStrings.totalRevenue,
-                    value: o.totalRevenueFormatted,
-                    icon: Icons.account_balance_wallet_rounded,
-                    accentColor: AppTheme.accentGreen,
-                    subtitle: AppStrings.allLandlordsCombined,
-                    sparkData: o.totalRevenueSparkline,
-                    sparkLabels: o.chartLabels.isEmpty ? null : o.chartLabels,
-                  ),
+        color: AppColors.scaffoldLight,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (isDetailOpen)
+                _detailSection(fc)
+              else ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: KpiCard(
+                        title: AppStrings.totalRevenue,
+                        value: o?.totalRevenueFormatted ?? '₹0',
+                        icon: Icons.account_balance_wallet_rounded,
+                        accentColor: AppTheme.accentGreen,
+                        subtitle: AppStrings.allLandlordsCombined,
+                        sparkData: o?.totalRevenueSparkline,
+                        sparkLabels: o?.chartLabels.isEmpty == false ? o!.chartLabels : null,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: KpiCard(
+                        title: AppStrings.totalRevenue,
+                        value: '${o?.rentedPropertiesCount ?? 0}',
+                        icon: Icons.home_rounded,
+                        accentColor: AppTheme.accentOrange,
+                        sparkData: o?.rentedPropertiesSparkline,
+                        sparkLabels: o?.chartLabels.isEmpty == false ? o!.chartLabels : null,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: KpiCard(
+                        title: AppStrings.paid,
+                        value: '${o?.paidCount ?? 0}',
+                        icon: Icons.check_circle_rounded,
+                        accentColor: AppTheme.accentCyan,
+                        sparkData: o?.paidSparkline,
+                        sparkLabels: o?.chartLabels.isEmpty == false ? o!.chartLabels : null,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: KpiCard(
+                        title: AppStrings.overdue,
+                        value: '${o?.overdueCount ?? 0}',
+                        icon: Icons.warning_rounded,
+                        accentColor: AppTheme.accentRed,
+                        sparkData: o?.overdueSparkline,
+                        sparkLabels: o?.chartLabels.isEmpty == false ? o!.chartLabels : null,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: KpiCard(
-                    title: AppStrings.totalRevenue,
-                    value: '${o.rentedPropertiesCount}',
-                    icon: Icons.home_rounded,
-                    accentColor: AppTheme.accentOrange,
-                    sparkData: o.rentedPropertiesSparkline,
-                    sparkLabels: o.chartLabels.isEmpty ? null : o.chartLabels,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: KpiCard(
-                    title: AppStrings.paid,
-                    value: '${o.paidCount}',
-                    icon: Icons.check_circle_rounded,
-                    accentColor: AppTheme.accentCyan,
-                    sparkData: o.paidSparkline,
-                    sparkLabels: o.chartLabels.isEmpty ? null : o.chartLabels,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: KpiCard(
-                    title: AppStrings.overdue,
-                    value: '${o.overdueCount}',
-                    icon: Icons.warning_rounded,
-                    accentColor: AppTheme.accentRed,
-                    sparkData: o.overdueSparkline,
-                    sparkLabels: o.chartLabels.isEmpty ? null : o.chartLabels,
-                  ),
-                ),
+                const SizedBox(height: 28),
+                _chartCard(fmt, fc.revenueRecords),
+                const SizedBox(height: 28),
+                _propertyList(fc, nav, fmtFull),
               ],
-            ),
-            const SizedBox(height: 28),
-            _chartCard(fmt, records),
-            const SizedBox(height: 28),
-            if (selected)
-              _detailSection(fc)
-            else
-              _propertyList(fc, nav, fmtFull),
-          ],
-        ),
+            ],
           ),
+        ),
       );
     });
   }

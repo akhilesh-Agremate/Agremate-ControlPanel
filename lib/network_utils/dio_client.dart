@@ -1,8 +1,10 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:get/get.dart';
 import 'package:agremate_admin/network_utils/app_end_points.dart';
 import 'package:agremate_admin/routes/app_routes.dart';
 import '../config.dart';
+import '../modules/auth/controller/auth_controller.dart';
 import 'dio_log_interceptor.dart';
 import 'internet_check_interceptor.dart';
 import 'network_info.dart';
@@ -25,11 +27,13 @@ class DioClient {
         ),
       );
 
-      _dio!.interceptors.add(
-        InternetCheckInterceptor(
-          networkInfo: NetworkInfoImpl(InternetConnectionChecker.instance),
-        ),
-      );
+      if (!kIsWeb) {
+        _dio!.interceptors.add(
+          InternetCheckInterceptor(
+            networkInfo: NetworkInfoImpl(InternetConnectionChecker.instance),
+          ),
+        );
+      }
 
       _dio!.interceptors.add(
         InterceptorsWrapper(
@@ -47,7 +51,9 @@ class DioClient {
                 !isAuthCall &&
                 authHeader != null) {
               authHeader = null;
-              if (Get.currentRoute != AppRoutes.login) {
+              if (Get.isRegistered<AuthController>()) {
+                Get.find<AuthController>().logout();
+              } else if (Get.currentRoute != AppRoutes.login) {
                 Get.offAllNamed(AppRoutes.login);
               }
             }
