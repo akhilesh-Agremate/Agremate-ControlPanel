@@ -20,6 +20,7 @@ class AccountView extends StatelessWidget {
     final auth = Get.find<AuthController>();
 
     return Obx(() {
+
       final user = ac.user.value;
       if (user == null) return const SizedBox.shrink();
       return SingleChildScrollView(
