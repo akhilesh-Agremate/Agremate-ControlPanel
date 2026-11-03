@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:agremate_admin/core/theme/theme.dart';
-import 'package:agremate_admin/core/widgets/glass_card.dart';
 import 'package:agremate_admin/modules/property/controller/property_controller.dart';
 import 'package:agremate_admin/modules/property/model/landlord_model.dart';
 import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
 import 'package:agremate_admin/modules/tenant/model/tenant_model.dart';
+import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/user_avatar.dart';
 
 class UserView extends StatefulWidget {
   const UserView({super.key});
@@ -30,7 +31,7 @@ class _UserViewState extends State<UserView> {
   @override
   Widget build(BuildContext context) {
     final pc = Get.find<PropertyController>();
-
+    final mobile = Responsive.isMobile(context);
     return Obx(() {
       if (pc.isLoading.value) {
         return const ColoredBox(
@@ -56,41 +57,17 @@ class _UserViewState extends State<UserView> {
       return ColoredBox(
         color: const Color(0xFFF8FAFD),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(28),
+          padding: EdgeInsets.all(mobile ? 14 : 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              Flex(
+                direction: mobile ? Axis.vertical : Axis.horizontal,
+                crossAxisAlignment:
+                mobile ? CrossAxisAlignment.stretch : CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE8F1FD),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Icon(Icons.groups_rounded,
-                        color: Color(0xFF2083D5), size: 26),
-                  ),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('User Management', style: AppTheme.heading1),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Landlords and tenants linked to properties in the dashboard.',
-                        style: AppTheme.bodyText,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
+                  _pane(
+                    stacked: mobile,
                     child: _UserListCard(
                       title: 'Landlords',
                       subtitle: 'Manage landlords and their properties',
@@ -114,6 +91,7 @@ class _UserViewState extends State<UserView> {
                             subtitle:
                             '${landlord.totalProperties} ${landlord.totalProperties == 1 ? 'property' : 'properties'}',
                             color: AppTheme.landlordFill,
+                            imageUrl: landlord.profilePictureUrl,
                             onTap: () =>
                                 _showLandlordDetailDialog(context, landlord),
                           );
@@ -121,8 +99,9 @@ class _UserViewState extends State<UserView> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 24),
-                  Expanded(
+                  SizedBox(width: mobile ? 0 : 24, height: mobile ? 24 : 0),
+                  _pane(
+                    stacked: mobile,
                     child: _UserListCard(
                       title: 'Tenants',
                       subtitle: 'Manage tenants and their rented properties',
@@ -147,6 +126,7 @@ class _UserViewState extends State<UserView> {
                                 ? tenant.property!.name
                                 : 'No property',
                             color: AppTheme.tenantFill,
+                            imageUrl: tenant.profilePictureUrl,
                             onTap: () =>
                                 _showTenantDetailDialog(context, tenant),
                           );
@@ -162,6 +142,9 @@ class _UserViewState extends State<UserView> {
       );
     });
   }
+
+  Widget _pane({required bool stacked, required Widget child}) =>
+      stacked ? child : Expanded(child: child);
 
   void _openLinkedProperty(BuildContext ctx, String? propertyId, String? propertyName) {
     final pc = Get.find<PropertyController>();
@@ -196,6 +179,9 @@ class _UserViewState extends State<UserView> {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
+        insetPadding: Responsive.isMobile(ctx)
+            ? const EdgeInsets.symmetric(horizontal: 12, vertical: 16)
+            : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         child: ConstrainedBox(
@@ -211,19 +197,11 @@ class _UserViewState extends State<UserView> {
               children: [
                 Row(
                   children: [
-                    CircleAvatar(
-                      radius: 24,
-                      backgroundColor: AppTheme.landlordFill,
-                      child: Text(
-                        landlord.name.isNotEmpty
-                            ? landlord.name[0].toUpperCase()
-                            : 'L',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                      ),
+                    UserAvatar(
+                      name: landlord.name.isNotEmpty ? landlord.name : 'L',
+                      imageUrl: landlord.profilePictureUrl,
+                      size: 48,
+                      color: AppTheme.landlordFill,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -348,28 +326,16 @@ class _UserViewState extends State<UserView> {
                               ),
                               if (hasTenant) ...[
                                 const SizedBox(height: 12),
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      flex: 3,
-                                      child: _inlineInfo(Icons.person_rounded, tenantName),
-                                    ),
-                                    if (tenantPhone.isNotEmpty) ...[
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        flex: 5,
-                                        child: _inlineInfo(Icons.phone_rounded, tenantPhone),
-                                      ),
-                                    ],
-                                    if (startLabel.isNotEmpty) ...[
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        flex: 5,
-                                        child: _inlineInfo(Icons.event_rounded, startLabel),
-                                      ),
-                                    ],
+                                _inlineRow(
+                                  ctx,
+                                  [
+                                    _inlineInfo(Icons.person_rounded, tenantName),
+                                    if (tenantPhone.isNotEmpty)
+                                      _inlineInfo(Icons.phone_rounded, tenantPhone),
+                                    if (startLabel.isNotEmpty)
+                                      _inlineInfo(Icons.event_rounded, startLabel),
                                   ],
+                                  [3, 5, 5],
                                 ),
                               ],
                             ],
@@ -383,6 +349,29 @@ class _UserViewState extends State<UserView> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _inlineRow(BuildContext context, List<Widget> items, List<int> flex) {
+    if (Responsive.isMobile(context)) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (int i = 0; i < items.length; i++) ...[
+            if (i > 0) const SizedBox(height: 8),
+            items[i],
+          ],
+        ],
+      );
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (int i = 0; i < items.length; i++) ...[
+          if (i > 0) const SizedBox(width: 8),
+          Expanded(flex: flex[i], child: items[i]),
+        ],
+      ],
     );
   }
 
@@ -411,11 +400,17 @@ class _UserViewState extends State<UserView> {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
+        insetPadding: Responsive.isMobile(ctx)
+            ? const EdgeInsets.symmetric(horizontal: 12, vertical: 16)
+            : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
-          child: Padding(
+          constraints: BoxConstraints(
+            maxWidth: 480,
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -423,19 +418,13 @@ class _UserViewState extends State<UserView> {
               children: [
                 Row(
                   children: [
-                    CircleAvatar(
-                      radius: 24,
-                      backgroundColor: AppTheme.tenantFill,
-                      child: Text(
-                        tenant.name.isNotEmpty
-                            ? tenant.name[0].toUpperCase()
-                            : 'T',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                      ),
+                    UserAvatar(
+                      name: tenant.name.isNotEmpty && !tenant.name.startsWith('+')
+                          ? tenant.name
+                          : 'T',
+                      imageUrl: tenant.profilePictureUrl,
+                      size: 48,
+                      color: AppTheme.tenantFill,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -464,25 +453,15 @@ class _UserViewState extends State<UserView> {
                 const SizedBox(height: 16),
                 _infoCard(
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 4,
-                          child: _inlineInfo(
-                            Icons.phone_rounded,
-                            tenant.phone.isNotEmpty ? tenant.phone : 'N/A',
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          flex: 5,
-                          child: _inlineInfo(
-                            Icons.mail_outline_rounded,
-                            tenant.email.isNotEmpty ? tenant.email : 'N/A',
-                          ),
-                        ),
+                    _inlineRow(
+                      ctx,
+                      [
+                        _inlineInfo(Icons.phone_rounded,
+                            tenant.phone.isNotEmpty ? tenant.phone : 'N/A'),
+                        _inlineInfo(Icons.mail_outline_rounded,
+                            tenant.email.isNotEmpty ? tenant.email : 'N/A'),
                       ],
+                      [4, 5],
                     ),
                     if (startLabel.isNotEmpty) ...[
                       const SizedBox(height: 10),
@@ -496,21 +475,14 @@ class _UserViewState extends State<UserView> {
                   const SizedBox(height: 10),
                   _infoCard(
                     children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: _inlineInfo(Icons.person_rounded, landlordName),
-                          ),
-                          if (landlordPhone.isNotEmpty) ...[
-                            const SizedBox(width: 8),
-                            Expanded(
-                              flex: 4,
-                              child: _inlineInfo(Icons.phone_rounded, landlordPhone),
-                            ),
-                          ],
+                      _inlineRow(
+                        ctx,
+                        [
+                          _inlineInfo(Icons.person_rounded, landlordName),
+                          if (landlordPhone.isNotEmpty)
+                            _inlineInfo(Icons.phone_rounded, landlordPhone),
                         ],
+                        [3, 4],
                       ),
                     ],
                   ),
@@ -696,7 +668,7 @@ class _UserListCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(22),
+      padding: EdgeInsets.all(Responsive.isMobile(context) ? 14 : 22),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -813,12 +785,14 @@ class _UserTile extends StatelessWidget {
     required this.subtitle,
     required this.color,
     required this.onTap,
+    this.imageUrl,
   });
 
   final String name;
   final String subtitle;
   final Color color;
   final VoidCallback onTap;
+  final String? imageUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -836,19 +810,11 @@ class _UserTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: color,
-                child: Text(
-                  name.isNotEmpty && !name.startsWith('+')
-                      ? name[0].toUpperCase()
-                      : 'U',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+              UserAvatar(
+                name: name.isNotEmpty && !name.startsWith('+') ? name : 'U',
+                imageUrl: imageUrl,
+                size: 44,
+                color: color,
               ),
               const SizedBox(width: 14),
               Expanded(

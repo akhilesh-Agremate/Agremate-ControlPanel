@@ -1,7 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/constants/app_strings.dart';
-import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../repository/admin_control_repository.dart';
 
 class AdminControlController extends GetxController {
@@ -36,26 +35,12 @@ class AdminControlController extends GetxController {
               ? AppStrings.contactMaskEnabledMessage
               : AppStrings.contactMaskDisabledMessage);
 
-      Get.snackbar(
-        AppStrings.success,
-        message,
-        backgroundColor: AppColors.success,
-        colorText: AppColors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 3),
-      );
+      AppToast.success(message);
     } catch (e) {
       isContactMaskEnabled.value = prevValue;
       final err = e.toString().replaceFirst('Exception: ', '');
-      Get.snackbar(
-        AppStrings.error,
+      AppToast.error(
         err.isNotEmpty ? err : AppStrings.updateSettingFailed,
-        backgroundColor: AppColors.error,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 3),
       );
     } finally {
       isUpdating.value = false;

@@ -40,15 +40,6 @@ class Sidebar extends StatelessWidget {
               width: 170,
               fit: BoxFit.contain,
             ),
-            const SizedBox(height: 4),
-            Obx(() => Text(
-              auth.roleLabel,
-              style: AppTheme.caption.copyWith(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFF7B9CCB),
-                  ),
-                )),
               ],
             ),
           ),
@@ -139,49 +130,157 @@ class Sidebar extends StatelessWidget {
     }
   }
 
+
   void _showLogoutDialog(BuildContext context, AuthController auth) {
     showDialog(
       context: context,
-      builder:
-          (ctx) => AlertDialog(
-            backgroundColor: AppTheme.bgCard,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: const Text(
-              'Logout',
-              style: TextStyle(color: AppTheme.textPrimary),
-              textAlign: TextAlign.center,
-            ),
-            content: const Text(
-              'Are you sure you want to logout?',
-              style: TextStyle(color: AppTheme.textSecondary),
-              textAlign: TextAlign.center,
-            ),
-            actionsAlignment: MainAxisAlignment.center,
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(color: AppTheme.textMuted),
-                ),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.accentRed,
-                ),
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  auth.logout();
-                },
-                child: const Text(
-                  'Logout',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
+      useRootNavigator: true,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          elevation: 12,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
           ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    height: 68,
+                    width: 68,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFDECEC),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.logout_rounded,
+                      color: Color(0xFFE34D4D),
+                      size: 30,
+                    ),
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  const Text(
+                    'Logout Confirmation',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 21,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF17243A),
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  const Text(
+                    'Are you sure you want to log out?',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.6,
+                      color: Color(0xFF718096),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFDECEC),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: Color(0xFFD94B4B),
+                          size: 19,
+                        ),
+                        SizedBox(width: 9),
+                        Expanded(
+                          child: Text(
+                            'You will need to sign in again to access your account.',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFFA83C3C),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF43536B),
+                            side: const BorderSide(
+                              color: Color(0xFFE1E6EF),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 14,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(11),
+                            ),
+                          ),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(width: 12),
+
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            auth.logout();
+                          },
+                          icon: const Icon(
+                            Icons.logout_rounded,
+                            size: 17,
+                          ),
+                          label: const Text('Logout'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFE34D4D),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 14,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(11),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -219,7 +318,19 @@ class _NavItemState extends State<_NavItem> {
         : (widget.isLogout ? AppTheme.accentRed : _muted);
 
     final item = GestureDetector(
-      onTap: widget.onTap,
+      onTap: () {
+        if (widget.isLogout) {
+          widget.onTap();
+          return;
+        }
+
+        final scaffold = Scaffold.maybeOf(context);
+        final drawerOpen =
+            scaffold != null && scaffold.hasDrawer && scaffold.isDrawerOpen;
+
+        widget.onTap();
+        if (drawerOpen) Navigator.of(context).pop();
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.symmetric(vertical: 4),

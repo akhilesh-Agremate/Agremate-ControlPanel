@@ -7,6 +7,7 @@ import 'package:agremate_admin/modules/home/view/components/rent_collection_deta
 import 'package:agremate_admin/modules/home/view/components/pending_payment_detail_view.dart';
 import 'package:agremate_admin/modules/home/view/components/subscription_detail_view.dart';
 import 'package:agremate_admin/modules/home/view/components/expired_subscription_detail_view.dart';
+import 'package:agremate_admin/modules/home/view/components/registered_users_detail_view.dart';
 import 'package:agremate_admin/modules/property/controller/property_controller.dart';
 import 'package:agremate_admin/modules/property/model/property_model.dart';
 import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
@@ -16,8 +17,11 @@ import 'package:agremate_admin/core/widgets/web_network_image.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/app_logger.dart';
+import '../../../core/utils/responsive.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/dashboard_kpi_card.dart';
 import '../../../core/widgets/full_pdf_page.dart';
+import 'components/rental_agreements_detail.dart';
 
 class HomeView extends StatelessWidget {
   const HomeView({super.key});
@@ -27,10 +31,10 @@ class HomeView extends StatelessWidget {
     final controller = Get.find<HomeController>();
 
     final metricCards = [
-      {'label': AppStrings.totalRentCollections,  'numberColor': AppColors.metricBlue},
-      {'label': AppStrings.pendingPayments,       'numberColor': AppColors.metricDarkBlue},
-      {'label': AppStrings.totalSubscriptions,    'numberColor': AppColors.metricBlue},
-      {'label': AppStrings.subscriptionExpired,   'numberColor': AppColors.metricRed},
+      {'label': AppStrings.registeredUsers,  'numberColor': AppColors.metricBlue},
+      {'label': AppStrings.activeSupport,    'numberColor': AppColors.metricDarkBlue},
+      {'label': AppStrings.contactOwner,     'numberColor': AppColors.metricBlue},
+      {'label': AppStrings.rentalAgreement,  'numberColor': AppColors.metricRed},
     ];
 
     final listData = [
@@ -89,18 +93,34 @@ class HomeView extends StatelessWidget {
         return const ExpiredSubscriptionDetailView();
       }
 
+      if (controller.showRegisteredUsersDetails.value) {
+        return const RegisteredUsersDetailView();
+      }
+
+      if (controller.showRentalAgreements.value) {
+        return const RentalAgreementsDetailView();
+      }
+
       return ColoredBox(
         color: const Color(0xFFF8FAFD),
           child: Stack(
         children: [
           SingleChildScrollView(
-            padding: const EdgeInsets.all(28),
+            padding: EdgeInsets.all(
+              MediaQuery.sizeOf(context).width < 600
+                  ? 14
+                  : (MediaQuery.sizeOf(context).width < 850 ? 20 : 28),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                SizedBox(
+                width: double.infinity,
+                child: Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.start,
+                  spacing: 12,
+                  runSpacing: 12,
                   children: [
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -116,53 +136,67 @@ class HomeView extends StatelessWidget {
                     _buildGlobalSelector(context, controller),
                   ],
                 ),
+                ),
                 const SizedBox(height: 16),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ...metricCards.map((c) {
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final w = constraints.maxWidth;
+                    final isMobile = w < 600;
+
+                    Widget buildKpi(Map<String, dynamic> c) {
                       final label = c['label'] as String;
                       final periodVar = controller.getPeriodVar(label);
-                      return Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 20),
-                          child: SizedBox(
-                            height: 140,
-                            child: DashboardKpiCard(
-                              label: label,
-                              onTap: label == 'Total Rent Collections'
-                                  ? () {
-                                AppLogger.i('HomeView', 'Open rent collection details');
-                                      controller.openRentCollectionDetails();
-                                    }
-                                  : label == 'Pending Payments'
-                                  ? () {
-                                AppLogger.i('HomeView', 'Open pending payment details');
-                                      controller.openPendingPaymentDetails();
-                                    }
-                                  : label == 'Total Subscriptions'
-                                  ? () {
-                                AppLogger.i('HomeView', 'Open subscription details');
-                                      controller.openSubscriptionDetails();
-                                    }
-                                  : label == 'Subscription Expired'
-                                  ? () {
-                                AppLogger.i('HomeView', 'Open expired subscription details');
-                                      controller.openExpiredSubscriptionDetails();
-                                    }
-                                  : null,
-                              value: Obx(
-                                    () => Text(
-                                  controller.getAmount(label, periodVar.value),
-                                  style: AppTheme.kpiValue.copyWith(fontSize: 32, color: const Color(0xFF2F6BFF)),
-                                ),
+
+                      VoidCallback? onTap;
+                      if (label == AppStrings.registeredUsers) {
+                        onTap = controller.openRegisteredUsersDetails;
+                      } else if (label == AppStrings.rentalAgreement) {
+                        onTap = controller.openRentalAgreementDetails;
+                      }
+
+                      return SizedBox(
+                        height: 140,
+                        child: DashboardKpiCard(
+                          label: label,
+                          onTap: onTap,
+                          value: Obx(
+                                () => Text(
+                              controller.getAmount(label, periodVar.value),
+                              style: AppTheme.kpiValue.copyWith(
+                                fontSize: isMobile ? 24 : 32,
+                                color: const Color(0xFF2F6BFF),
                               ),
                             ),
                           ),
                         ),
                       );
-                    }),
-                  ],
+                    }
+
+                    if (w >= 1000) {
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: metricCards
+                            .map((c) => Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 20),
+                            child: buildKpi(c),
+                          ),
+                        ))
+                            .toList(),
+                      );
+                    }
+
+                    const gap = 16.0;
+                    final cols = w < 420 ? 1 : 2;
+                    final itemW = (w - gap * (cols - 1)) / cols;
+                    return Wrap(
+                      spacing: gap,
+                      runSpacing: gap,
+                      children: metricCards
+                          .map((c) => SizedBox(width: itemW, child: buildKpi(c)))
+                          .toList(),
+                    );
+                  },
                 ),
                 const SizedBox(height: 48),
                 Text('Recent Activity', style: AppTheme.heading2),
@@ -236,7 +270,7 @@ class HomeView extends StatelessWidget {
               top: 0,
               right: 0,
               bottom: 0,
-              width: 550,
+              width: MediaQuery.sizeOf(context).width.clamp(0.0, 550.0).toDouble(),
               child: Container(
                 child: SubscriptionDetailPanel(item: selectedSub),
               ),
@@ -358,6 +392,7 @@ class _ActivityListCard extends StatelessWidget {
     return Obx(() {
       controller.expandedLists.length;
       final isExpanded = controller.expandedLists[title] ?? false;
+      final isMobile = MediaQuery.sizeOf(context).width < 600;
       return Container(
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
@@ -387,10 +422,7 @@ class _ActivityListCard extends StatelessWidget {
                 splashColor: Colors.transparent,
                 highlightColor: Colors.transparent,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 18,
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24, vertical: 18),
                   child: Row(
                     children: [
                       Container(
@@ -424,11 +456,11 @@ class _ActivityListCard extends StatelessWidget {
               if (isExpanded) ...[
                 Container(
                   height: 1,
-                  margin: const EdgeInsets.symmetric(horizontal: 24),
+                  margin: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
                   color: AppTheme.border.withValues(alpha: 0.5),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+                  padding: EdgeInsets.fromLTRB(isMobile ? 12 : 24, 16, isMobile ? 12 : 24, 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children:
@@ -1010,9 +1042,9 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
       builder:
           (_) => Dialog(
             backgroundColor: Colors.transparent,
-            insetPadding: const EdgeInsets.symmetric(
-              horizontal: 60,
-              vertical: 40,
+            insetPadding: EdgeInsets.symmetric(
+              horizontal: Responsive.isMobile(context) ? 12 : 60,
+              vertical: Responsive.isMobile(context) ? 24 : 40,
             ),
             child: Container(
               width: 520,
@@ -1083,13 +1115,15 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                             ],
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
@@ -1116,8 +1150,9 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                                 fontSize: 10,
                               ),
                             ),
-                          ],
-                        ),
+                        ],
+                      ),
+                    ),
                         const SizedBox(width: 8),
                         InkWell(
                           onTap: () => Navigator.pop(context),
@@ -1531,7 +1566,13 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
       );
     }
 
-    return container(Row(mainAxisSize: MainAxisSize.min, children: children));
+    return container(
+      FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Row(mainAxisSize: MainAxisSize.min, children: children),
+      ),
+    );
   }
 
   Widget _buildThumbnail(List<String> images, int index) {
@@ -1794,7 +1835,7 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
               ],
             ),
             content: SizedBox(
-              width: 600,
+              width: (MediaQuery.sizeOf(context).width - 80).clamp(240.0, 600.0).toDouble(),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1908,23 +1949,11 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                           mode: LaunchMode.externalApplication,
                         );
                       } else {
-                        Get.snackbar(
-                          'Error',
-                          'Could not launch download link.',
-                          backgroundColor: Colors.red,
-                          colorText: Colors.white,
-                          snackPosition: SnackPosition.BOTTOM,
-                        );
+                        AppToast.error('Could not launch download link.');
                       }
                     }
                   } else {
-                    Get.snackbar(
-                      'Error',
-                      'No valid download link found.',
-                      backgroundColor: Colors.red,
-                      colorText: Colors.white,
-                      snackPosition: SnackPosition.BOTTOM,
-                    );
+                    AppToast.error('No valid download link found.');
                   }
                 },
                 style: ElevatedButton.styleFrom(
@@ -1948,11 +1977,15 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: AppTheme.caption),
-        Text(
-          value,
-          style: AppTheme.bodyText.copyWith(
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
+        const SizedBox(width: 12),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: AppTheme.bodyText.copyWith(
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
           ),
         ),
       ],
@@ -1988,10 +2021,13 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
 
     return Container(
       width: 152,
-      alignment: Alignment.centerLeft,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children:
+        alignment: Alignment.centerLeft,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children:
             types.map((type) {
               IconData iconData;
               Color color;
@@ -2046,7 +2082,8 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                 ),
               );
             }).toList(),
-      ),
+          ),
+        ),
     );
   }
 
@@ -2130,8 +2167,7 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                   horizontal: 16,
                   vertical: 16,
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                child: _AdaptiveRow(
                   children: [
                     Expanded(
                       flex: 4,
@@ -2823,9 +2859,8 @@ class _HomeServiceRequestCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(18),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+            child: _ResponsiveSplit(
+              head: [
                 Container(
                   width: 5,
                   height: 60,
@@ -2886,14 +2921,15 @@ class _HomeServiceRequestCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        _buildSmallChip(
+              ],
+              tail: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      _buildSmallChip(
                           item['detail']?.toString().replaceFirst(
                                 'Issue: ',
                                 '',
@@ -2928,9 +2964,8 @@ class _HomeServiceRequestCard extends StatelessWidget {
                           const SizedBox(width: 170),
                       ],
                     ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -2938,7 +2973,8 @@ class _HomeServiceRequestCard extends StatelessWidget {
     );
   }
 
-  Widget _buildSmallChip(String label, Color color) {
+  Widget _buildSmallChip(
+      String label, Color color) {
     return SizedBox(
       width: 140,
       child: Container(
@@ -3500,6 +3536,101 @@ class _HomeServiceRequestCard extends StatelessWidget {
         size: 16,
         color: isTenant ? const Color(0xFF1E88E5) : const Color(0xFF43A047),
       ),
+    );
+  }
+}
+
+/// Scales a fixed-width panel down only when the space is narrower than [designWidth].
+class _ScaleToFit extends StatelessWidget {
+  final Widget child;
+  final double designWidth;
+  const _ScaleToFit({required this.child, this.designWidth = 340});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (!constraints.hasBoundedWidth ||
+            constraints.maxWidth >= designWidth) {
+          return child;
+        }
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerRight,
+          child: SizedBox(width: designWidth, child: child),
+        );
+      },
+    );
+  }
+}
+
+/// Row on wide containers; stacks children vertically on narrow ones.
+class _AdaptiveRow extends StatelessWidget {
+  final List<Widget> children;
+  final double breakpoint;
+  const _AdaptiveRow({required this.children, this.breakpoint = 640});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= breakpoint) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: children,
+          );
+        }
+        final stacked = <Widget>[];
+        for (var i = 0; i < children.length; i++) {
+          final w = children[i];
+          Widget out = w is Expanded ? w.child : w;
+          if (w is SizedBox && w.child == null && w.height == null) {
+            out = const SizedBox(height: 12);
+          }
+          if (i == children.length - 1) out = _ScaleToFit(child: out);
+          stacked.add(out);
+        }
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: stacked,
+        );
+      },
+    );
+  }
+}
+
+/// [head] and [tail] sit side by side on wide containers; tail drops below on narrow ones.
+class _ResponsiveSplit extends StatelessWidget {
+  final List<Widget> head;
+  final Widget tail;
+  final double breakpoint;
+  const _ResponsiveSplit({
+    required this.head,
+    required this.tail,
+    this.breakpoint = 640,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= breakpoint) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [...head, tail],
+          );
+        }
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: head),
+            const SizedBox(height: 12),
+            _ScaleToFit(child: tail),
+          ],
+        );
+      },
     );
   }
 }

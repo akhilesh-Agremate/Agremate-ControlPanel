@@ -9,7 +9,7 @@ import 'package:agremate_admin/modules/property/controller/property_controller.d
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-
+import '../../core/utils/responsive.dart';
 import '../../modules/property/model/property_model.dart';
 
 class PropertyView extends StatelessWidget {
@@ -25,75 +25,93 @@ class PropertyView extends StatelessWidget {
       if (nav.searchQuery.value != pc.searchQuery.value) {
         pc.search(nav.searchQuery.value);
       }
+      final double pagePadding = Responsive.isMobile(context)
+          ? 16
+          : Responsive.isTablet(context)
+          ? 20
+          : 28;
+      final List<Widget> kpis = [
+        KpiCard(
+          title: 'Total Landlords',
+          value: '${pc.landlords.length}',
+          icon: Icons.person_rounded,
+          accentColor: AppTheme.accentOrange,
+          subtitle:
+          '${pc.landlords.where((l) => l?.isActive == true).length} active',
+          sparkData: [3, 5, 4, 7, 6, 8, 9, 7, 10, 12, 11, 15],
+        ),
+        KpiCard(
+          title: 'Total Tenants',
+          value: '${pc.tenants.length}',
+          icon: Icons.groups_rounded,
+          accentColor: AppTheme.accentCyan,
+          subtitle: 'across ${pc.properties.length} properties',
+          sparkData: [5, 8, 7, 9, 12, 10, 14, 13, 16, 18, 17, 25],
+        ),
+        KpiCard(
+          title: 'Total Properties',
+          value: '${pc.properties.length}',
+          icon: Icons.apartment_rounded,
+          accentColor: AppTheme.accentGreen,
+          subtitle: '${pc.properties.where((p) => p.isRented).length} rented',
+        ),
+        KpiCard(
+          title: 'Total Revenue',
+          value: fmt.format(
+            pc.landlords.fold<double>(
+              0,
+                  (s, l) => s + l.totalRevenue,
+            ),
+          ),
+          icon: Icons.trending_up_rounded,
+          accentColor: AppTheme.accentPurple,
+        ),
+      ];
+
+      final double screenWidth = MediaQuery.sizeOf(context).width;
 
       return SingleChildScrollView(
-        padding: const EdgeInsets.all(28),
+        padding: EdgeInsets.all(pagePadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: KpiCard(
-                    title: 'Total Landlords',
-                    value: '${pc.landlords.length}',
-                    icon: Icons.person_rounded,
-                    accentColor: AppTheme.accentOrange,
-                    subtitle:
-                        '${pc.landlords.where((l) => l?.isActive == true).length} active',
-                    sparkData: [3, 5, 4, 7, 6, 8, 9, 7, 10, 12, 11, 15],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: KpiCard(
-                    title: 'Total Tenants',
-                    value: '${pc.tenants.length}',
-                    icon: Icons.groups_rounded,
-                    accentColor: AppTheme.accentCyan,
-                    subtitle: 'across ${pc.properties.length} properties',
-                    sparkData: [5, 8, 7, 9, 12, 10, 14, 13, 16, 18, 17, 25],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: KpiCard(
-                    title: 'Total Properties',
-                    value: '${pc.properties.length}',
-                    icon: Icons.apartment_rounded,
-                    accentColor: AppTheme.accentGreen,
-                    subtitle:
-                        '${pc.properties.where((p) => p.isRented).length} rented',
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: KpiCard(
-                    title: 'Total Revenue',
-                    value: fmt.format(
-                      pc.landlords.fold<double>(
-                        0,
-                        (s, l) => s + l.totalRevenue,
-                      ),
-                    ),
-                    icon: Icons.trending_up_rounded,
-                    accentColor: AppTheme.accentPurple,
-                  ),
-                ),
-              ],
+            Responsive(
+              desktop: Row(
+                children: [
+                  for (int i = 0; i < kpis.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 16),
+                    Expanded(child: kpis[i]),
+                  ],
+                ],
+              ),
+              tablet: _GridWrap(items: kpis, columns: 2),
+              mobile: _GridWrap(
+                items: kpis,
+                columns: screenWidth >= 560 ? 2 : 1,
+              ),
             ),
             const SizedBox(height: 28),
 
             const SizedBox(height: 16),
             Row(
               children: [
-                Text('Properties', style: AppTheme.heading2),
-                const SizedBox(width: 8),
-                Text(
-                  '(${pc.filteredProperties.length} total)',
-                  style: AppTheme.caption,
+                Expanded(
+                  child: Row(
+                    children: [
+                      Text('Properties', style: AppTheme.heading2),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          '(${pc.filteredProperties.length} total)',
+                          style: AppTheme.caption,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 8),
                 ElevatedButton.icon(
                   onPressed: () => _showAddLandlordDialog(context, pc),
                   icon: const Icon(Icons.add, size: 18),
@@ -102,13 +120,32 @@ class PropertyView extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            Wrap(
-              spacing: 16,
-              runSpacing: 16,
-              children:
+            LayoutBuilder(
+              builder: (context, constraints) {
+                const double spacing = 16;
+                final double maxW = constraints.maxWidth;
+                double cardWidth;
+                if (Responsive.isMobile(context)) {
+                  final int cols = maxW >= 640 ? 2 : 1;
+                  cardWidth = (maxW - spacing * (cols - 1)) / cols;
+                } else {
+                  cardWidth = maxW < 300 ? maxW : 300;
+                }
+                return Wrap(
+                  spacing: spacing,
+                  runSpacing: 16,
+                  children:
                   pc.currentPageProperties
-                      .map((prop) => _PropertyCard(prop: prop, pc: pc))
+                      .map(
+                        (prop) => _PropertyCard(
+                      prop: prop,
+                      pc: pc,
+                      width: cardWidth,
+                    ),
+                  )
                       .toList(),
+                );
+              },
             ),
             const SizedBox(height: 24),
 
@@ -127,60 +164,87 @@ class PropertyView extends StatelessWidget {
       context: context,
       builder:
           (ctx) => AlertDialog(
-            backgroundColor: AppTheme.bgCard,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: const Text(
-              'Add Landlord',
-              style: TextStyle(color: AppTheme.textPrimary),
-            ),
-            content: SizedBox(
-              width: 380,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameC,
-                    decoration: const InputDecoration(labelText: 'Full Name'),
-                    style: const TextStyle(color: AppTheme.textPrimary),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: phoneC,
-                    decoration: const InputDecoration(labelText: 'Phone'),
-                    style: const TextStyle(color: AppTheme.textPrimary),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: emailC,
-                    decoration: const InputDecoration(labelText: 'Email'),
-                    style: const TextStyle(color: AppTheme.textPrimary),
-                  ),
-                ],
+        scrollable: true,
+        backgroundColor: AppTheme.bgCard,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Text(
+          'Add Landlord',
+          style: TextStyle(color: AppTheme.textPrimary),
+        ),
+        content: SizedBox(
+          width: MediaQuery.sizeOf(ctx).width < 460
+              ? MediaQuery.sizeOf(ctx).width - 80
+              : 380,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameC,
+                decoration: const InputDecoration(labelText: 'Full Name'),
+                style: const TextStyle(color: AppTheme.textPrimary),
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(color: AppTheme.textMuted),
-                ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: phoneC,
+                decoration: const InputDecoration(labelText: 'Phone'),
+                style: const TextStyle(color: AppTheme.textPrimary),
               ),
-              ElevatedButton(
-                onPressed: () {
-                  if (nameC.text.isNotEmpty &&
-                      phoneC.text.isNotEmpty &&
-                      emailC.text.isNotEmpty) {
-                    pc.addLandlord(nameC.text, phoneC.text, emailC.text);
-                    Navigator.pop(ctx);
-                  }
-                },
-                child: const Text('Add'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: emailC,
+                decoration: const InputDecoration(labelText: 'Email'),
+                style: const TextStyle(color: AppTheme.textPrimary),
               ),
             ],
           ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppTheme.textMuted),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (nameC.text.isNotEmpty &&
+                  phoneC.text.isNotEmpty &&
+                  emailC.text.isNotEmpty) {
+                pc.addLandlord(nameC.text, phoneC.text, emailC.text);
+                Navigator.pop(ctx);
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Lays items out in an evenly divided grid of [columns] columns.
+class _GridWrap extends StatelessWidget {
+  final List<Widget> items;
+  final int columns;
+  const _GridWrap({required this.items, required this.columns});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const double spacing = 16;
+        final double itemWidth =
+            (constraints.maxWidth - spacing * (columns - 1)) / columns;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children:
+          items.map((w) => SizedBox(width: itemWidth, child: w)).toList(),
+        );
+      },
     );
   }
 }
@@ -443,62 +507,71 @@ class _Pagination extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        IconButton(
-          onPressed:
+    return Center(
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            IconButton(
+              onPressed:
               pc.currentPage.value > 1
                   ? () => pc.goToPage(pc.currentPage.value - 1)
                   : null,
-          icon: Icon(
-            Icons.chevron_left,
-            color:
+              icon: Icon(
+                Icons.chevron_left,
+                color:
                 pc.currentPage.value > 1
                     ? AppTheme.textPrimary
                     : AppTheme.textMuted,
-          ),
-        ),
-        ...List.generate(pc.totalPages, (i) {
-          final page = i + 1;
-          final isActive = page == pc.currentPage.value;
-          return GestureDetector(
-            onTap: () => pc.goToPage(page),
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: isActive ? AppTheme.accentGreen : AppTheme.bgCardLight,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: isActive ? AppTheme.accentGreen : AppTheme.border,
-                ),
-              ),
-              child: Text(
-                '$page',
-                style: TextStyle(
-                  color: isActive ? AppTheme.bgDark : AppTheme.textSecondary,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
               ),
             ),
-          );
-        }),
-        IconButton(
-          onPressed:
+            ...List.generate(pc.totalPages, (i) {
+              final page = i + 1;
+              final isActive = page == pc.currentPage.value;
+              return GestureDetector(
+                onTap: () => pc.goToPage(page),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color:
+                    isActive ? AppTheme.accentGreen : AppTheme.bgCardLight,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isActive ? AppTheme.accentGreen : AppTheme.border,
+                    ),
+                  ),
+                  child: Text(
+                    '$page',
+                    style: TextStyle(
+                      color:
+                      isActive ? AppTheme.bgDark : AppTheme.textSecondary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              );
+            }),
+            IconButton(
+              onPressed:
               pc.currentPage.value < pc.totalPages
                   ? () => pc.goToPage(pc.currentPage.value + 1)
                   : null,
-          icon: Icon(
-            Icons.chevron_right,
-            color:
+              icon: Icon(
+                Icons.chevron_right,
+                color:
                 pc.currentPage.value < pc.totalPages
                     ? AppTheme.textPrimary
                     : AppTheme.textMuted,
-          ),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

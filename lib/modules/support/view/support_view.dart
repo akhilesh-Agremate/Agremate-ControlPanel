@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:agremate_admin/core/theme/theme.dart';
 import 'package:agremate_admin/modules/support/controller/support_controller.dart';
 import 'package:agremate_admin/core/widgets/glass_card.dart';
+import '../../../core/utils/responsive.dart';
 
 class SupportView extends StatelessWidget {
   const SupportView({super.key});
@@ -13,25 +14,44 @@ class SupportView extends StatelessWidget {
 
     return Obx(() {
       return SingleChildScrollView(
-        padding: const EdgeInsets.all(28),
+        padding: EdgeInsets.all(Responsive.isMobile(context) ? 14 : 28),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(child: _ContactCard(icon: Icons.email_rounded, title: 'Email', value: 'contact@agremate.com', color: AppTheme.accentCyan)),
-                const SizedBox(width: 16),
-                Expanded(child: _ContactCard(icon: Icons.phone_rounded, title: 'Phone', value: '+91 9876543210', color: AppTheme.accentGreen)),
-                const SizedBox(width: 16),
-                Expanded(child: _ContactCard(icon: Icons.location_on_rounded, title: 'Address', value: 'Mumbai, Maharashtra, India', color: AppTheme.accentPurple)),
-              ],
-            ),
+            LayoutBuilder(builder: (context, c) {
+              final cards = [
+                _ContactCard(icon: Icons.email_rounded, title: 'Email', value: 'contact@agremate.com', color: AppTheme.accentCyan),
+                _ContactCard(icon: Icons.phone_rounded, title: 'Phone', value: '+91 9876543210', color: AppTheme.accentGreen),
+                _ContactCard(icon: Icons.location_on_rounded, title: 'Address', value: 'Mumbai, Maharashtra, India', color: AppTheme.accentPurple),
+              ];
+              if (c.maxWidth < 600) {
+                return Column(
+                  children: [
+                    for (int i = 0; i < cards.length; i++) ...[
+                      SizedBox(width: double.infinity, child: cards[i]),
+                      if (i < cards.length - 1) const SizedBox(height: 12),
+                    ],
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: cards[0]),
+                  const SizedBox(width: 16),
+                  Expanded(child: cards[1]),
+                  const SizedBox(width: 16),
+                  Expanded(child: cards[2]),
+                ],
+              );
+            }),
             const SizedBox(height: 32),
-
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Frequently Asked Questions', style: AppTheme.heading2),
+                Expanded(
+                  child: Text('Frequently Asked Questions', style: AppTheme.heading2),
+                ),
+                const SizedBox(width: 12),
                 ElevatedButton.icon(
                   onPressed: () => _showAddFaqDialog(context, sc),
                   icon: const Icon(Icons.add_rounded, size: 18),
@@ -110,12 +130,19 @@ class SupportView extends StatelessWidget {
                       ),
                       const SizedBox(width: 16),
                       if (sc.isSubmitted.value)
-                        const Row(
-                          children: [
-                            Icon(Icons.check_circle, color: AppTheme.accentGreen, size: 20),
-                            SizedBox(width: 6),
-                            Text('Ticket submitted!', style: TextStyle(color: AppTheme.accentGreen)),
-                          ],
+                        const Flexible(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.check_circle, color: AppTheme.accentGreen, size: 20),
+                              SizedBox(width: 6),
+                              Flexible(
+                                child: Text('Ticket submitted!',
+                                    style: TextStyle(color: AppTheme.accentGreen),
+                                    overflow: TextOverflow.ellipsis),
+                              ),
+                            ],
+                          ),
                         ),
                     ],
                   ),
@@ -134,6 +161,10 @@ class SupportView extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        scrollable: true,
+        insetPadding: Responsive.isMobile(ctx)
+            ? const EdgeInsets.symmetric(horizontal: 12, vertical: 24)
+            : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
         backgroundColor: AppTheme.bgCard,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(

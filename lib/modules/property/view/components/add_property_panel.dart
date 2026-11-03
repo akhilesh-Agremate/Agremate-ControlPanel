@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/utils/responsive.dart';
 import '../../../auth/controller/auth_controller.dart';
 import '../../model/amenity_model.dart';
 import '../../model/property_model.dart';
 import 'map_picker_dialog.dart';
+import 'package:agremate_admin/core/widgets/app_toast.dart';
 import 'package:agremate_admin/core/widgets/web_network_image.dart';
 
 class PickedFile {
@@ -455,7 +457,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
           const Divider(height: 1, color: _line),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(28),
+              padding: EdgeInsets.all(Responsive.isMobile(context) ? 14 : 28),
               child: Form(
                 key: _formKey,
                 child: LayoutBuilder(
@@ -484,51 +486,84 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
   }
 
   Widget _header() {
+    final mobile = Responsive.isMobile(context);
+
+    final cancelBtn = OutlinedButton(
+      onPressed: _submitting ? null : widget.onBack,
+      style: OutlinedButton.styleFrom(
+        shape: const StadiumBorder(),
+        padding: EdgeInsets.symmetric(
+            horizontal: mobile ? 18 : 22, vertical: mobile ? 12 : 14),
+      ),
+      child: const Text('Cancel'),
+    );
+
+    final submitBtn = ElevatedButton(
+      onPressed: _submitting ? null : _submit,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: _blue,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        shape: const StadiumBorder(),
+        padding: EdgeInsets.symmetric(
+            horizontal: mobile ? 22 : 32, vertical: mobile ? 12 : 14),
+      ),
+      child: _submitting
+          ? const SizedBox(
+        width: 18,
+        height: 18,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: Colors.white,
+        ),
+      )
+          : Text(_isEdit ? 'Update' : 'Create'),
+    );
+
+    final title = Text(
+      _isEdit ? 'Update Property' : 'Create Property',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+          fontSize: mobile ? 17 : 20, fontWeight: FontWeight.w600),
+    );
+
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      child: Row(
+      padding: EdgeInsets.symmetric(
+          horizontal: mobile ? 8 : 20, vertical: mobile ? 10 : 14),
+      child: mobile
+          ? Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(children: [
+            IconButton(
+              onPressed: widget.onBack,
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+            ),
+            Expanded(child: title),
+          ]),
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [cancelBtn, const SizedBox(width: 10), submitBtn],
+            ),
+          ),
+        ],
+      )
+          : Row(
         children: [
           IconButton(
             onPressed: widget.onBack,
             icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           ),
           const SizedBox(width: 8),
-          Text(
-            _isEdit ? 'Update Property' : 'Create Property',
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-          ),
-          const Spacer(),
-          OutlinedButton(
-            onPressed: _submitting ? null : widget.onBack,
-            style: OutlinedButton.styleFrom(
-              shape: const StadiumBorder(),
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-            ),
-            child: const Text('Cancel'),
-          ),
+          Expanded(child: title),
+          cancelBtn,
           const SizedBox(width: 12),
-          ElevatedButton(
-            onPressed: _submitting ? null : _submit,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _blue,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: const StadiumBorder(),
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-            ),
-            child:
-                _submitting
-                    ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                    : Text(_isEdit ? 'Update' : 'Create'),
-          ),
+          submitBtn,
         ],
       ),
     );
@@ -536,7 +571,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
-      Get.snackbar('Missing details', 'Please fix the highlighted fields.');
+      AppToast.error('Please fix the highlighted fields.');
       return;
     }
     final data = <String, dynamic>{
@@ -599,7 +634,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
       await widget.onSubmit(data);
       widget.onBack();
     } catch (e) {
-      Get.snackbar('Error', 'Failed to ${_isEdit ? 'update' : 'create'} property: $e');
+      AppToast.error('Failed to ${_isEdit ? 'update' : 'create'} property: $e');
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -691,7 +726,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
           Row(
             children: [
               Expanded(child: _field('Door number', 'e.g. 309', doorC)),
-              const SizedBox(width: 20),
+              SizedBox(width: Responsive.isMobile(context) ? 12 : 20),
               Expanded(child: _field('Floor number', 'e.g. 3', floorC)),
             ],
           ),
@@ -889,7 +924,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
                   validator: (v) => _required(v, 'Advance'),
                 ),
               ),
-              const SizedBox(width: 20),
+              SizedBox(width: Responsive.isMobile(context) ? 12 : 20),
               Expanded(
                 child: _field(
                   'Rent',
@@ -916,7 +951,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
                   height: 40,
                 ),
               ),
-              const SizedBox(width: 20),
+              SizedBox(width: Responsive.isMobile(context) ? 12 : 20),
               const Expanded(child: SizedBox()),
             ],
           ),
@@ -1033,14 +1068,14 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
       setState(() => photos.addAll(picked));
     } catch (e, st) {
       debugPrint('Pick photos failed: $e\n$st');
-      Get.snackbar('Could not open file picker', '$e');
+      AppToast.error('$e');
     }
   }
 
   Future<void> _pickDocuments() async {
     final remaining = _maxDocs - documents.length;
     if (remaining <= 0) {
-      Get.snackbar('Limit reached', 'You can add up to $_maxDocs documents.');
+      AppToast.error('You can add up to $_maxDocs documents.');
       return;
     }
     try {
@@ -1054,7 +1089,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
       setState(() => documents.addAll(picked));
     } catch (e, st) {
       debugPrint('Pick documents failed: $e\n$st');
-      Get.snackbar('Could not open file picker', '$e');
+      AppToast.error('$e');
     }
   }
 
@@ -1119,7 +1154,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
                   validator: (v) => _required(v, '$name Timing From'),
                 ),
               ),
-              const SizedBox(width: 20),
+              SizedBox(width: Responsive.isMobile(context) ? 12 : 20),
               Expanded(
                 child: _field(
                   '$name Timing To',

@@ -190,8 +190,11 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            child: Row(
+            padding: EdgeInsets.symmetric(
+              horizontal: MediaQuery.sizeOf(context).width < 600 ? 10 : 20,
+              vertical: 10,
+            ),
+            child: _AdaptiveHeader(
               children: [
                 IconButton(
                   onPressed: () {
@@ -219,7 +222,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                 const SizedBox(width: 8),
                 Text(
                   _openDocName ?? 'Property Detail',
-                  style: AppTheme.heading2.copyWith(color: Colors.black),
+                  style: AppTheme.heading2.copyWith(color: Colors.black,fontSize: 20),
                 ),
                 const Spacer(),
                 if (_openDocName == null) ...[
@@ -227,7 +230,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                     OutlinedButton.icon(
                       onPressed: _startEdit,
                       icon: const Icon(Icons.edit_rounded, size: 16),
-                      label: const Text('Edit'),
+                      label: const Text('Edit',style: TextStyle(fontSize: 14)),
                     ),
                     const SizedBox(width: 12),
                   ],
@@ -241,7 +244,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                       ),
                       label: const Text(
                         'Delete',
-                        style: TextStyle(color: AppTheme.accentRed),
+                        style: TextStyle(color: AppTheme.accentRed,fontSize: 14),
                       ),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: AppTheme.accentRed),
@@ -272,7 +275,12 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                 final isWide = constraints.maxWidth >= 920;
 
                 return SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+                  padding: EdgeInsets.fromLTRB(
+                    constraints.maxWidth < 600 ? 14 : 24,
+                    16,
+                    constraints.maxWidth < 600 ? 14 : 24,
+                    20,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -333,7 +341,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                 'No amenities data available',
                 style: AppTheme.bodyText.copyWith(
                   color: Colors.black38,
-                  fontSize: 13,
+                  fontSize: 14,
                 ),
               ),
         const SizedBox(height: 16),
@@ -488,7 +496,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           Text(
             '$label: $value',
             style: const TextStyle(
-              fontSize: 12,
+              fontSize: 14,
               fontWeight: FontWeight.w600,
               color: Colors.black87,
             ),
@@ -555,7 +563,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
             Text(
               widget.property.name,
               style: AppTheme.heading1.copyWith(
-                fontSize: 26,
+                fontSize: 24,
                 color: Colors.black,
               ),
             ),
@@ -594,7 +602,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                     style: AppTheme.bodyText.copyWith(
                       fontWeight: FontWeight.w600,
                       color: Colors.black,
-                      fontSize: 13,
+                      fontSize: 14,
                     ),
                   ),
                 ),
@@ -633,9 +641,13 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
     );
   }
 
-  Widget _buildHeroImage(double height) {
-    if (_currentImageUrl == null) {
-      return Container(
+  Widget _placeholderHero(double height) {
+    return Image.asset(
+      'assets/images/placer.png',
+      height: height,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (c, e, s) => Container(
         height: height,
         width: double.infinity,
         color: Colors.grey.shade100,
@@ -644,11 +656,18 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           color: Color(0xFFCBD5E1),
           size: 40,
         ),
-      );
+      ),
+    );
+  }
+
+  Widget _buildHeroImage(double height) {
+    final url = _currentImageUrl?.trim();
+    if (url == null || url.isEmpty || url.toLowerCase() == 'null') {
+      return _placeholderHero(height);
     }
 
     return Image.network(
-      _currentImageUrl!,
+      url,
       height: height,
       width: double.infinity,
       fit: BoxFit.cover,
@@ -663,18 +682,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           ),
         );
       },
-      errorBuilder: (context, error, stackTrace) {
-        return Container(
-          height: height,
-          width: double.infinity,
-          color: Colors.grey.shade100,
-          child: const Icon(
-            Icons.image_not_supported_rounded,
-            color: Color(0xFFCBD5E1),
-            size: 40,
-          ),
-        );
-      },
+      errorBuilder: (context, error, stackTrace) => _placeholderHero(height),
     );
   }
 
@@ -711,7 +719,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
     if (features.isEmpty) {
       return Text(
         'No features data available',
-        style: AppTheme.bodyText.copyWith(color: Colors.black38, fontSize: 13),
+        style: AppTheme.bodyText.copyWith(color: Colors.black38, fontSize: 14),
       );
     }
 
@@ -822,7 +830,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           Text(
             label,
             style: AppTheme.bodyText.copyWith(
-              fontSize: 12,
+              fontSize: 14,
               fontWeight: FontWeight.w600,
               color: Colors.black87,
             ),
@@ -899,11 +907,15 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: AppTheme.caption.copyWith(color: Colors.black45)),
+          Text(label, style: AppTheme.caption.copyWith(color: Colors.black45,fontSize: 12)),
           const SizedBox(height: 6),
-          Text(
-            value,
-            style: AppTheme.heading1.copyWith(color: Colors.black, fontSize: 22),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: AppTheme.heading1.copyWith(color: Colors.black, fontSize: 20),
+            ),
           ),
         ],
       ),
@@ -948,7 +960,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                       title,
                       style: AppTheme.caption.copyWith(
                         color: accentColor,
-                        fontSize: 10,
+                        fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -956,7 +968,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                       name,
                       style: AppTheme.bodyText.copyWith(
                         fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                        fontSize: 16,
                         color: Colors.black,
                       ),
                     ),
@@ -968,7 +980,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           const SizedBox(height: 10),
           const Divider(color: Colors.black12, height: 1),
           const SizedBox(height: 10),
-          Row(
+          _AdaptivePair(
             children: [
               Expanded(
                 child: _buildContactRow(Icons.phone_rounded, phone),
@@ -1041,7 +1053,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                 'Documents',
                 style: AppTheme.caption.copyWith(
                   color: AppTheme.accentBlue,
-                  fontSize: 10,
+                  fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -1053,7 +1065,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
               'No documents available',
               style: AppTheme.bodyText.copyWith(
                 color: Colors.black38,
-                fontSize: 13,
+                fontSize: 14,
               ),
             )
           else
@@ -1164,11 +1176,11 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           ? Center(
         child: Text(
           'Document preview is not available.',
-          style: AppTheme.bodyText,
+          style: AppTheme.bodyText.copyWith(fontSize: 14),
         ),
       )
           : Padding(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 600 ? 10 : 24),
         child: isPdf
             ? ClipRRect(
           borderRadius: BorderRadius.circular(12),
@@ -1226,7 +1238,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
             'No Tenant Occupying',
             style: AppTheme.bodyText.copyWith(
               color: Colors.black45,
-              fontSize: 12,
+              fontSize: 14,
             ),
           ),
         ],
@@ -1243,7 +1255,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           child: Text(
             text,
             style: AppTheme.bodyText.copyWith(
-              fontSize: 13,
+              fontSize: 14,
               color: Colors.black87,
             ),
             overflow: TextOverflow.ellipsis,
@@ -1278,10 +1290,10 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       IconButton(
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.arrow_back_ios_rounded,
                           color: Colors.white,
-                          size: 48,
+                          size: MediaQuery.sizeOf(context).width < 600 ? 26 : 48,
                         ),
                         onPressed: currentIndex > 0
                             ? () => setDialogState(() => currentIndex--)
@@ -1297,10 +1309,10 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.arrow_forward_ios_rounded,
                           color: Colors.white,
-                          size: 48,
+                          size: MediaQuery.sizeOf(context).width < 600 ? 26 : 48,
                         ),
                         onPressed: currentIndex <
                                 widget.property.images.length - 1
@@ -1310,8 +1322,8 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                     ],
                   ),
                   Positioned(
-                    top: 40,
-                    right: 40,
+                    top: MediaQuery.sizeOf(context).width < 600 ? 16 : 40,
+                    right: MediaQuery.sizeOf(context).width < 600 ? 12 : 40,
                     child: IconButton(
                       icon: const Icon(Icons.close, color: Colors.white, size: 32),
                       onPressed: () => Navigator.pop(context),
@@ -1323,7 +1335,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                       '${currentIndex + 1} / ${widget.property.images.length}',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -1332,6 +1344,61 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
               ),
             );
           },
+        );
+      },
+    );
+  }
+}
+/// Row on wide containers; wraps (dropping Spacers/gaps) on narrow ones.
+class _AdaptiveHeader extends StatelessWidget {
+  final List<Widget> children;
+  final double breakpoint;
+  const _AdaptiveHeader({required this.children, this.breakpoint = 640});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, c) {
+        if (c.maxWidth >= breakpoint) {
+          return Row(children: children);
+        }
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: children
+              .where((x) => x is! Spacer && !(x is SizedBox && x.child == null))
+              .toList(),
+        );
+      },
+    );
+  }
+}
+
+/// Two Expanded items side by side; stacked when the space is narrow.
+class _AdaptivePair extends StatelessWidget {
+  final List<Widget> children;
+  final double breakpoint;
+  const _AdaptivePair({required this.children, this.breakpoint = 340});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, c) {
+        if (c.maxWidth >= breakpoint) {
+          return Row(children: children);
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final w in children)
+              if (w is Expanded)
+                w.child
+              else if (w is SizedBox && w.child == null)
+                const SizedBox(height: 8)
+              else
+                w,
+          ],
         );
       },
     );

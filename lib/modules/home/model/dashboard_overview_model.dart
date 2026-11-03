@@ -1,24 +1,47 @@
 class DashboardOverviewModel {
-  final num totalRentCollections;
-  final num pendingPayments;
-  final int totalSubscriptionsCount;
-  final int subscriptionExpiredCount;
+  final int registeredUsersCount;
+  final int landlordCount;
+  final int tenantCount;
+  final int activeSupportCount;
+  final int contactOwnerCount;
+  final int rentalAgreementCount;
 
   DashboardOverviewModel({
-    required this.totalRentCollections,
-    required this.pendingPayments,
-    this.totalSubscriptionsCount=0,
-    required this.subscriptionExpiredCount,
+    required this.registeredUsersCount,
+    required this.landlordCount,
+    required this.tenantCount,
+    required this.activeSupportCount,
+    required this.contactOwnerCount,
+    required this.rentalAgreementCount,
   });
 
   factory DashboardOverviewModel.fromJson(Map<String, dynamic> json) {
+    int asInt(dynamic v) {
+      if (v is num) return v.toInt();
+      return int.tryParse(v?.toString() ?? '') ?? 0;
+    }
+
+    final users = json['registeredUsers'];
+    final tickets = json['supportTickets'];
+    final agreements = json['rentalAgreements'];
+
     return DashboardOverviewModel(
-      totalRentCollections: json['totalRentCollections'] ?? 0,
-      pendingPayments: json['pendingPayments'] ?? 0,
-      totalSubscriptionsCount:
-      ((json['totalSubscriptionsCount'] ?? json['subscriptionCount'] ?? 0) as num).toInt(),
-      subscriptionExpiredCount:
-      ((json['subscriptionExpiredCount'] ?? 0) as num).toInt(),
+      registeredUsersCount: asInt(
+        users is Map ? users['totalRegisteredUsersCount'] : null,
+      ),
+      landlordCount: asInt(
+        users is Map ? users['totalLandlordsCount'] : null,
+      ),
+      tenantCount: asInt(
+        users is Map ? users['totalTenantsCount'] : null,
+      ),
+      activeSupportCount: asInt(
+        tickets is Map ? tickets['activeSupportTicketsCount'] : null,
+      ),
+      contactOwnerCount: asInt(json['totalContactOwnersCount']),
+      rentalAgreementCount: asInt(
+        agreements is Map ? agreements['totalRentalAgreementsCount'] : null,
+      ),
     );
   }
 }

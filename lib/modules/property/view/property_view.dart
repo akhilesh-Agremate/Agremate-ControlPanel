@@ -13,6 +13,7 @@ import 'components/add_property_panel.dart';
 import 'components/create_pg_property_panel.dart';
 import 'components/property_type_dialog.dart';
 import 'pg_property_detail_view.dart';
+import 'package:agremate_admin/core/utils/responsive.dart';
 
 class PropertyView extends StatelessWidget {
   const PropertyView({super.key});
@@ -72,65 +73,112 @@ class PropertyView extends StatelessWidget {
         return PropertyDetailPanel(property: prop);
       }
 
+      final mobile = Responsive.isMobile(context);
+      final kpiRow = Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: KpiCard(
+              title: 'Total Properties',
+              value: '${k.totalProperties}',
+              icon: Icons.apartment_rounded,
+              accentColor: AppTheme.accentGreen,
+              subtitle: '${k.rentedCount} rented',
+              sparkData: spark(k.propertiesSparkline),
+              sparkLabels: labels,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: KpiCard(
+              title: 'Total Landlords',
+              value: '${k.totalLandlords}',
+              icon: Icons.person_rounded,
+              accentColor: AppTheme.landlordFill,
+              subtitle: '${k.activeLandlordCount} active',
+              sparkData: spark(k.landlordsSparkline),
+              sparkLabels: labels,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: KpiCard(
+              title: 'Total Tenants',
+              value: '${k.totalTenants}',
+              icon: Icons.groups_rounded,
+              accentColor: AppTheme.tenantFill,
+              subtitle: 'across ${k.tenantsAcrossProperties} properties',
+              sparkData: spark(k.tenantsSparkline),
+              sparkLabels: labels,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: KpiCard(
+              title: 'Total Revenue',
+              value: fmt.format(k.totalRevenue),
+              icon: Icons.trending_up_rounded,
+              accentColor: AppTheme.accentPurple,
+              sparkData: spark(k.revenueSparkline),
+              sparkLabels: labels,
+            ),
+          ),
+        ],
+      );
+
       return ColoredBox(
         color: const Color(0xFFF8FAFD),
         child: SingleChildScrollView(
           controller: pc.scrollController,
-          padding: const EdgeInsets.all(28),
+          padding: EdgeInsets.all(mobile ? 14 : 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: KpiCard(
-                      title: 'Total Properties',
-                      value: '${k.totalProperties}',
-                      icon: Icons.apartment_rounded,
-                      accentColor: AppTheme.accentGreen,
-                      subtitle: '${k.rentedCount} rented',
-                      sparkData: spark(k.propertiesSparkline),
-                      sparkLabels: labels,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: KpiCard(
-                      title: 'Total Landlords',
-                      value: '${k.totalLandlords}',
-                      icon: Icons.person_rounded,
-                      accentColor: AppTheme.landlordFill,
-                      subtitle: '${k.activeLandlordCount} active',
-                      sparkData: spark(k.landlordsSparkline),
-                      sparkLabels: labels,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: KpiCard(
-                      title: 'Total Tenants',
-                      value: '${k.totalTenants}',
-                      icon: Icons.groups_rounded,
-                      accentColor: AppTheme.tenantFill,
-                      subtitle: 'across ${k.tenantsAcrossProperties} properties',
-                      sparkData: spark(k.tenantsSparkline),
-                      sparkLabels: labels,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: KpiCard(
-                      title: 'Total Revenue',
-                      value: fmt.format(k.totalRevenue),
-                      icon: Icons.trending_up_rounded,
-                      accentColor: AppTheme.accentPurple,
-                      sparkData: spark(k.revenueSparkline),
-                      sparkLabels: labels,
-                    ),
-                  ),
-                ],
-              ),
+              mobile
+                  ? Column(
+                      children: [
+                        KpiCard(
+                          title: 'Total Properties',
+                          value: '${k.totalProperties}',
+                          icon: Icons.apartment_rounded,
+                          accentColor: AppTheme.accentGreen,
+                          subtitle: '${k.rentedCount} rented',
+                          sparkData: spark(k.propertiesSparkline),
+                          sparkLabels: labels,
+                        ),
+                        const SizedBox(height: 12),
+                        KpiCard(
+                          title: 'Total Landlords',
+                          value: '${k.totalLandlords}',
+                          icon: Icons.person_rounded,
+                          accentColor: AppTheme.landlordFill,
+                          subtitle: '${k.activeLandlordCount} active',
+                          sparkData: spark(k.landlordsSparkline),
+                          sparkLabels: labels,
+                        ),
+                        const SizedBox(height: 12),
+                        KpiCard(
+                          title: 'Total Tenants',
+                          value: '${k.totalTenants}',
+                          icon: Icons.groups_rounded,
+                          accentColor: AppTheme.tenantFill,
+                          subtitle:
+                              'across ${k.tenantsAcrossProperties} properties',
+                          sparkData: spark(k.tenantsSparkline),
+                          sparkLabels: labels,
+                        ),
+                        const SizedBox(height: 12),
+                        KpiCard(
+                          title: 'Total Revenue',
+                          value: fmt.format(k.totalRevenue),
+                          icon: Icons.trending_up_rounded,
+                          accentColor: AppTheme.accentPurple,
+                          sparkData: spark(k.revenueSparkline),
+                          sparkLabels: labels,
+                        ),
+                      ],
+                    )
+                  : kpiRow,
               const SizedBox(height: 24),
               Container(
                 padding:
@@ -140,65 +188,129 @@ class PropertyView extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: const Color(0xFFD6E8FA)),
                 ),
-                child: Row(
-                children: [
-                  Text('Properties', style: AppTheme.heading2),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEEF4FF),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '$totalFiltered',
-                      style: AppTheme.caption.copyWith(
-                        color: const Color(0xFF2F6BFF),
-                        fontWeight: FontWeight.w700,
+                child: mobile
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text('Properties', style: AppTheme.heading2),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEEF4FF),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '$totalFiltered',
+                                  style: AppTheme.caption.copyWith(
+                                    color: const Color(0xFF2F6BFF),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          if (auth != null && auth.isSuperAdmin) ...[
+                            _CategoryFilterSelector(pc: pc),
+                            const SizedBox(height: 12),
+                          ],
+                          if (canAddProperty)
+                            ElevatedButton.icon(
+                              onPressed: () async {
+                                final type =
+                                    await showPropertyTypeDialog(context);
+                                if (type == null) return;
+                                if (type == PropertyAddType.individual) {
+                                  pc.openAddProperty(
+                                      type: PropertyAddType.individual);
+                                } else {
+                                  pc.openAddProperty(type: PropertyAddType.pg);
+                                }
+                              },
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('Add Property'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF2F6BFF),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 12,
+                                ),
+                              ),
+                            ),
+                        ],
+                      )
+                    : Row(
+                        children: [
+                          Text('Properties', style: AppTheme.heading2),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEEF4FF),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              '$totalFiltered',
+                              style: AppTheme.caption.copyWith(
+                                color: const Color(0xFF2F6BFF),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
+                          if (auth != null && auth.isSuperAdmin) ...[
+                            _CategoryFilterSelector(pc: pc),
+                            const SizedBox(width: 16),
+                          ],
+                          if (canAddProperty)
+                            ElevatedButton.icon(
+                              onPressed: () async {
+                                final type =
+                                    await showPropertyTypeDialog(context);
+                                if (type == null) return;
+                                if (type == PropertyAddType.individual) {
+                                  pc.openAddProperty(
+                                      type: PropertyAddType.individual);
+                                } else {
+                                  pc.openAddProperty(type: PropertyAddType.pg);
+                                }
+                              },
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('Add Property'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF2F6BFF),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 12,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                    ),
-                  ),
-                  const Spacer(),
-                  if (auth != null && auth.isSuperAdmin) ...[
-                    _CategoryFilterSelector(pc: pc),
-                    const SizedBox(width: 16),
-                  ],
-                  if (canAddProperty)
-                    ElevatedButton.icon(
-                      onPressed: () async {
-                        final type = await showPropertyTypeDialog(context);
-                        if (type == null) return;
-
-                        if (type == PropertyAddType.individual) {
-                          pc.openAddProperty(type: PropertyAddType.individual);
-                        } else {
-                          pc.openAddProperty(type: PropertyAddType.pg);
-                        }
-                      },
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Add Property'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2F6BFF),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 12,
-                        ),
-                      ),
-                    ),
-                ],
-                ),
               ),
               const SizedBox(height: 16),
               LayoutBuilder(
                 builder: (context, constraints) {
-                  const crossAxisCount = 4;
                   const cardGap = 16.0;
+                  int crossAxisCount = 4;
+                  if (constraints.maxWidth < 850) {
+                    crossAxisCount = 2;
+                  }
                   final cardWidth =
                       (constraints.maxWidth - cardGap * (crossAxisCount - 1)) /
                           crossAxisCount;

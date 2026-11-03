@@ -6,6 +6,7 @@ import 'package:agremate_admin/modules/account/controller/account_controller.dar
 import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
 import 'package:agremate_admin/core/widgets/glass_card.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../layout/view/components/app_footer.dart';
 import '../model/account_model.dart';
 import '../model/role_model.dart';
 
@@ -23,136 +24,32 @@ class AccountView extends StatelessWidget {
 
       final user = ac.user.value;
       if (user == null) return const SizedBox.shrink();
+      final editing = ac.isEditing.value;
+
       return SingleChildScrollView(
-        padding: const EdgeInsets.all(28),
+        padding: EdgeInsets.all(
+          MediaQuery.sizeOf(context).width < 600
+              ? 14
+              : (MediaQuery.sizeOf(context).width < 850 ? 20 : 28),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            GlassCard(
-              glowColor: AppTheme.accentGreen,
-              child: Row(
-                children: [
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [
-                          AppTheme.accentGreen.withValues(alpha: 0.3),
-                          AppTheme.accentCyan.withValues(alpha: 0.3),
-                        ],
-                      ),
-                      border: Border.all(
-                        color: AppTheme.accentGreen.withValues(alpha: 0.5),
-                        width: 2,
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.person_rounded,
-                      color: AppTheme.accentGreen,
-                      size: 40,
-                    ),
-                  ),
-                  const SizedBox(width: 24),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(_na(user.name), style: AppTheme.heading1),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.accentPurple.withValues(
-                              alpha: 0.15,
-                            ),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: AppTheme.accentPurple.withValues(
-                                alpha: 0.4,
-                              ),
-                            ),
-                          ),
-                          child: Text(
-                            _na(user.role),
-                            style: const TextStyle(
-                              color: AppTheme.accentPurple,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: ac.toggleEdit,
-                    icon: Icon(
-                      ac.isEditing.value ? Icons.close : Icons.edit,
-                      size: 16,
-                    ),
-                    label: Text(ac.isEditing.value ? AppStrings.cancel : AppStrings.editProfile),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          ac.isEditing.value
-                              ? AppTheme.accentRed
-                              : AppTheme.accentGreen,
-                    ),
-                  ),
-                ],
-              ),
+            _ProfileBanner(
+              user: user,
+              isEditing: editing,
+              onToggleEdit: ac.toggleEdit,
             ),
-            const SizedBox(height: 28),
-
-            if (ac.isEditing.value)
-              _EditForm(ac: ac)
-            else
-              _ProfileDetails(user: user),
-
+            const SizedBox(height: 24),
+            if (editing) _EditForm(ac: ac) else _ProfileDetails(user: user),
             if (auth.isSuperAdmin) ...[
               const SizedBox(height: 32),
               const _RegisterNewAccount(),
             ],
-            const SizedBox(height: 32),
-            GlassCard(
-              glowColor: AppTheme.accentRed,
-              onTap: () => _showLogoutDialog(context, auth),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.accentRed.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.logout_rounded,
-                      color: AppTheme.accentRed,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        AppStrings.logout,
-                        style: AppTheme.heading3.copyWith(
-                          color: AppTheme.accentRed,
-                        ),
-                      ),
-                      Text(AppStrings.logoutSubtitle, style: AppTheme.caption),
-                    ],
-                  ),
-                  const Spacer(),
-                  const Icon(Icons.chevron_right, color: AppTheme.accentRed),
-                ],
-              ),
-            ),
+            const SizedBox(height: 24),
+            _LogoutCard(onTap: () => _showLogoutDialog(context, auth)),
+            const SizedBox(height: 24),
+            const AppFooter(),
           ],
         ),
       );
@@ -203,46 +100,268 @@ class AccountView extends StatelessWidget {
   }
 }
 
+const _cardBorder = Color(0xFFD6E6FA);
+
+BoxDecoration _whiteCard({Color border = _cardBorder}) => BoxDecoration(
+  color: Colors.white,
+  borderRadius: BorderRadius.circular(18),
+  border: Border.all(color: border),
+);
+
+class _PageHeader extends StatelessWidget {
+  const _PageHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      crossAxisAlignment: WrapCrossAlignment.start,
+      runSpacing: 8,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('My Account', style: AppTheme.heading1.copyWith(fontSize: 26)),
+            const SizedBox(height: 4),
+            Text('Manage your profile and account details',
+                style: AppTheme.caption),
+          ],
+        ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.home_outlined,
+                size: 18, color: AppTheme.accentBlue),
+            const SizedBox(width: 8),
+            Text('Dashboard', style: AppTheme.caption),
+            const SizedBox(width: 6),
+            Text('>', style: AppTheme.caption),
+            const SizedBox(width: 6),
+            Text('My Account',
+                style: AppTheme.caption
+                    .copyWith(color: AppTheme.accentBlue)),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Light-blue banner with avatar, name, role chip and edit button.
+class _ProfileBanner extends StatelessWidget {
+  final AccountModel user;
+  final bool isEditing;
+  final VoidCallback onToggleEdit;
+  const _ProfileBanner({
+    required this.user,
+    required this.isEditing,
+    required this.onToggleEdit,
+  });
+
+  @override
+  @override
+  Widget build(BuildContext context) {
+    final phone = MediaQuery.sizeOf(context).width < 600;
+
+    return Container(
+      padding: EdgeInsets.all(phone ? 16 : 24),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _cardBorder),
+        gradient: const LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [Color(0xFFEAF3FF), Color(0xFFF4F8FF)],
+        ),
+      ),
+      child: LayoutBuilder(builder: (context, c) {
+        final narrow = c.maxWidth < 560;
+
+        final avatar = Container(
+          width: narrow ? 64 : 80,
+          height: narrow ? 64 : 80,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0xFFD3E6FB),
+            border: Border.all(
+                color: AppTheme.accentBlue.withValues(alpha: 0.35), width: 2),
+          ),
+          child: Icon(Icons.person_rounded,
+              color: AppTheme.accentBlue, size: narrow ? 32 : 40),
+        );
+
+        final info = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(_na(user.name),
+                style: AppTheme.heading1,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppTheme.accentBlue.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                    color: AppTheme.accentBlue.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.shield_rounded,
+                      size: 14, color: AppTheme.accentBlue),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      _na(user.role),
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppTheme.accentBlue,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+
+        final button = ElevatedButton.icon(
+          onPressed: onToggleEdit,
+          icon: Icon(isEditing ? Icons.close : Icons.edit, size: 16),
+          label: Text(isEditing ? AppStrings.cancel : AppStrings.editProfile),
+          style: ElevatedButton.styleFrom(
+            backgroundColor:
+            isEditing ? AppTheme.accentRed : AppTheme.accentBlue,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+
+        if (narrow) {
+          return Column(
+            children: [
+              Row(children: [
+                avatar,
+                const SizedBox(width: 16),
+                Expanded(child: info),
+              ]),
+              const SizedBox(height: 16),
+              SizedBox(width: double.infinity, child: button),
+            ],
+          );
+        }
+
+        return Row(children: [
+          avatar,
+          const SizedBox(width: 24),
+          Expanded(child: info),
+          const SizedBox(width: 16),
+          button,
+        ]);
+      }),
+    );
+  }
+}
+
 class _ProfileDetails extends StatelessWidget {
   final AccountModel user;
   const _ProfileDetails({required this.user});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _DetailRow(
-          icon: Icons.email_rounded,
-          label: AppStrings.email,
-          value: _na(user.email),
-          color: AppTheme.accentCyan,
-        ),
-        const SizedBox(height: 12),
-        _DetailRow(
-          icon: Icons.phone_rounded,
-          label: AppStrings.phone,
-          value: _na(user.phone),
-          color: AppTheme.accentGreen,
-        ),
-        const SizedBox(height: 12),
-        _DetailRow(
-          icon: Icons.badge_rounded,
-          label: AppStrings.role,
-          value: _na(user.role),
-          color: AppTheme.accentPurple,
-        ),
-        const SizedBox(height: 12),
-      ],
+    final tiles = [
+      _InfoTile(
+        icon: Icons.email_rounded,
+        label: AppStrings.email,
+        value: _na(user.email),
+        color: AppTheme.accentBlue,
+      ),
+      _InfoTile(
+        icon: Icons.phone_rounded,
+        label: AppStrings.phone,
+        value: _na(user.phone),
+        color: AppTheme.accentGreen,
+      ),
+      _InfoTile(
+        icon: Icons.manage_accounts_rounded,
+        label: AppStrings.role,
+        value: _na(user.role),
+        color: AppTheme.accentPurple,
+      ),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: _whiteCard(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppTheme.accentBlue.withValues(alpha: 0.12),
+                ),
+                child: const Icon(Icons.person_rounded,
+                    size: 18, color: AppTheme.accentBlue),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Account Information',
+                        style: AppTheme.heading3.copyWith(fontSize: 16)),
+                    const SizedBox(height: 2),
+                    Text('Your registered details and contact information',
+                        style: AppTheme.caption),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          LayoutBuilder(builder: (context, c) {
+            if (c.maxWidth >= 760) {
+              return Row(
+                children: [
+                  for (var i = 0; i < tiles.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 16),
+                    Expanded(child: tiles[i]),
+                  ],
+                ],
+              );
+            }
+            return Column(
+              children: [
+                for (var i = 0; i < tiles.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 12),
+                  tiles[i],
+                ],
+              ],
+            );
+          }),
+        ],
+      ),
     );
   }
 }
 
-class _DetailRow extends StatelessWidget {
+class _InfoTile extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
   final Color color;
-  const _DetailRow({
+  const _InfoTile({
     required this.icon,
     required this.label,
     required this.value,
@@ -251,17 +370,120 @@ class _DetailRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4F8FE),
+        borderRadius: BorderRadius.circular(14),
+      ),
       child: Row(
         children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 16),
-          Text(label, style: AppTheme.bodyText),
-          const Spacer(),
-          Text(value, style: AppTheme.heading3.copyWith(fontSize: 14)),
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color.withValues(alpha: 0.15),
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: AppTheme.caption),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTheme.heading3.copyWith(
+                      fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
+    );
+  }
+}
+
+class _LogoutCard extends StatelessWidget {
+  final VoidCallback onTap;
+  const _LogoutCard({required this.onTap});
+
+  @override
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF5F6),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppTheme.accentRed.withValues(alpha: 0.25)),
+      ),
+      child: LayoutBuilder(builder: (context, c) {
+        final narrow = c.maxWidth < 520;
+
+        final icon = Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppTheme.accentRed.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(Icons.logout_rounded,
+              color: AppTheme.accentRed, size: 24),
+        );
+
+        final text = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(AppStrings.logout,
+                style: AppTheme.heading3
+                    .copyWith(color: AppTheme.accentRed, fontSize: 16)),
+            const SizedBox(height: 2),
+            Text(AppStrings.logoutSubtitle, style: AppTheme.caption),
+          ],
+        );
+
+        final button = OutlinedButton.icon(
+          onPressed: onTap,
+          icon: const Icon(Icons.logout_rounded, size: 18),
+          label: const Text(AppStrings.logout),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppTheme.accentRed,
+            backgroundColor: Colors.white,
+            side: const BorderSide(color: AppTheme.accentRed),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+
+        if (narrow) {
+          return Column(
+            children: [
+              Row(children: [
+                icon,
+                const SizedBox(width: 16),
+                Expanded(child: text),
+              ]),
+              const SizedBox(height: 14),
+              SizedBox(width: double.infinity, child: button),
+            ],
+          );
+        }
+
+        return Row(children: [
+          icon,
+          const SizedBox(width: 16),
+          Expanded(child: text),
+          const SizedBox(width: 12),
+          button,
+        ]);
+      }),
     );
   }
 }

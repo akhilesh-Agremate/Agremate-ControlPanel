@@ -1,6 +1,8 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:agremate_admin/core/widgets/app_toast.dart';
+import '../../../../core/utils/responsive.dart';
 import '../../model/amenity_model.dart';
 import '../../model/pg_property_detail_model.dart';
 import 'add_property_panel.dart' show PickedFile;
@@ -271,7 +273,7 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
       if (!mounted) return;
       setState(() => _newPhotos.addAll(picked));
     } catch (e) {
-      Get.snackbar('Picker error', '$e');
+      AppToast.error('$e');
     }
   }
 
@@ -316,9 +318,7 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
       await widget.onSubmit(data);
       widget.onBack();
     } catch (e) {
-      Get.snackbar('Error', 'Failed to update PG property: $e',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 4));
+      AppToast.error('Failed to update PG property: $e');
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -334,7 +334,7 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
           const Divider(height: 1, color: _line),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(28),
+              padding: EdgeInsets.all(Responsive.isMobile(context) ? 14 : 28),
               child: Form(
                 key: _formKey,
                 child: LayoutBuilder(builder: (context, c) {
@@ -364,8 +364,10 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
   }
 
   Widget _buildHeader() {
+    final mobile = Responsive.isMobile(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      padding: EdgeInsets.symmetric(
+          horizontal: mobile ? 8 : 20, vertical: mobile ? 10 : 14),
       color: Colors.white,
       child: Row(
         children: [
@@ -375,15 +377,18 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
             tooltip: 'Back',
             style: IconButton.styleFrom(foregroundColor: _muted),
           ),
-          const SizedBox(width: 8),
-          const Text(
-            'Update Property',
-            style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1A2340)),
+          SizedBox(width: mobile ? 0 : 8),
+          Expanded(
+            child: Text(
+              'Update Property',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  fontSize: mobile ? 16 : 18,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1A2340)),
+            ),
           ),
-          const Spacer(),
           OutlinedButton(
             onPressed: _submitting ? null : widget.onBack,
             style: OutlinedButton.styleFrom(
@@ -391,12 +396,12 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
               side: const BorderSide(color: _line),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(22)),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: EdgeInsets.symmetric(
+                  horizontal: mobile ? 14 : 20, vertical: mobile ? 10 : 12),
             ),
             child: const Text('Cancel'),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: mobile ? 8 : 12),
           ElevatedButton(
             onPressed: _submitting ? null : _submit,
             style: ElevatedButton.styleFrom(
@@ -405,17 +410,17 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
               elevation: 0,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(22)),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+              padding: EdgeInsets.symmetric(
+                  horizontal: mobile ? 18 : 28, vertical: mobile ? 10 : 12),
             ),
             child: _submitting
                 ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white))
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white))
                 : const Text('Update',
-                    style: TextStyle(fontWeight: FontWeight.w700)),
+                style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -693,7 +698,7 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
       required Widget child}) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(Responsive.isMobile(context) ? 14 : 20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),

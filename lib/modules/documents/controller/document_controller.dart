@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:get/get.dart';
 import 'package:agremate_admin/modules/documents/model/document_model.dart';
 import 'package:agremate_admin/modules/documents/repository/document_repository.dart';
@@ -5,6 +6,8 @@ import 'package:agremate_admin/modules/layout/controller/navigation_controller.d
 import 'package:agremate_admin/modules/property/model/property_model.dart';
 import 'package:agremate_admin/modules/property/repository/property_repository.dart';
 import 'package:agremate_admin/core/utils/app_logger.dart';
+import 'package:agremate_admin/core/widgets/app_toast.dart';
+import '../model/document_category.dart';
 
 class DocumentController extends GetxController {
   DocumentController(DocumentRepository repository);
@@ -68,11 +71,36 @@ class DocumentController extends GetxController {
       errorMessage.value = 'Failed to load properties.';
     } finally {
       isLoading.value = false;
+      await _restoreDetailIfNeeded();
     }
+  }
+
+  Future<void> _restoreDetailIfNeeded() async {
+    if (selectedProperty.value != null) return;
+    if (!Get.isRegistered<NavigationController>()) return;
+    final id = Get.find<NavigationController>().documentDetailId;
+    if (id == null || id.isEmpty) return;
+    PropertyModel? match;
+    for (final p in properties) {
+      if (p.id == id) {
+        match = p;
+        break;
+      }
+    }
+    if (match != null) {
+      await openPropertyDocuments(match);
+      return;
+    }
+    try {
+      final repo = Get.find<PropertyRepository>();
+      final detail = await repo.getPropertyById(id);
+      await openPropertyDocuments(detail);
+    } catch (_) {}
   }
 
   Future<void> openPropertyDocuments(PropertyModel property) async {
     selectedProperty.value = property;
+    Get.find<NavigationController>().setDocumentDetailId(property.id);
     AppLogger.i(
       'DocumentController',
       'Open property documents id=${property.id}',
@@ -98,10 +126,59 @@ class DocumentController extends GetxController {
     }
   }
 
+  Future<bool> uploadDocument({
+    required PlatformFile file,
+    required DocumentCategory category,
+    PropertyModel? property,
+  }) async {
+    if (category.needsProperty && property == null) {
+      AppToast.error('Please select a property.');
+      return false;
+    }
+    try {
+      final message = await Get.find<DocumentRepository>().uploadDocument(
+        propertyId: category.needsProperty ? property!.id : null,
+        category: category.value,
+        file: file,
+        fileName: file.name,
+      );
+      AppToast.success(message);
+      final open = selectedProperty.value;
+      if (open != null && property != null && open.id == property.id) {
+        await openPropertyDocuments(open);
+      }
+      return true;
+    } catch (e) {
+      AppToast.error(e.toString().replaceFirst('Exception: ', ''));
+      return false;
+    }
+  }
+
+  Future<bool> deleteDocument(DocumentModel file) async {
+    if (!file.isDeletable) {
+      AppToast.error('This document cannot be deleted.');
+      return false;
+    }
+    try {
+      final ids = file.candidateIds.isNotEmpty ? file.candidateIds : [file.id];
+      print('DELETE candidate ids: $ids');
+      final message =
+      await Get.find<DocumentRepository>().softDeleteDocument(ids);
+      documents.removeWhere((d) => d.id == file.id);
+      selectedProperty.refresh();
+      AppToast.success(message);
+      return true;
+    } catch (e) {
+      AppToast.error(e.toString().replaceFirst('Exception: ', ''));
+      return false;
+    }
+  }
+
   List<DocumentModel> _docsFromProperty(PropertyModel property) {
     final list = <DocumentModel>[];
     for (final item in property.documents) {
       if (item is Map) {
+        print('DOC RAW JSON: $item');
         final json = Map<String, dynamic>.from(item);
         json['propertyName'] ??= property.name;
         list.add(DocumentModel.fromJson(json));
@@ -132,6 +209,7 @@ class DocumentController extends GetxController {
     selectedProperty.value = null;
     documents.clear();
     errorMessage.value = '';
+    Get.find<NavigationController>().setDocumentDetailId(null);
   }
 
   void navigateToOwnerFolder(

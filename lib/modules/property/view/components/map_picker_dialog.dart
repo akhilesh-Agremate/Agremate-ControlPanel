@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-
 import 'package:agremate_admin/core/services/config_service.dart';
+import 'package:agremate_admin/core/utils/responsive.dart';
 
 class PickedLocation {
   final String address;
@@ -14,12 +15,12 @@ class PickedLocation {
   final String city;
   final String pincode;
   const PickedLocation(
-    this.address,
-    this.latitude,
-    this.longitude, {
-    this.city = '',
-    this.pincode = '',
-  });
+      this.address,
+      this.latitude,
+      this.longitude, {
+        this.city = '',
+        this.pincode = '',
+      });
 }
 
 String cleanAddress(String raw) {
@@ -38,8 +39,10 @@ Future<PickedLocation?> showMapPicker(BuildContext context,
   return showDialog<PickedLocation>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.5),
-    builder: (_) => Dialog(
-      insetPadding: const EdgeInsets.all(24),
+    builder: (ctx) => Dialog(
+      insetPadding: Responsive.isMobile(ctx)
+          ? const EdgeInsets.symmetric(horizontal: 12, vertical: 16)
+          : const EdgeInsets.all(24),
       backgroundColor: Colors.white,
       surfaceTintColor: Colors.transparent,
       elevation: 16,
@@ -252,7 +255,7 @@ class _MapPickerState extends State<_MapPicker> {
     for (final c in comps) {
       if (c is! Map) continue;
       final types =
-          (c['types'] as List? ?? []).map((e) => e.toString()).toList();
+      (c['types'] as List? ?? []).map((e) => e.toString()).toList();
       final name = (c['long_name'] ?? '').toString();
       if (types.contains('postal_code')) pin = name;
       if (types.contains('locality')) locality = name;
@@ -266,8 +269,8 @@ class _MapPickerState extends State<_MapPicker> {
     _city = locality.isNotEmpty
         ? locality
         : (area3.isNotEmpty
-            ? area3
-            : (sublocality.isNotEmpty ? sublocality : area2));
+        ? area3
+        : (sublocality.isNotEmpty ? sublocality : area2));
     if (pin.isEmpty) {
       final m = RegExp(r'\b(\d{6})\b').firstMatch(_address);
       if (m != null) pin = m.group(1)!;
@@ -276,15 +279,15 @@ class _MapPickerState extends State<_MapPicker> {
   }
 
   void _confirm() => Navigator.pop(
-        context,
-        PickedLocation(
-          _address,
-          _pos.latitude,
-          _pos.longitude,
-          city: _city,
-          pincode: _pincode,
-        ),
-      );
+    context,
+    PickedLocation(
+      _address,
+      _pos.latitude,
+      _pos.longitude,
+      city: _city,
+      pincode: _pincode,
+    ),
+  );
 
   Widget _geoBanner() {
     final timeout = _geoIssue == _GeoIssue.timeout;
@@ -354,18 +357,23 @@ class _MapPickerState extends State<_MapPicker> {
 
   @override
   Widget build(BuildContext context) {
+    final mobile = Responsive.isMobile(context);
+    final screenH = MediaQuery.sizeOf(context).height;
+    final mapHeight = mobile ? (screenH * 0.35).clamp(200.0, 280.0) : 280.0;
+    final sidePad = mobile ? 14.0 : 20.0;
+
     return Column(mainAxisSize: MainAxisSize.min, children: [
       _header(),
       Flexible(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+          padding: EdgeInsets.fromLTRB(sidePad, 0, sidePad, 0),
           child: Column(children: [
-            SizedBox(height: 280, child: _mapArea()),
+            SizedBox(height: mapHeight, child: _mapArea()),
             const SizedBox(height: 14),
             _addressBox(),
             const SizedBox(height: 16),
             _buttons(),
-            const SizedBox(height: 20),
+            SizedBox(height: mobile ? 14 : 20),
           ]),
         ),
       ),
@@ -373,34 +381,73 @@ class _MapPickerState extends State<_MapPicker> {
   }
 
   Widget _header() {
-    return Container(
-      color: _blue,
-      padding: const EdgeInsets.fromLTRB(22, 10, 10, 10),
-      child: Row(children: [
-        const Icon(Icons.location_on, color: Colors.white, size: 22),
-        const SizedBox(width: 10),
-        const Text('Pick Property Location',
-            style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w700)),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 300),
-              child: _searchBar(),
+    return LayoutBuilder(builder: (context, constraints) {
+      final compact = constraints.maxWidth < 560;
+
+      if (compact) {
+        return Container(
+          color: _blue,
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(children: [
+                const Icon(Icons.location_on, color: Colors.white, size: 22),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text('Pick Property Location',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700)),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  splashRadius: 20,
+                  padding: EdgeInsets.zero,
+                  constraints:
+                  const BoxConstraints(minWidth: 40, minHeight: 40),
+                ),
+              ]),
+              const SizedBox(height: 6),
+              _searchBar(),
+            ],
+          ),
+        );
+      }
+
+      return Container(
+        color: _blue,
+        padding: const EdgeInsets.fromLTRB(22, 10, 10, 10),
+        child: Row(children: [
+          const Icon(Icons.location_on, color: Colors.white, size: 22),
+          const SizedBox(width: 10),
+          const Text('Pick Property Location',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700)),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 300),
+                child: _searchBar(),
+              ),
             ),
           ),
-        ),
-        IconButton(
-          onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.close, color: Colors.white),
-          splashRadius: 20,
-        ),
-      ]),
-    );
+          IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.close, color: Colors.white),
+            splashRadius: 20,
+          ),
+        ]),
+      );
+    });
   }
 
   Widget _mapArea() {
@@ -416,6 +463,10 @@ class _MapPickerState extends State<_MapPicker> {
               if (widget.initial == null) _useCurrentLocation(silent: true);
             },
             onTap: _onTap,
+            gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+              Factory<OneSequenceGestureRecognizer>(
+                      () => EagerGestureRecognizer()),
+            },
             markers: _hasPick
                 ? {
               Marker(
@@ -562,6 +613,8 @@ class _MapPickerState extends State<_MapPicker> {
 
   Widget _buttons() {
     final canConfirm = _address.isNotEmpty && _error == null && !_loading;
+    final mobile = Responsive.isMobile(context);
+    final vPad = mobile ? 14.0 : 18.0;
     return Row(children: [
       Expanded(
         flex: 2,
@@ -572,19 +625,21 @@ class _MapPickerState extends State<_MapPicker> {
             side: const BorderSide(color: Color(0xFFC9D6F5)),
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12)),
-            padding: const EdgeInsets.symmetric(vertical: 18),
+            padding: EdgeInsets.symmetric(vertical: vPad),
           ),
           child: const Text('Cancel',
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
         ),
       ),
-      const SizedBox(width: 14),
+      SizedBox(width: mobile ? 10 : 14),
       Expanded(
         flex: 5,
         child: ElevatedButton.icon(
           onPressed: canConfirm ? _confirm : null,
           icon: const Icon(Icons.location_on, size: 20),
           label: const Text('Confirm Location',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
           style: ElevatedButton.styleFrom(
             backgroundColor: _blue,
@@ -594,7 +649,7 @@ class _MapPickerState extends State<_MapPicker> {
             elevation: 0,
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12)),
-            padding: const EdgeInsets.symmetric(vertical: 18),
+            padding: EdgeInsets.symmetric(vertical: vPad),
           ),
         ),
       ),

@@ -35,6 +35,8 @@ class AppEndpoints {
   static const uploadDoc = "/Document/UploadFiles";
   static const updateProfile = "/User/";
   static const getMyPropertyList = "/Property/list-by-user";
+  static const landlordDetails = "/Landlord/landlord-details";
+  static const userBootstrap = "/User/me/bootstrap";
   static const verifyPan = "/Zoop/pan-verification";
   static const allProperties = "/Property/all";
   static const allPropertyDetails = '/properties/all-details';
@@ -54,5 +56,11 @@ class AppEndpoints {
   static const String landlordContactAccess = '/User/landlord-contact-access';
   static const String getRoles = '/UserRole/get-roles';
   static const String adminDashboardUsers = '/AdminDashboard/users';
+  static const String maintenanceRequestStatuses = "/MaintenanceRequests/statuses";
+  static const String maintenanceRequestUpdateStatus = "/MaintenanceRequests/update-status";
+
+  static String softDeleteDocument(String id) => "/Document/soft-delete/$id";
+  static const String rentalAgreements = '/AdminDashboard/rental-agreements';
+  static String deleteDocument(String id) => "/Document/$id";
 }
 

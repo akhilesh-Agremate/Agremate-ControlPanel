@@ -11,6 +11,7 @@ import 'package:agremate_admin/modules/property/controller/pg_property_detail_co
 import 'package:agremate_admin/modules/property/view/components/create_pg_property_panel.dart';
 import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
 import '../../auth/controller/auth_controller.dart';
+import '../../../core/widgets/app_toast.dart';
 
 class PgPropertyDetailView extends StatefulWidget {
   final PropertyModel property;
@@ -98,8 +99,11 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              child: Row(
+              padding: EdgeInsets.symmetric(
+                horizontal: MediaQuery.sizeOf(context).width < 600 ? 10 : 20,
+                vertical: 10,
+              ),
+              child: _AdaptiveHeader(
                 children: [
                   IconButton(
                     onPressed: () {
@@ -124,7 +128,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
                   const SizedBox(width: 8),
                   Text(
                     _controller.openDocName.value ?? 'PG Property Detail',
-                    style: AppTheme.heading2.copyWith(color: Colors.black),
+                    style: AppTheme.heading2.copyWith(color: Colors.black,fontSize: 20),
                   ),
                   const SizedBox(width: 10),
                   Container(
@@ -137,7 +141,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
                     child: const Text(
                       'PG / Co-Living',
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.brandSteelBlue,
                       ),
@@ -155,7 +159,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
                       OutlinedButton.icon(
                         onPressed: _controller.startEdit,
                         icon: const Icon(Icons.edit_rounded, size: 16),
-                        label: const Text('Edit'),
+                          label: const Text('Edit', style: TextStyle(fontSize: 14))
                       ),
                       const SizedBox(width: 12),
                     ],
@@ -169,7 +173,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
                         ),
                         label: const Text(
                           'Delete',
-                          style: TextStyle(color: AppTheme.accentRed),
+                          style: TextStyle(color: AppTheme.accentRed, fontSize: 14),
                         ),
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: AppTheme.accentRed),
@@ -200,14 +204,19 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
                       ? Center(
                           child: Text(
                             _controller.loadError.value ?? 'Loading PG details...',
-                            style: const TextStyle(color: Colors.black54),
+                            style: const TextStyle(color: Colors.black54,fontSize: 14),
                           ),
                         )
                       : LayoutBuilder(
                           builder: (context, constraints) {
                             final isWide = constraints.maxWidth >= 960;
                             return SingleChildScrollView(
-                              padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
+                              padding: EdgeInsets.fromLTRB(
+                                constraints.maxWidth < 600 ? 14 : 24,
+                                16,
+                                constraints.maxWidth < 600 ? 14 : 24,
+                                28,
+                              ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -243,11 +252,14 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
         children: [
           Row(
             children: [
-              Text(
-                docName,
-                style: AppTheme.heading2.copyWith(color: Colors.black87),
+              Expanded(
+                child: Text(
+                  docName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTheme.heading2.copyWith(color: Colors.black87,fontSize: 20),
+                ),
               ),
-              const Spacer(),
               IconButton(
                 icon: const Icon(Icons.close_rounded),
                 onPressed: _controller.closeDocument,
@@ -257,7 +269,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
           const Divider(),
           Expanded(
             child: docUrl.isEmpty
-                ? const Center(child: Text('Invalid document URL'))
+                ? const Center(child: Text('Invalid document URL', style: TextStyle(fontSize: 14)))
                 : isPdf
                     ? PdfIframeView(url: docUrl)
                     : Image.network(
@@ -395,7 +407,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
                     style: AppTheme.bodyText.copyWith(
                       fontWeight: FontWeight.w600,
                       color: Colors.black87,
-                      fontSize: 13,
+                      fontSize: 14,
                     ),
                   ),
                 ),
@@ -455,7 +467,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
           Text(
             text,
             style: const TextStyle(
-              fontSize: 12,
+              fontSize: 14,
               fontWeight: FontWeight.w600,
               color: Colors.black87,
             ),
@@ -568,7 +580,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(text,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF334155))),
+                style: const TextStyle(fontSize: 14, color: Color(0xFF334155))),
           ),
         ],
       ),
@@ -592,7 +604,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
                       child: Text(
                         'Occupied beds (${entries.length})',
                         style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w700),
+                            fontSize: 20, fontWeight: FontWeight.w700),
                       ),
                     ),
                     IconButton(
@@ -605,7 +617,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
               const Divider(height: 1),
               Expanded(
                 child: entries.isEmpty
-                    ? const Center(child: Text('No occupied beds.'))
+                    ? const Center(child: Text('No occupied beds.',style: TextStyle(fontSize: 14)))
                     : ListView.separated(
                   padding: const EdgeInsets.all(16),
                   itemCount: entries.length,
@@ -705,7 +717,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
           const Text(
             'Tap a floor to view rooms and beds.',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 14,
               color: Colors.black54,
               fontWeight: FontWeight.w500,
             ),
@@ -723,7 +735,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
               child: const Center(
                 child: Text(
                   'No floor layout data configured for this PG.',
-                  style: TextStyle(color: Colors.black54, fontSize: 13),
+                  style: TextStyle(color: Colors.black54, fontSize: 14),
                 ),
               ),
             )
@@ -785,7 +797,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
           Text(
             value,
             style: TextStyle(
-              fontSize: 22,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
               color: valueColor,
             ),
@@ -913,7 +925,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
           Text(
             label,
             style: const TextStyle(
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w600,
               color: Color(0xFF1D68BD),
             ),
@@ -946,7 +958,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
                 Text(
                   label,
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: Colors.black87,
                   ),
@@ -982,7 +994,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
                   child: Text(
                     rule,
                     style: const TextStyle(
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w500,
                       color: Colors.black87,
                     ),
@@ -1036,13 +1048,15 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
           Text(
             pg.address.isNotEmpty ? pg.address : 'Address not specified',
             style: const TextStyle(
-              fontSize: 13,
+              fontSize: 14,
               color: Colors.black87,
               height: 1.45,
             ),
           ),
           const SizedBox(height: 12),
-          Row(
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            runSpacing: 4,
             children: [
               if (hasCoords) ...[
                 Container(
@@ -1053,7 +1067,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
                   ),
                   child: Text(
                     'Lat: ${pg.latitude!.toStringAsFixed(5)}, Lng: ${pg.longitude!.toStringAsFixed(5)}',
-                    style: const TextStyle(fontSize: 11, color: Colors.black54),
+                    style: const TextStyle(fontSize: 12, color: Colors.black54),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -1116,7 +1130,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
                       'LANDLORD',
                       style: TextStyle(
                         color: AppTheme.accentBlue,
-                        fontSize: 11,
+                        fontSize: 12,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.8,
                       ),
@@ -1125,7 +1139,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
                       name,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 15,
+                        fontSize: 16,
                         color: Colors.black87,
                       ),
                     ),
@@ -1158,7 +1172,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(fontSize: 13, color: Colors.black87),
+            style: const TextStyle(fontSize: 14, color: Colors.black87),
           ),
         ),
       ],
@@ -1192,13 +1206,17 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
             children: [
               const Icon(Icons.account_balance_wallet_outlined, size: 20, color: Colors.black87),
               const SizedBox(width: 8),
-              const Text(
-                'FINANCE & PRICING',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0,
-                  color: Colors.black54,
+              const Expanded(
+                child: Text(
+                  'FINANCE & PRICING',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.0,
+                    color: Colors.black54,
+                  ),
                 ),
               ),
               const Spacer(),
@@ -1207,7 +1225,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
                 icon: const Icon(Icons.info_outline_rounded, size: 14, color: AppTheme.accentBlue),
                 label: const Text(
                   'More Details',
-                  style: TextStyle(color: AppTheme.accentBlue, fontSize: 11, fontWeight: FontWeight.bold),
+                  style: TextStyle(color: AppTheme.accentBlue, fontSize: 12, fontWeight: FontWeight.bold),
                 ),
                 style: TextButton.styleFrom(
                   backgroundColor: AppTheme.accentBlue.withValues(alpha: 0.08),
@@ -1252,7 +1270,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
                   const SizedBox(width: 8),
                   Text(
                     'Rent Due Day: ${pg.rentPaymentDate}th of month',
-                    style: const TextStyle(fontSize: 12, color: Colors.black87, fontWeight: FontWeight.w500),
+                    style: const TextStyle(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.w500),
                   ),
                 ],
               ),
@@ -1274,11 +1292,11 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 11, color: Colors.black54)),
+          Text(label, style: const TextStyle(fontSize: 12, color: Colors.black54)),
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black87),
           ),
         ],
       ),
@@ -1333,7 +1351,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
           if (docs.isEmpty)
             const Text(
               'No documents or photos uploaded yet.',
-              style: TextStyle(color: Colors.black54, fontSize: 13),
+              style: TextStyle(color: Colors.black54, fontSize: 14),
             )
           else
             ListView.separated(
@@ -1367,7 +1385,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
                             Text(
                               d.documentName,
                               style: const TextStyle(
-                                fontSize: 13,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w600,
                                 color: Colors.black87,
                               ),
@@ -1377,7 +1395,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
                             if (d.category.isNotEmpty)
                               Text(
                                 d.category,
-                                style: const TextStyle(fontSize: 10, color: Colors.black54),
+                                style: const TextStyle(fontSize: 12, color: Colors.black54),
                               ),
                           ],
                         ),
@@ -1598,7 +1616,7 @@ class _PgFloorBedDetailsDialogState extends State<_PgFloorBedDetailsDialog> {
           ],
         ),
         content: SizedBox(
-          width: 380,
+          width: (MediaQuery.sizeOf(context).width - 80).clamp(240.0, 380.0).toDouble(),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1664,7 +1682,7 @@ class _PgFloorBedDetailsDialogState extends State<_PgFloorBedDetailsDialog> {
       child: Container(
         width: 720,
         constraints: const BoxConstraints(maxHeight: 760),
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 600 ? 14 : 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1835,7 +1853,7 @@ class _PgFloorBedDetailsDialogState extends State<_PgFloorBedDetailsDialog> {
                                             Text(
                                               '${room.totalBeds} beds · ${room.occupiedBeds} occupied',
                                               style: const TextStyle(
-                                                fontSize: 13,
+                                                fontSize: 14,
                                                 color: Color(0xFF64748B),
                                               ),
                                             ),
@@ -1863,7 +1881,7 @@ class _PgFloorBedDetailsDialogState extends State<_PgFloorBedDetailsDialog> {
                                       Text(
                                         '${room.roomName} beds',
                                         style: const TextStyle(
-                                          fontSize: 15,
+                                          fontSize: 16,
                                           fontWeight: FontWeight.bold,
                                           color: Color(0xFF1E293B),
                                         ),
@@ -1872,7 +1890,7 @@ class _PgFloorBedDetailsDialogState extends State<_PgFloorBedDetailsDialog> {
                                       Text(
                                         '${room.totalBeds} beds',
                                         style: const TextStyle(
-                                          fontSize: 13,
+                                          fontSize: 14,
                                           color: Color(0xFF64748B),
                                         ),
                                       ),
@@ -1900,7 +1918,7 @@ class _PgFloorBedDetailsDialogState extends State<_PgFloorBedDetailsDialog> {
                                                 'Room details',
                                                 style: TextStyle(
                                                   color: Color(0xFF2563EB),
-                                                  fontSize: 13,
+                                                  fontSize: 14,
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                               ),
@@ -1921,7 +1939,7 @@ class _PgFloorBedDetailsDialogState extends State<_PgFloorBedDetailsDialog> {
                                           padding: EdgeInsets.symmetric(vertical: 8),
                                           child: Text(
                                             'No beds configured in this room.',
-                                            style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                                            style: TextStyle(fontSize: 14, color: Color(0xFF94A3B8)),
                                           ),
                                         )
                                       else
@@ -1968,7 +1986,7 @@ class _PgFloorBedDetailsDialogState extends State<_PgFloorBedDetailsDialog> {
                                                         style: const TextStyle(
                                                           color: Color(0xFF475569),
                                                           fontWeight: FontWeight.w600,
-                                                          fontSize: 13,
+                                                          fontSize: 14,
                                                         ),
                                                         maxLines: 1,
                                                         overflow: TextOverflow.ellipsis,
@@ -2030,7 +2048,7 @@ class _PgFloorBedDetailsDialogState extends State<_PgFloorBedDetailsDialog> {
                                                       style: TextStyle(
                                                         color: Color(0xFF16A34A),
                                                         fontWeight: FontWeight.w600,
-                                                        fontSize: 13,
+                                                        fontSize: 14,
                                                       ),
                                                     ),
                                                     const SizedBox(height: 4),
@@ -2039,7 +2057,7 @@ class _PgFloorBedDetailsDialogState extends State<_PgFloorBedDetailsDialog> {
                                                       style: const TextStyle(
                                                         color: Color(0xFF16A34A),
                                                         fontWeight: FontWeight.bold,
-                                                        fontSize: 13,
+                                                        fontSize: 14,
                                                       ),
                                                     ),
                                                   ],
@@ -2142,14 +2160,14 @@ class _PgRoomDetailsViewDialog extends StatelessWidget {
                         Text(
                           room.roomName,
                           style: const TextStyle(
-                            fontSize: 18,
+                            fontSize: 20,
                             fontWeight: FontWeight.w700,
                             color: _ink,
                           ),
                         ),
                         Text(
                           '${floor.floorName} · $bedCount beds · Room details',
-                          style: const TextStyle(fontSize: 12.5, color: _muted),
+                          style: const TextStyle(fontSize: 12, color: _muted),
                         ),
                       ],
                     ),
@@ -2169,7 +2187,7 @@ class _PgRoomDetailsViewDialog extends StatelessWidget {
                   const Text(
                     'Photos',
                     style: TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w600, color: _ink),
+                        fontSize: 16, fontWeight: FontWeight.w600, color: _ink),
                   ),
                   const SizedBox(height: 8),
                   Wrap(
@@ -2259,7 +2277,7 @@ class _PgRoomDetailsViewDialog extends StatelessWidget {
                   const SizedBox(height: 4),
                   const Text(
                     'Set common amenities for this room, then apply to every room. You can still customize any room individually.',
-                    style: TextStyle(fontSize: 12.5, color: _muted),
+                    style: TextStyle(fontSize: 13, color: _muted),
                   ),
                   const SizedBox(height: 10),
                   Wrap(
@@ -2313,7 +2331,7 @@ class _PgRoomDetailsViewDialog extends StatelessWidget {
                         shape: const StadiumBorder(),
                       ),
                       child: const Text('Save',
-                          style: TextStyle(fontWeight: FontWeight.w700)),
+                          style: TextStyle(fontWeight: FontWeight.w700,fontSize: 14)),
                     ),
                   ),
                 ],
@@ -2329,7 +2347,7 @@ class _PgRoomDetailsViewDialog extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12.5, color: _muted)),
+        Text(label, style: const TextStyle(fontSize: 13, color: _muted)),
         const SizedBox(height: 6),
         Container(
           width: double.infinity,
@@ -2419,47 +2437,19 @@ class _MoveTenantInDialogState extends State<_MoveTenantInDialog> {
     final date = _startDateController.text.trim();
 
     if (name.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Full name is required.',
-        backgroundColor: AppTheme.accentRed,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        margin: const EdgeInsets.all(16),
-      );
+      AppToast.error('Full name is required.');
       return;
     }
     if (phone.isEmpty || phone.length < 10) {
-      Get.snackbar(
-        'Validation Error',
-        'Please enter a valid 10-digit phone number.',
-        backgroundColor: AppTheme.accentRed,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        margin: const EdgeInsets.all(16),
-      );
+      AppToast.error('Please enter a valid 10-digit phone number.');
       return;
     }
     if (email.isEmpty || !email.contains('@')) {
-      Get.snackbar(
-        'Validation Error',
-        'Please enter a valid email address.',
-        backgroundColor: AppTheme.accentRed,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        margin: const EdgeInsets.all(16),
-      );
+      AppToast.error('Please enter a valid email address.');
       return;
     }
     if (date.isEmpty) {
-      Get.snackbar(
-        'Validation Error',
-        'Tenancy start date is required.',
-        backgroundColor: AppTheme.accentRed,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        margin: const EdgeInsets.all(16),
-      );
+      AppToast.error('Tenancy start date is required.');
       return;
     }
 
@@ -2470,13 +2460,8 @@ class _MoveTenantInDialogState extends State<_MoveTenantInDialog> {
     widget.bed.joinDate = date;
 
     Navigator.of(context).pop(true);
-    Get.snackbar(
-      'Success',
+    AppToast.success(
       'Tenant "$name" moved in to ${widget.bed.bedNumber} successfully!',
-      backgroundColor: AppTheme.accentGreen,
-      colorText: Colors.white,
-      snackPosition: SnackPosition.BOTTOM,
-      margin: const EdgeInsets.all(16),
     );
   }
 
@@ -2489,7 +2474,9 @@ class _MoveTenantInDialogState extends State<_MoveTenantInDialog> {
       child: Container(
         width: 520,
         constraints: const BoxConstraints(maxHeight: 700),
-        padding: const EdgeInsets.fromLTRB(28, 20, 28, 28),
+        padding: MediaQuery.sizeOf(context).width < 600
+            ? const EdgeInsets.fromLTRB(16, 16, 16, 20)
+            : const EdgeInsets.fromLTRB(28, 20, 28, 28),
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2531,7 +2518,7 @@ class _MoveTenantInDialogState extends State<_MoveTenantInDialog> {
                         const Text(
                           'Move tenant in',
                           style: TextStyle(
-                            fontSize: 19,
+                            fontSize: 20,
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF1E293B),
                           ),
@@ -2540,7 +2527,7 @@ class _MoveTenantInDialogState extends State<_MoveTenantInDialog> {
                         Text(
                           '${widget.floor.floorName} · ${widget.room.roomName} · ${widget.bed.bedNumber}',
                           style: const TextStyle(
-                            fontSize: 13,
+                            fontSize: 14,
                             color: Color(0xFF64748B),
                           ),
                         ),
@@ -2579,7 +2566,7 @@ class _MoveTenantInDialogState extends State<_MoveTenantInDialog> {
                         const Text(
                           'Rent amount',
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 14,
                             fontWeight: FontWeight.w500,
                             color: Color(0xFF475569),
                           ),
@@ -2786,6 +2773,32 @@ class _MoveTenantInDialogState extends State<_MoveTenantInDialog> {
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.5),
       ),
+    );
+  }
+}
+
+/// Row on wide containers; wraps (dropping Spacers/gaps) on narrow ones.
+class _AdaptiveHeader extends StatelessWidget {
+  final List<Widget> children;
+  final double breakpoint;
+  const _AdaptiveHeader({required this.children, this.breakpoint = 780});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, c) {
+        if (c.maxWidth >= breakpoint) {
+          return Row(children: children);
+        }
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: children
+              .where((x) => x is! Spacer && !(x is SizedBox && x.child == null))
+              .toList(),
+        );
+      },
     );
   }
 }

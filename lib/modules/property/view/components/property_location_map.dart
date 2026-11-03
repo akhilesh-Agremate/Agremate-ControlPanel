@@ -1,12 +1,11 @@
 import 'dart:convert';
 import 'dart:html' as html;
 import 'dart:ui_web' as ui_web;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:agremate_admin/core/theme/theme.dart';
-
+import 'package:agremate_admin/core/widgets/app_toast.dart';
 import '../../../../core/services/config_service.dart';
 
 class PropertyLocationMap extends StatefulWidget {
@@ -78,11 +77,15 @@ class _PropertyLocationMapState extends State<PropertyLocationMap> {
         ..style.border = 'none'
         ..style.width = '100%'
         ..style.height = '100%'
+        ..style.pointerEvents =
+        html.window.matchMedia('(pointer: coarse)').matches
+            ? 'none'
+            : 'auto'
         ..allowFullscreen = true;
       return _iframe!;
     });
 
-    _init();   // instead of the if (!_hasCoords ...) _geocodeAddress() block
+    _init();
   }
 
   Future<void> _init() async {
@@ -137,9 +140,7 @@ class _PropertyLocationMapState extends State<PropertyLocationMap> {
 
   void _copyLink() {
     Clipboard.setData(ClipboardData(text: _shareUrl));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Location link copied')),
-    );
+    AppToast.success('Location link copied');
   }
 
   void _onShareSelected(String value) {

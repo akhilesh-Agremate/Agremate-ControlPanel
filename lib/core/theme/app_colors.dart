@@ -40,4 +40,11 @@ class AppColors {
   static const Color textBlack = Color(0xFF212121);
   static const Color textSubtle = Color(0xFF757575);
   static const Color textDisabled = Color(0xFF9E9E9E);
+  static const Color ink = Color(0xFF0F1B3D);
+  static const Color inkSoft = Color(0xFF5A6C9A);
+  static const Color hint = Color(0xFF9DB2E0);
+  static const Color blue = Color(0xFF4A90F5);
+  static const Color blueLight = Color(0xFF63BEFF);
+  static const Color green = Color(0xFF22C55E);
+  static const Color red = Color(0xFFEF4444);
 }

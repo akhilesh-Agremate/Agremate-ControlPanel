@@ -122,6 +122,10 @@ class AppStrings {
   static const String pendingPayments = 'Pending Payments';
   static const String totalSubscriptions = 'Total Subscriptions';
   static const String subscriptionExpired = 'Subscription Expired';
+  static const String registeredUsers = 'Registered Users';
+  static const String activeSupport = 'Active Support';
+  static const String contactOwner = 'Contact Owner';
+  static const String rentalAgreement = 'Rental Agreement';
   static const String recentRentCollections = 'Recent Rent Collections';
   static const String recentSubscriptions = 'Recent Subscriptions';
   static const String recentServiceRequests = 'Recent Service Requests';

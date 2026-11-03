@@ -3,7 +3,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:agremate_admin/core/widgets/app_toast.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/utils/responsive.dart';
 import '../../../auth/controller/auth_controller.dart';
 import '../../model/amenity_model.dart';
 import '../../model/pg_property_detail_model.dart';
@@ -649,14 +651,14 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
       if (!mounted) return;
       setState(() => photos.addAll(picked));
     } catch (e) {
-      Get.snackbar('Picker error', '$e');
+      AppToast.error('$e');
     }
   }
 
   Future<void> _pickDocuments() async {
     final remaining = _maxDocs - documents.length;
     if (remaining <= 0) {
-      Get.snackbar('Limit reached', 'You can add up to $_maxDocs documents.');
+      AppToast.error('You can add up to $_maxDocs documents.');
       return;
     }
     try {
@@ -669,7 +671,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
       if (!mounted) return;
       setState(() => documents.addAll(picked));
     } catch (e) {
-      Get.snackbar('Picker error', '$e');
+      AppToast.error('$e');
     }
   }
 
@@ -718,7 +720,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Text(floor.name),
           content: SizedBox(
-            width: 320,
+            width: min(320.0, MediaQuery.sizeOf(ctx).width - 128),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -860,6 +862,9 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
         builder: (ctx) => StatefulBuilder(
           builder: (ctx, setD) => AlertDialog(
             backgroundColor: Colors.white,
+            insetPadding: Responsive.isMobile(ctx)
+                ? const EdgeInsets.symmetric(horizontal: 12, vertical: 24)
+                : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
             contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
@@ -915,7 +920,11 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
               ],
             ),
             content: SizedBox(
-              width: 480,
+              width: min(
+                480.0,
+                MediaQuery.sizeOf(ctx).width -
+                    (Responsive.isMobile(ctx) ? 24 : 80) - 40,
+              ),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -942,7 +951,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                           final files = await _readAll(picked);
                           setD(() => room.photos.addAll(files));
                         } catch (e) {
-                          Get.snackbar('Picker error', '$e');
+                          AppToast.error('$e');
                         }
                       },
                       onRemove: (i) => setD(() => room.photos.removeAt(i)),
@@ -1240,14 +1249,17 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setD) => Dialog(
           backgroundColor: Colors.white,
-          insetPadding:
-          const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          insetPadding: Responsive.isMobile(ctx)
+              ? const EdgeInsets.symmetric(horizontal: 12, vertical: 16)
+              : const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
           shape:
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520, maxHeight: 700),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
+              padding: Responsive.isMobile(ctx)
+                  ? const EdgeInsets.fromLTRB(18, 18, 18, 22)
+                  : const EdgeInsets.fromLTRB(28, 24, 28, 28),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1522,13 +1534,12 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
-      Get.snackbar('Missing details', 'Please fix the highlighted fields.');
+      AppToast.error('Please fix the highlighted fields.');
       return;
     }
 
     if (floors.isEmpty || floors.any((f) => f.rooms.isEmpty)) {
-      Get.snackbar(
-          'Missing layout', 'Every floor needs at least one room.');
+      AppToast.error('Every floor needs at least one room.');
       return;
     }
 
@@ -1648,11 +1659,9 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
       await widget.onSubmit(data);
       widget.onBack();
     } catch (e) {
-      Get.snackbar(
-          'Error',
-          'Failed to ${_isEdit ? 'update' : 'create'} PG property: $e',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 4));
+      AppToast.error(
+        'Failed to ${_isEdit ? 'update' : 'create'} PG property: $e',
+      );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -1668,7 +1677,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
           const Divider(height: 1, color: _line),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(28),
+              padding: EdgeInsets.all(Responsive.isMobile(context) ? 14 : 28),
               child: Form(
                 key: _formKey,
                 child: LayoutBuilder(
@@ -1699,50 +1708,82 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
   }
 
   Widget _header() {
+    final mobile = Responsive.isMobile(context);
+
+    final cancelBtn = OutlinedButton(
+      onPressed: _submitting ? null : widget.onBack,
+      style: OutlinedButton.styleFrom(
+        shape: const StadiumBorder(),
+        padding: EdgeInsets.symmetric(
+            horizontal: mobile ? 18 : 22, vertical: mobile ? 12 : 14),
+      ),
+      child: const Text('Cancel'),
+    );
+
+    final submitBtn = ElevatedButton(
+      onPressed: _submitting ? null : _submit,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: _blue,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        shape: const StadiumBorder(),
+        padding: EdgeInsets.symmetric(
+            horizontal: mobile ? 22 : 32, vertical: mobile ? 12 : 14),
+      ),
+      child: _submitting
+          ? const SizedBox(
+        width: 18,
+        height: 18,
+        child: CircularProgressIndicator(
+            strokeWidth: 2, color: Colors.white),
+      )
+          : Text(_isEdit ? 'Update' : 'Create Property'),
+    );
+
+    final title = Text(
+      _isEdit ? 'Update Property (PG)' : 'Create Property (PG)',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+          fontSize: mobile ? 17 : 20, fontWeight: FontWeight.w600),
+    );
+
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      child: Row(
+      padding: EdgeInsets.symmetric(
+          horizontal: mobile ? 8 : 20, vertical: mobile ? 10 : 14),
+      child: mobile
+          ? Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(children: [
+            IconButton(
+              onPressed: widget.onBack,
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+            ),
+            Expanded(child: title),
+          ]),
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [cancelBtn, const SizedBox(width: 10), submitBtn],
+            ),
+          ),
+        ],
+      )
+          : Row(
         children: [
           IconButton(
             onPressed: widget.onBack,
             icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           ),
           const SizedBox(width: 8),
-          Text(
-            _isEdit ? 'Update Property (PG)' : 'Create Property (PG)',
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-          ),
-          const Spacer(),
-          OutlinedButton(
-            onPressed: _submitting ? null : widget.onBack,
-            style: OutlinedButton.styleFrom(
-              shape: const StadiumBorder(),
-              padding:
-              const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-            ),
-            child: const Text('Cancel'),
-          ),
+          Expanded(child: title),
+          cancelBtn,
           const SizedBox(width: 12),
-          ElevatedButton(
-            onPressed: _submitting ? null : _submit,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _blue,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: const StadiumBorder(),
-              padding:
-              const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-            ),
-            child: _submitting
-                ? const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                  strokeWidth: 2, color: Colors.white),
-            )
-                : Text(_isEdit ? 'Update' : 'Create Property'),
-          ),
+          submitBtn,
         ],
       ),
     );
@@ -2564,6 +2605,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
     Widget? child,
     Widget? trailing,
   }) {
+    final mobile = Responsive.isMobile(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       decoration: BoxDecoration(
@@ -2582,7 +2624,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(18),
+            padding: EdgeInsets.all(mobile ? 14 : 18),
             child: Row(
               children: [
                 Container(
@@ -2611,7 +2653,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
           if (child != null) ...[
             const Divider(height: 1, color: _line),
             Padding(
-              padding: const EdgeInsets.all(18),
+              padding: EdgeInsets.all(mobile ? 14 : 18),
               child: child,
             ),
           ],
@@ -2638,7 +2680,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Expanded(child: a),
-      const SizedBox(width: 20),
+      SizedBox(width: Responsive.isMobile(context) ? 12 : 20),
       Expanded(child: b),
     ],
   );

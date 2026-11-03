@@ -136,10 +136,8 @@ class PropertyController extends GetxController {
       _refreshKpiStats();
       if (currentPage.value > totalPages) currentPage.value = totalPages;
       if (fetched.length > prevCount) {
-        Get.snackbar(
-          'Updated',
+        AppToast.success(
           '${fetched.length - prevCount} new propert${fetched.length - prevCount == 1 ? "y" : "ies"} added',
-          duration: const Duration(seconds: 3),
         );
       }
     } catch (_) {
@@ -186,10 +184,8 @@ class PropertyController extends GetxController {
     if (Get.isRegistered<AuthController>()) {
       final auth = Get.find<AuthController>();
       if (auth.isTenant) {
-        Get.snackbar(
-          'Permission Denied',
+        AppToast.error(
           'You do not have permission to delete properties',
-          snackPosition: SnackPosition.BOTTOM,
         );
         return;
       }
@@ -201,22 +197,9 @@ class PropertyController extends GetxController {
       _applyFilters();
       closePropertyDetails();
       await refreshProperties();
-      Get.snackbar(
-        'Success',
-        message,
-        snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 4),
-        backgroundColor: Colors.white,
-        colorText: Colors.black,
-      );
+      AppToast.success(message);
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to delete property: $e',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.white,
-        colorText: Colors.red,
-      );
+      AppToast.error('Failed to delete property: $e');
       rethrow;
     } finally {
       isLoading.value = false;
@@ -243,10 +226,33 @@ class PropertyController extends GetxController {
       await fetchLandlords();
       _refreshKpiStats();
     } catch (e) {
-      Get.snackbar('Error', 'Failed to fetch properties: $e');
+      AppToast.error('Failed to fetch properties: $e');
     } finally {
       isLoading.value = false;
+      await _restoreDetailIfNeeded();
     }
+  }
+
+  Future<void> _restoreDetailIfNeeded() async {
+    if (selectedProperty.value != null) return;
+    if (!Get.isRegistered<NavigationController>()) return;
+    final id = Get.find<NavigationController>().propertyDetailId;
+    if (id == null || id.isEmpty) return;
+    PropertyModel? match;
+    for (final p in properties) {
+      if (p.id == id) {
+        match = p;
+        break;
+      }
+    }
+    if (match != null) {
+      await openPropertyDetails(match);
+      return;
+    }
+    try {
+      final detail = await _repository.getPropertyById(id);
+      selectedProperty.value = detail;
+    } catch (_) {}
   }
 
   Future<void> createProperty(Map<String, dynamic> data) async {
@@ -255,11 +261,7 @@ class PropertyController extends GetxController {
       await _repository.createProperty(data);
       await refreshProperties();
       AppLogger.i('PropertyController', 'Create property success');
-      Get.snackbar(
-        'Success',
-        'Property created successfully',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      AppToast.success('Property created successfully');
     } catch (e) {
       AppLogger.e('PropertyController', 'Create property failed', e);
       rethrow;
@@ -272,11 +274,7 @@ class PropertyController extends GetxController {
       await _repository.createPgProperty(data);
       await refreshProperties();
       AppLogger.i('PropertyController', 'Create PG property success');
-      Get.snackbar(
-        'Success',
-        'PG Property created successfully',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      AppToast.success('PG Property created successfully');
     } catch (e) {
       AppLogger.e('PropertyController', 'Create PG property failed', e);
       rethrow;
@@ -289,11 +287,7 @@ class PropertyController extends GetxController {
       await _repository.updatePgProperty(propertyId, data);
       await refreshProperties();
       AppLogger.i('PropertyController', 'Update PG property success');
-      Get.snackbar(
-        'Success',
-        'PG Property updated successfully',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      AppToast.success('PG Property updated successfully');
     } catch (e) {
       AppLogger.e('PropertyController', 'Update PG property failed', e);
       rethrow;
@@ -509,6 +503,9 @@ class PropertyController extends GetxController {
 
   Future<void> openPropertyDetails(PropertyModel property) async {
     selectedProperty.value = property;
+    if (Get.isRegistered<NavigationController>()) {
+      Get.find<NavigationController>().setPropertyDetailId(property.id);
+    }
     try {
       isDetailLoading.value = true;
       final detail = await _repository.getPropertyById(property.id);
@@ -516,7 +513,7 @@ class PropertyController extends GetxController {
         selectedProperty.value = detail;
       }
     } catch (e) {
-      Get.snackbar('Error', 'Failed to load property details');
+      AppToast.error('Failed to load property details');
     } finally {
       isDetailLoading.value = false;
     }
@@ -525,6 +522,9 @@ class PropertyController extends GetxController {
   void closePropertyDetails() {
     selectedProperty.value = null;
     isDetailLoading.value = false;
+    if (Get.isRegistered<NavigationController>()) {
+      Get.find<NavigationController>().setPropertyDetailId(null);
+    }
   }
 
   void deleteLandlord(String id) {
@@ -542,13 +542,7 @@ class PropertyController extends GetxController {
       address: '',
     );
     landlords.insert(0, newLandlord);
-    Get.snackbar(
-      'Success',
-      'Landlord $name added successfully',
-      snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: Colors.white,
-      colorText: Colors.black,
-    );
+    AppToast.success('Landlord $name added successfully');
   }
 
   Future<void> viewTenantDetails(String userId) async {
@@ -560,7 +554,7 @@ class PropertyController extends GetxController {
       nav.currentIndex.value =
           8;
     } catch (e) {
-      Get.snackbar('Error', 'Failed to fetch tenant details: $e');
+      AppToast.error('Failed to fetch tenant details: $e');
     } finally {
       isLoading.value = false;
     }
