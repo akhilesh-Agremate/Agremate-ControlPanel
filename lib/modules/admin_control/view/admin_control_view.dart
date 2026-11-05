@@ -15,7 +15,11 @@ class AdminControlView extends StatelessWidget {
     return ColoredBox(
       color: AppColors.scaffoldLight,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(28),
+        padding: EdgeInsets.all(
+          MediaQuery.sizeOf(context).width < 600
+              ? 14
+              : (MediaQuery.sizeOf(context).width < 850 ? 20 : 28),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -62,6 +66,7 @@ class _SettingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final phone = MediaQuery.sizeOf(context).width < 600;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -80,7 +85,7 @@ class _SettingCard extends StatelessWidget {
           ),
         ],
       ),
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(phone ? 16 : 24),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -93,7 +98,7 @@ class _SettingCard extends StatelessWidget {
             ),
             child: Icon(icon, color: iconColor, size: 24),
           ),
-          const SizedBox(width: 20),
+          SizedBox(width: phone ? 12 : 20),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -139,7 +144,7 @@ class _SettingCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: phone ? 8 : 16),
           Switch(
             value: isEnabled,
             onChanged: onToggle,

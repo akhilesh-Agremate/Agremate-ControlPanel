@@ -16,60 +16,67 @@ class _PropertyTypeDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
     return Dialog(
       backgroundColor: Colors.white,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 16 : 40,
+        vertical: 24,
+      ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 560),
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text('Add Property', style: AppTheme.heading2),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded,
-                        color: AppTheme.textMuted),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text('Choose the type of property you want to add.',
-                  style: AppTheme.caption),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: _TypeOption(
-                      icon: Icons.home_rounded,
-                      title: 'Residential',
-                      description:
-                      'Villa, flat or house rented to a single tenant.',
-                      onTap: () => Navigator.of(context)
-                          .pop(PropertyAddType.individual),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.all(isMobile ? 18 : 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text('Add Property', style: AppTheme.heading2),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: _TypeOption(
-                      icon: Icons.bed_rounded,
-                      title: 'PG',
-                      description:
-                      'Paying guest with floors, rooms and beds.',
-                      onTap: () =>
-                          Navigator.of(context).pop(PropertyAddType.pg),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded,
+                          color: AppTheme.textMuted),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text('Choose the type of property you want to add.',
+                    style: AppTheme.caption),
+                const SizedBox(height: 24),
+                _OptionsLayout(
+                  children: [
+                    Expanded(
+                      child: _TypeOption(
+                        icon: Icons.home_rounded,
+                        title: 'Residential',
+                        description:
+                        'Villa, flat or house rented to a single tenant.',
+                        onTap: () => Navigator.of(context)
+                            .pop(PropertyAddType.individual),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _TypeOption(
+                        icon: Icons.bed_rounded,
+                        title: 'PG',
+                        description:
+                        'Paying guest with floors, rooms and beds.',
+                        onTap: () =>
+                            Navigator.of(context).pop(PropertyAddType.pg),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -109,7 +116,7 @@ class _TypeOptionState extends State<_TypeOption> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          height: 190,
+          constraints: const BoxConstraints(minHeight: 190),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: _hovering ? const Color(0xFFEEF4FF) : Colors.white,
@@ -156,6 +163,41 @@ class _TypeOptionState extends State<_TypeOption> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Side by side on wide dialogs; stacked on narrow ones.
+class _OptionsLayout extends StatelessWidget {
+  final List<Widget> children;
+  const _OptionsLayout({required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, c) {
+        if (c.maxWidth >= 440) {
+          return IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: children,
+            ),
+          );
+        }
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final w in children)
+              if (w is Expanded)
+                w.child
+              else if (w is SizedBox && w.child == null)
+                const SizedBox(height: 12)
+              else
+                w,
+          ],
+        );
+      },
     );
   }
 }

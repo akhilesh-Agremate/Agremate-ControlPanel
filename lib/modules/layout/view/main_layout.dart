@@ -81,7 +81,6 @@ class MainLayout extends StatelessWidget {
                   );
                 }),
               ),
-              const AppFooter(),
             ],
           ),
         ),

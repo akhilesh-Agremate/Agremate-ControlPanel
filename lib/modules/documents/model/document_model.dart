@@ -15,6 +15,8 @@ class DocumentModel {
   final String? relativePath;
   final DateTime createdAt;
   final DateTime modifiedAt;
+  final List<String> candidateIds;
+  final bool isDeletable;
 
   DocumentModel({
     required this.id,
@@ -29,8 +31,10 @@ class DocumentModel {
     this.relativePath,
     this.fileType,
     this.sizeKb,
+    this.candidateIds = const [],
     required this.createdAt,
     required this.modifiedAt,
+    this.isDeletable = false,
   });
 
   factory DocumentModel.fromJson(Map<String, dynamic> json) {
@@ -62,6 +66,17 @@ class DocumentModel {
         ) ??
         DateTime.now();
 
+    final candidateIds = <String>[];
+    for (final key in [
+      'documentId', 'id', 'fileId', 'documentFileId',
+      'uploadedFileId', 'attachmentId',
+    ]) {
+      final v = (json[key] ?? '').toString().trim();
+      if (v.isNotEmpty && v != 'null' && !candidateIds.contains(v)) {
+        candidateIds.add(v);
+      }
+    }
+
     return DocumentModel(
       id: (json['id'] ?? json['documentId'] ?? '').toString(),
       name: name.isNotEmpty ? name : 'Document',
@@ -75,6 +90,8 @@ class DocumentModel {
       fileType: isImage ? 'image' : 'pdf',
       createdAt: uploaded,
       modifiedAt: uploaded,
+      candidateIds: candidateIds,
+      isDeletable: json['isDeletable'] == true,
     );
   }
 

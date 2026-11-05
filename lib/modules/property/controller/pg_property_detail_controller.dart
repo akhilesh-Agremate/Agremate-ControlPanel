@@ -10,6 +10,7 @@ import 'package:agremate_admin/modules/property/model/pg_property_detail_model.d
 import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
 import 'package:agremate_admin/core/theme/theme.dart';
 import 'package:agremate_admin/core/utils/app_logger.dart';
+import 'package:agremate_admin/core/widgets/app_toast.dart';
 
 class PgPropertyDetailController extends GetxController {
   final property = Rxn<PgPropertyDetailData>();
@@ -142,17 +143,10 @@ class PgPropertyDetailController extends GetxController {
         : 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(locationLine)}';
 
     await Clipboard.setData(ClipboardData(text: url));
-    Get.snackbar(
-      'Copied',
+    AppToast.success(
       'Location link copied to clipboard',
-      snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: Colors.black87,
-      colorText: Colors.white,
-      duration: const Duration(seconds: 3),
-      mainButton: TextButton(
-        onPressed: () => openGoogleMaps(),
-        child: const Text('OPEN', style: TextStyle(color: Colors.lightBlueAccent, fontWeight: FontWeight.bold)),
-      ),
+      actionLabel: 'OPEN',
+      onAction: openGoogleMaps,
     );
   }
 

@@ -147,7 +147,13 @@ class PropertyModel {
       }
 
       final landlordObj = json['landlord'] as Map<String, dynamic>?;
-      final landlordId = landlordObj?['id']?.toString() ?? json['landlordId']?.toString() ?? '';
+      final landlordId = landlordObj?['userId']?.toString() ??
+          landlordObj?['id']?.toString() ??
+          json['landlordUserId']?.toString() ??
+          json['landlordId']?.toString() ??
+          json['ownerId']?.toString() ??
+          json['createdBy']?.toString() ??
+          '';
       final landlordName = landlordObj?['name']?.toString() ??
           landlordObj?['fullName']?.toString() ??
           json['landlordName']?.toString() ??

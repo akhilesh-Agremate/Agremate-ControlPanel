@@ -5,6 +5,7 @@ import 'package:agremate_admin/modules/service_request/model/service_request_mod
 import 'package:agremate_admin/modules/services/repository/services_repository.dart';
 import 'package:agremate_admin/core/constants/constants.dart';
 import 'package:agremate_admin/core/utils/app_logger.dart';
+import 'package:agremate_admin/core/widgets/app_toast.dart';
 
 class ServicesController extends GetxController {
   final _repo = ServicesRepository();
@@ -16,6 +17,7 @@ class ServicesController extends GetxController {
   final categoryCounts = <String, int>{}.obs;
   final isLoading = true.obs;
   final errorMessage = ''.obs;
+  final statusOptions = <String>[].obs;
 
   Map<String, int> get serviceCounts {
     final counts = <String, int>{};
@@ -40,12 +42,21 @@ class ServicesController extends GetxController {
   void onInit() {
     super.onInit();
     fetchRequests();
+    fetchStatuses();
   }
 
-  Future<void> fetchRequests() async {
+  Future<void> fetchStatuses() async {
+    try {
+      statusOptions.assignAll(await _repo.getStatuses());
+    } catch (e) {
+      AppLogger.e('ServicesController', 'Load statuses failed', e);
+    }
+  }
+
+  Future<void> fetchRequests({bool silent = false}) async {
     try {
       AppLogger.i('ServicesController', 'Load service requests');
-      isLoading.value = true;
+      if (!silent) isLoading.value = true;
       errorMessage.value = '';
       final data = await _repo.getDashboardServices();
       final items = List<ServiceRequestModel>.from(data['requests'] as List);
@@ -88,6 +99,26 @@ class ServicesController extends GetxController {
       errorMessage.value = 'Failed to load service requests: $e';
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  Future<bool> updateStatus(
+      String requestId,
+      String newStatus, {
+        String? rejectionReason,
+      }) async {
+    try {
+      await _repo.updateStatus(
+        requestId: requestId,
+        newStatus: newStatus,
+        rejectionReason: rejectionReason,
+      );
+      await fetchRequests(silent: true);
+      AppToast.success('Request is now $newStatus');
+      return true;
+    } catch (e) {
+      AppToast.error(e.toString().replaceFirst('Exception: ', ''));
+      return false;
     }
   }
 

@@ -5,6 +5,7 @@ class LandlordPropertyModel {
   final String status;
   final double rent;
   final String zone;
+  final String? profilePictureUrl;
 
   LandlordPropertyModel({
     required this.id,
@@ -13,6 +14,7 @@ class LandlordPropertyModel {
     required this.status,
     required this.rent,
     required this.zone,
+    this.profilePictureUrl,
   });
 
   factory LandlordPropertyModel.fromJson(Map<String, dynamic> json) {
@@ -40,6 +42,7 @@ class LandlordModel {
   final List<LandlordPropertyModel> properties;
   final double totalRevenue;
   final bool isActive;
+  final String? profilePictureUrl;
 
   LandlordModel({
     required this.id,
@@ -54,6 +57,7 @@ class LandlordModel {
     this.properties = const [],
     this.totalRevenue = 0,
     this.isActive = true,
+    this.profilePictureUrl,
   });
 
   factory LandlordModel.fromJson(Map<String, dynamic> json) {
@@ -72,8 +76,9 @@ class LandlordModel {
         ((json['activePropertyCount'] ?? json['occupiedCount'] ?? 0) as num)
             .toInt();
 
+
     return LandlordModel(
-      id: (json['landlordId'] ?? json['id'])?.toString() ?? '',
+      id: (json['landlordId'] ?? json['userId'] ?? json['id'])?.toString() ?? '',
       name: json['name']?.toString() ?? 'N/A',
       phone: json['phone']?.toString() ?? '',
       email: json['email']?.toString() ?? '',
@@ -85,6 +90,10 @@ class LandlordModel {
       properties: parsedProperties,
       totalRevenue: parsedProperties.fold(0.0, (sum, p) => sum + p.rent),
       isActive: json['isActive'] as bool? ?? activeCount > 0,
+      profilePictureUrl: () {
+        final v = (json['profilePictureUrl'] ?? '').toString().trim();
+        return (v.isEmpty || v.toLowerCase() == 'null') ? null : v;
+      }(),
     );
   }
 

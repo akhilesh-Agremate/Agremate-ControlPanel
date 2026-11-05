@@ -61,4 +61,53 @@ class ServicesRepository {
     final data = await getDashboardServices();
     return List<ServiceRequestModel>.from(data['requests'] as List);
   }
+  Future<List<String>> getStatuses() async {
+    AppLogger.i('ServicesRepository', 'Fetch statuses started');
+    try {
+      final response = await DioClient.instance
+          .get(AppEndpoints.maintenanceRequestStatuses);
+      final data = response.data;
+      if (data is! Map || data['result'] is! List) {
+        AppLogger.w('ServicesRepository', 'Unexpected statuses response');
+        return <String>[];
+      }
+      final statuses =
+      (data['result'] as List).map((e) => e.toString()).toList();
+      AppLogger.i(
+        'ServicesRepository',
+        'Fetch statuses success count=${statuses.length}',
+      );
+      return statuses;
+    } catch (e) {
+      AppLogger.e('ServicesRepository', 'Fetch statuses failed', e);
+      rethrow;
+    }
+  }
+
+  Future<void> updateStatus({
+    required String requestId,
+    required String newStatus,
+    String? rejectionReason,
+  }) async {
+    AppLogger.i('ServicesRepository', 'Update status $requestId -> $newStatus');
+    try {
+      final response = await DioClient.instance.put(
+        AppEndpoints.maintenanceRequestUpdateStatus,
+        queryParameters: {'newStatus': newStatus},
+        data: {
+          'requestId': requestId,
+          'newStatus': newStatus,
+          'rejectionReason': rejectionReason ?? '',
+        },
+      );
+      final data = response.data;
+      if (data is Map && data['status'] == true) return;
+      throw Exception(
+        data is Map ? (data['message'] ?? 'Update failed') : 'Update failed',
+      );
+    } catch (e) {
+      AppLogger.e('ServicesRepository', 'Update status failed', e);
+      rethrow;
+    }
+  }
 }

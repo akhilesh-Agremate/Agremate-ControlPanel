@@ -26,15 +26,35 @@ class AccessCheckResult {
     required this.email,
   });
 
-  factory AccessCheckResult.fromJson(Map<String, dynamic> json) =>
-      AccessCheckResult(
-        canAccess: json['canAccess'] == true,
-        role: json['role'] ?? '',
-        userId: json['userId'] ?? '',
-        fullName: json['fullName'] ?? json['name'] ?? '',
-        phoneNumber: json['phoneNumber'] ?? '',
-        email: json['email'] ?? '',
-      );
+  factory AccessCheckResult.fromJson(Map<String, dynamic> json) {
+    Map<String, dynamic> nested = const {};
+    for (final key in ['user', 'userInfo', 'users', 'profile']) {
+      final v = json[key];
+      if (v is Map) {
+        nested = Map<String, dynamic>.from(v);
+        break;
+      }
+    }
+
+    String pick(List<String> keys) {
+      for (final k in keys) {
+        final v = json[k] ?? nested[k];
+        if (v == null || v is Map || v is List) continue;
+        final s = v.toString().trim();
+        if (s.isNotEmpty && s != 'null') return s;
+      }
+      return '';
+    }
+
+    return AccessCheckResult(
+      canAccess: json['canAccess'] == true || nested['canAccess'] == true,
+      role: pick(['role', 'roleName']),
+      userId: pick(['userId', 'id', 'landlordId', 'tenantId']),
+      fullName: pick(['fullName', 'name']),
+      phoneNumber: pick(['phoneNumber', 'phone', 'mobile']),
+      email: pick(['email']),
+    );
+  }
 }
 
 class UserInfo {
@@ -55,12 +75,19 @@ class UserInfo {
   });
 
   factory UserInfo.fromJson(Map<String, dynamic> json) => UserInfo(
-    id: json['id'] ?? '',
-    userName: json['userName'] ?? '',
-    fullName: json['fullName'] ?? '',
-    email: json['email'] ?? '',
-    phoneNumber: json['phoneNumber'] ?? '',
-    role: json['role'] ?? '',
+    id: (json['id'] ??
+            json['userId'] ??
+            json['sub'] ??
+            json['username'] ??
+            '')
+        .toString(),
+    userName: (json['userName'] ?? json['username'] ?? '').toString(),
+    fullName: (json['fullName'] ?? json['name'] ?? '').toString(),
+    email: (json['email'] ?? '').toString(),
+    phoneNumber:
+        (json['phoneNumber'] ?? json['phone'] ?? json['mobile'] ?? '')
+            .toString(),
+    role: (json['role'] ?? '').toString(),
   );
 }
 

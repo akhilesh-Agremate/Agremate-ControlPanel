@@ -3,10 +3,14 @@ import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
 import 'package:agremate_admin/modules/service_request/model/service_request_model.dart';
 import 'package:agremate_admin/modules/property/controller/property_controller.dart';
 import '../model/dashboard_overview_model.dart';
+import '../model/registered_user_models.dart';
 import '../model/rent_collection_model.dart';
+import '../model/rental_agreement_item.dart';
 import '../model/subscription_model.dart';
 import '../repository/dashboard_repository.dart';
 import 'package:agremate_admin/core/utils/app_logger.dart';
+import 'package:agremate_admin/core/constants/app_strings.dart';
+import '../repository/rental_agreement_repository.dart';
 
 class HomeController extends GetxController {
   final isLoading = false.obs;
@@ -29,6 +33,18 @@ class HomeController extends GetxController {
   final expiredSubscriptions = <SubscriptionModel>[].obs;
   final isExpiredSubscriptionsLoading = false.obs;
   final expiredSubscriptionsError = ''.obs;
+  final showRegisteredUsersDetails = false.obs;
+  final registeredUsersTab = 1.obs;
+  final registeredLandlords = <RegisteredLandlordItem>[].obs;
+  final registeredTenants = <RegisteredTenantItem>[].obs;
+  final isRegisteredUsersLoading = false.obs;
+  final registeredUsersError = ''.obs;
+  final _rentalRepo = RentalAgreementRepository();
+  final rentalAgreements = <RentalAgreementItem>[].obs;
+  final isRentalAgreementsLoading = false.obs;
+  final rentalAgreementsError = ''.obs;
+  final showRentalAgreements = false.obs;
+  final rentalAgreementFilter = 'All'.obs;
 
   final List<String> periods = [
     'This Month',
@@ -125,6 +141,14 @@ class HomeController extends GetxController {
     }).toList();
   }
 
+  void openRentalAgreementDetails() {
+    rentalAgreementFilter.value = 'All';
+    showRentalAgreements.value = true;
+    fetchRentalAgreements();
+  }
+
+  void closeRentalAgreementDetails() => showRentalAgreements.value = false;
+
   @override
   void onInit() {
     super.onInit();
@@ -137,7 +161,7 @@ class HomeController extends GetxController {
       AppLogger.i('HomeController', 'Fetch overview started');
       isOverviewLoading.value = true;
       overview.value = await _dashboardRepo.getOverview();
-      AppLogger.i('HomeController', 'Fetch overview success rentCollections=${overview.value?.totalRentCollections}');
+      AppLogger.i('HomeController', 'Fetch overview success');
     } catch (e, st) {
       AppLogger.e('HomeController', 'Fetch overview failed', e, st);
       overview.value = null;
@@ -146,23 +170,17 @@ class HomeController extends GetxController {
     }
   }
 
-  String _formatINR(num value) {
-    final s = value.round().abs().toString();
-    String grouped;
-    if (s.length <= 3) {
-      grouped = s;
-    } else {
-      final last3 = s.substring(s.length - 3);
-      var rest = s.substring(0, s.length - 3);
-      final parts = <String>[];
-      while (rest.length > 2) {
-        parts.insert(0, rest.substring(rest.length - 2));
-        rest = rest.substring(0, rest.length - 2);
-      }
-      if (rest.isNotEmpty) parts.insert(0, rest);
-      grouped = '${parts.join(',')},$last3';
+  Future<void> fetchRentalAgreements() async {
+    try {
+      rentalAgreementsError.value = '';
+      isRentalAgreementsLoading.value = true;
+      rentalAgreements.assignAll(await _rentalRepo.getRentalAgreements());
+    } catch (e, st) {
+      AppLogger.e('HomeController', 'Fetch rental agreements failed', e, st);
+      rentalAgreementsError.value = 'Failed to load rental agreements.';
+    } finally {
+      isRentalAgreementsLoading.value = false;
     }
-    return '${value < 0 ? '-' : ''}₹$grouped';
   }
 
   Future<void> fetchRecentActivity() async {
@@ -451,17 +469,19 @@ class HomeController extends GetxController {
 
   String getAmount(String label, String period) {
     final o = overview.value;
-    if (o == null) return isOverviewLoading.value ? '...' : '--';
+    if (o == null) {
+      return isOverviewLoading.value ? 'API Integration' : '0';
+    }
 
     switch (label) {
-      case 'Total Rent Collections':
-        return _formatINR(o.totalRentCollections);
-      case 'Pending Payments':
-        return _formatINR(o.pendingPayments);
-      case 'Total Subscriptions':
-        return o.totalSubscriptionsCount.toString();
-      case 'Subscription Expired':
-        return o.subscriptionExpiredCount.toString();
+      case AppStrings.registeredUsers:
+        return o.registeredUsersCount.toString();
+      case AppStrings.activeSupport:
+        return o.activeSupportCount.toString();
+      case AppStrings.contactOwner:
+        return o.contactOwnerCount.toString();
+      case AppStrings.rentalAgreement:
+        return o.rentalAgreementCount.toString();
       default:
         return '0';
     }
@@ -653,5 +673,75 @@ class HomeController extends GetxController {
       }
       return false;
     }).toList();
+  }
+
+  int get registeredLandlordCount =>
+      overview.value?.landlordCount ?? registeredLandlords.length;
+
+  int get registeredTenantCount =>
+      overview.value?.tenantCount ?? registeredTenants.length;
+
+  int get registeredUsersTotalCount {
+    final total = overview.value?.registeredUsersCount ?? 0;
+    if (total > 0) return total;
+    return registeredLandlordCount + registeredTenantCount;
+  }
+
+  Future<void> openRegisteredUsersDetails() async {
+    showRegisteredUsersDetails.value = true;
+    registeredUsersTab.value = 1;
+    await fetchRegisteredUsers();
+  }
+
+  void closeRegisteredUsersDetails() {
+    showRegisteredUsersDetails.value = false;
+    registeredUsersError.value = '';
+  }
+
+  Future<void> fetchRegisteredUsers() async {
+    try {
+      isRegisteredUsersLoading.value = true;
+      registeredUsersError.value = '';
+      registeredLandlords.assignAll(
+        await _dashboardRepo.getRegisteredLandlords(),
+      );
+      try {
+        registeredTenants.assignAll(
+          _uniqueTenants(await _dashboardRepo.getRegisteredTenants()),
+        );
+      } catch (_) {
+        registeredTenants.clear();
+      }
+      if (registeredTenants.isEmpty) {
+        registeredTenants.assignAll(_uniqueTenantsFromLandlords());
+      }
+    } catch (e, st) {
+      AppLogger.e('HomeController', 'Fetch registered users failed', e, st);
+      registeredUsersError.value = 'Unable to load registered users.';
+      registeredLandlords.clear();
+      registeredTenants.clear();
+    } finally {
+      isRegisteredUsersLoading.value = false;
+    }
+  }
+
+  List<RegisteredTenantItem> _uniqueTenantsFromLandlords() {
+    final nested = <RegisteredTenantItem>[];
+    for (final landlord in registeredLandlords) {
+      nested.addAll(landlord.tenants);
+    }
+    return _uniqueTenants(nested);
+  }
+
+  List<RegisteredTenantItem> _uniqueTenants(List<RegisteredTenantItem> items) {
+    final seen = <String>{};
+    final unique = <RegisteredTenantItem>[];
+    for (final tenant in items) {
+      final key = tenant.id.isNotEmpty
+          ? tenant.id
+          : '${tenant.name}|${tenant.phone}';
+      if (seen.add(key)) unique.add(tenant);
+    }
+    return unique;
   }
 }

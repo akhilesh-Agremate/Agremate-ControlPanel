@@ -17,24 +17,37 @@ import 'package:agremate_admin/core/utils/app_logger.dart';
 class PropertyRepository {
   Future<List<PropertyModel>> getAllProperties({String? category}) async {
     try {
+      if (Get.isRegistered<AuthController>()) {
+        final auth = Get.find<AuthController>();
+        if (auth.isRestrictedRole) {
+          await _hydrateIdentity(auth);
+          final owned = await _fetchTokenScopedProperties();
+          AppLogger.i(
+            'PropertyRepository',
+            'Token-scoped properties count=${owned.length} role=${auth.role.value}',
+          );
+          if (owned.isNotEmpty) {
+            if (category == null || category.isEmpty) return owned;
+            final wanted = category.toLowerCase();
+            return owned
+                .where((p) => p.category.toLowerCase() == wanted)
+                .toList();
+          }
+        }
+      }
+
       if (category != null && category.isNotEmpty) {
         final endpoint =
             '${AppEndpoints.adminDashboardProperties}?category=$category';
         final properties = await _fetchPropertyList(endpoint);
-        if (!Get.isRegistered<AuthController>()) return properties;
-        final auth = Get.find<AuthController>();
-        if (!auth.isRestrictedRole) return properties;
-        return _filterForCurrentUser(properties, auth);
+        return _scopeForCurrentUser(properties);
       }
 
       try {
         final properties =
             await _fetchPropertyList(AppEndpoints.adminDashboardProperties);
         if (properties.isNotEmpty) {
-          if (!Get.isRegistered<AuthController>()) return properties;
-          final auth = Get.find<AuthController>();
-          if (!auth.isRestrictedRole) return properties;
-          return _filterForCurrentUser(properties, auth);
+          return _scopeForCurrentUser(properties);
         }
       } catch (e) {
         AppLogger.w('PropertyRepository',
@@ -50,15 +63,169 @@ class PropertyRepository {
       for (final p in [...residentialList, ...pgList]) {
         combinedMap[p.id] = p;
       }
-      final combined = combinedMap.values.toList();
-      if (!Get.isRegistered<AuthController>()) return combined;
-      final auth = Get.find<AuthController>();
-      if (!auth.isRestrictedRole) return combined;
-      return _filterForCurrentUser(combined, auth);
+      return _scopeForCurrentUser(combinedMap.values.toList());
     } catch (e, stack) {
       AppLogger.e('PropertyRepository', 'getAllProperties failed', e, stack);
       rethrow;
     }
+  }
+
+  Future<void> _hydrateIdentity(AuthController auth) async {
+    if (auth.userPhone.value.trim().isEmpty &&
+        auth.phoneNumber.value.trim().isNotEmpty) {
+      auth.userPhone.value = auth.phoneNumber.value.trim();
+    }
+
+    void absorb(dynamic node, [int depth = 0]) {
+      if (node is! Map || depth > 3) return;
+      for (final key in ['id', 'userId', 'landlordId', 'tenantId', 'agremateId']) {
+        auth.rememberIdentityId(node[key]?.toString());
+      }
+      final phone = (node['phoneNumber'] ?? node['phone'] ?? node['mobile'])
+          ?.toString()
+          .trim();
+      if ((phone ?? '').isNotEmpty && auth.userPhone.value.trim().isEmpty) {
+        auth.userPhone.value = phone!;
+      }
+      final name = (node['fullName'] ?? node['name'])?.toString().trim();
+      if ((name ?? '').isNotEmpty && auth.userName.value.trim().isEmpty) {
+        auth.userName.value = name!;
+      }
+      final email = node['email']?.toString().trim();
+      if ((email ?? '').isNotEmpty && auth.userEmail.value.trim().isEmpty) {
+        auth.userEmail.value = email!;
+      }
+      absorb(node['user'], depth + 1);
+      absorb(node['users'], depth + 1);
+      absorb(node['userInfo'], depth + 1);
+      absorb(node['userRole'], depth + 1);
+      absorb(node['role'], depth + 1);
+    }
+
+    Future<void> absorbEndpoint(String endpoint, {Map<String, dynamic>? query}) async {
+      try {
+        final response = await DioClient.instance.get(
+          endpoint,
+          queryParameters: query,
+        );
+        dynamic data = response.data;
+        if (data is Map && data['result'] != null) data = data['result'];
+        absorb(data);
+      } catch (e) {
+        AppLogger.w('PropertyRepository', 'Identity hydrate failed for $endpoint: $e');
+      }
+    }
+
+    await absorbEndpoint(AppEndpoints.currentUserDetails);
+    await absorbEndpoint(AppEndpoints.userBootstrap);
+    auth.persistIdentity();
+  }
+
+  Future<List<PropertyModel>> _fetchTokenScopedProperties() async {
+    final combined = <String, PropertyModel>{};
+    var fallbackIndex = 0;
+    void addAll(List<PropertyModel> list) {
+      for (final p in list) {
+        if (p.id.isNotEmpty) {
+          combined[p.id] = p;
+        } else {
+          combined['anon-$fallbackIndex'] = p;
+          fallbackIndex++;
+        }
+      }
+    }
+
+    addAll(await _fetchPropertyListSafely(AppEndpoints.getMyPropertyList));
+    addAll(await _fetchPropertyListSafely(AppEndpoints.currentUserDetails));
+    addAll(await _fetchPropertyListSafely(AppEndpoints.landlordDetails));
+    return combined.values.toList();
+  }
+
+  Future<List<PropertyModel>> _scopeForCurrentUser(
+    List<PropertyModel> properties,
+  ) async {
+    if (!Get.isRegistered<AuthController>()) return properties;
+    final auth = Get.find<AuthController>();
+    if (!auth.isRestrictedRole) return properties;
+
+    await _hydrateIdentity(auth);
+    final filtered = _filterForCurrentUser(properties, auth);
+    AppLogger.i(
+      'PropertyRepository',
+      'Role filter role=${auth.role.value} in=${properties.length} out=${filtered.length} ids=${auth.identityIds.length}',
+    );
+    if (filtered.isNotEmpty) return filtered;
+
+    final mine = await _fetchTokenScopedProperties();
+    if (mine.isNotEmpty) {
+      AppLogger.i(
+        'PropertyRepository',
+        'Restricted-role token-scoped fallback count=${mine.length}',
+      );
+      return mine;
+    }
+
+    if (auth.isLandlord) {
+      try {
+        final response =
+            await DioClient.instance.get(AppEndpoints.allLandlordDetails);
+        final raw = _extractList(response.data);
+        final linkedIds = <String>{};
+        for (final row in raw.whereType<Map>()) {
+          final map = Map<String, dynamic>.from(row);
+          final landlord = LandlordModel.fromJson(map);
+          final userId = (map['userId'] ?? map['id'] ?? landlord.id).toString();
+          if (_matchesLoggedInUser(
+                auth,
+                userId,
+                landlord.phone,
+                landlord.name,
+              ) ||
+              _matchesLoggedInUser(auth, landlord.id, landlord.phone, landlord.name)) {
+            for (final p in landlord.properties) {
+              if (p.id.isNotEmpty) linkedIds.add(p.id);
+            }
+          }
+        }
+        if (linkedIds.isNotEmpty) {
+          final matched =
+              properties.where((p) => linkedIds.contains(p.id)).toList();
+          if (matched.isNotEmpty) {
+            AppLogger.i(
+              'PropertyRepository',
+              'Landlord fallback via landlord.properties count=${matched.length}',
+            );
+            return matched;
+          }
+        }
+      } catch (e) {
+        AppLogger.w(
+          'PropertyRepository',
+          'Landlord fallback via landlords failed: $e',
+        );
+      }
+    }
+
+    if (properties.isNotEmpty) {
+      final hasLandlordMeta = properties.any((p) {
+        final phone = (p.landlordPhone ?? '').trim();
+        final name = p.landlordName.trim().toLowerCase();
+        final email = (p.landlordEmail ?? '').trim();
+        return p.landlordId.isNotEmpty ||
+            phone.isNotEmpty ||
+            email.isNotEmpty ||
+            (name.isNotEmpty && name != 'n/a');
+      });
+      if (!hasLandlordMeta) {
+        AppLogger.i(
+          'PropertyRepository',
+          'Restricted role using token-scoped list count=${properties.length}',
+        );
+        return properties;
+      }
+    }
+
+    return filtered;
   }
 
   Future<List<PropertyModel>> _fetchPropertyListSafely(String endpoint) async {
@@ -70,53 +237,124 @@ class PropertyRepository {
     }
   }
 
-  Future<List<PropertyModel>> _fetchPropertyList(String endpoint) async {
-    final response = await DioClient.instance.get(endpoint);
-    AppLogger.d('PropertyRepository', 'getAllProperties Response status=${response.statusCode}');
+  List<dynamic> _extractList(dynamic data) {
+    if (data is List) return data;
+    if (data is! Map) return const [];
 
-    final List<dynamic> result;
-    if (response.data is List) {
-      result = response.data as List<dynamic>;
-    } else if (response.data is Map && response.data['result'] is List) {
-      result = response.data['result'] as List<dynamic>;
-    } else {
-      result = [];
+    const keys = [
+      'items',
+      'data',
+      'properties',
+      'socialProperties',
+      'ownedProperties',
+      'rentedProperties',
+      'records',
+      'result',
+      'list',
+      'owned',
+    ];
+
+    final found = <dynamic>[];
+    void collect(dynamic node, int depth) {
+      if (node is List) {
+        if (node.isNotEmpty) found.addAll(node);
+        return;
+      }
+      if (node is! Map || depth > 3) return;
+      for (final key in keys) {
+        final v = node[key];
+        if (v is List && v.isNotEmpty) {
+          found.addAll(v);
+        } else if (v is Map) {
+          collect(v, depth + 1);
+        }
+      }
     }
 
+    collect(data, 0);
+    if (found.isNotEmpty) return found;
+    return const [];
+  }
+
+  Future<List<PropertyModel>> _fetchPropertyList(String endpoint) async {
+    final response = await DioClient.instance.get(endpoint);
+    AppLogger.d(
+      'PropertyRepository',
+      'getAllProperties Response status=${response.statusCode} endpoint=$endpoint',
+    );
+
+    final result = _extractList(response.data);
     AppLogger.i('PropertyRepository', 'getAllProperties count=${result.length}');
     return result
-        .where((e) => e != null)
-        .map((json) => PropertyModel.fromJson(json as Map<String, dynamic>))
+        .whereType<Map>()
+        .map((json) => PropertyModel.fromJson(Map<String, dynamic>.from(json)))
         .toList();
+  }
+
+  String _phoneDigits(String? value) {
+    final d = (value ?? '').replaceAll(RegExp(r'[^\d]'), '');
+    if (d.length > 10) return d.substring(d.length - 10);
+    return d;
+  }
+
+  bool _samePhone(String? a, String? b) {
+    final x = _phoneDigits(a);
+    final y = _phoneDigits(b);
+    if (x.isEmpty || y.isEmpty) return false;
+    return x == y;
   }
 
   List<PropertyModel> _filterForCurrentUser(
       List<PropertyModel> properties,
       AuthController auth,
       ) {
-    final userId = auth.userId.value;
-    final phone = auth.userPhone.value.replaceAll(' ', '');
+    final ids = auth.identityIds;
+    final phone = auth.userPhone.value.isNotEmpty
+        ? auth.userPhone.value
+        : auth.phoneNumber.value;
     final name = auth.userName.value.trim().toLowerCase();
+    final email = auth.userEmail.value.trim().toLowerCase();
 
-    bool matchesPhone(String? value) {
-      if (value == null || value.isEmpty || phone.isEmpty) return false;
-      return value.replaceAll(' ', '') == phone;
+    bool matchesId(String? value) {
+      if (ids.isEmpty || value == null || value.isEmpty) return false;
+      final needle = value.trim().toLowerCase();
+      return ids.any((id) => id.toLowerCase() == needle);
     }
 
     bool matchesName(String? value) {
       if (value == null || value.isEmpty || name.isEmpty) return false;
-      return value.trim().toLowerCase() == name;
+      final n = value.trim().toLowerCase();
+      if (n == 'n/a') return false;
+      return n == name;
+    }
+
+    bool matchesEmail(String? value) {
+      if (value == null || value.isEmpty || email.isEmpty) return false;
+      return value.trim().toLowerCase() == email;
     }
 
     return properties.where((p) {
-      final isLandlordProperty =
-          (userId.isNotEmpty && p.landlordId == userId) ||
-              matchesPhone(p.landlordPhone) ||
-              matchesName(p.landlordName);
-      final isTenantProperty =
-          (userId.isNotEmpty && p.tenantIds.contains(userId)) ||
-              matchesPhone(p.primaryTenantPhone) ||
-              matchesName(p.primaryTenantName);
+      final landlordObj =
+          p.rawJson['landlord'] is Map ? p.rawJson['landlord'] as Map : {};
+      final isLandlordProperty = matchesId(p.landlordId) ||
+          matchesId(landlordObj['userId']?.toString()) ||
+          matchesId(landlordObj['id']?.toString()) ||
+          matchesId(landlordObj['landlordId']?.toString()) ||
+          matchesId(p.rawJson['landlordUserId']?.toString()) ||
+          matchesId(p.rawJson['ownerId']?.toString()) ||
+          matchesId(p.rawJson['createdBy']?.toString()) ||
+          matchesId(p.rawJson['userId']?.toString()) ||
+          _samePhone(p.landlordPhone, phone) ||
+          _samePhone(landlordObj['phone']?.toString(), phone) ||
+          _samePhone(landlordObj['phoneNumber']?.toString(), phone) ||
+          matchesName(p.landlordName) ||
+          matchesName(landlordObj['name']?.toString()) ||
+          matchesName(landlordObj['fullName']?.toString()) ||
+          matchesEmail(p.landlordEmail) ||
+          matchesEmail(landlordObj['email']?.toString());
+      final isTenantProperty = p.tenantIds.any((id) => matchesId(id)) ||
+          _samePhone(p.primaryTenantPhone, phone) ||
+          matchesName(p.primaryTenantName);
 
       if (auth.isLandlord) return isLandlordProperty;
       if (auth.isTenant) return isTenantProperty;
@@ -723,14 +961,7 @@ class PropertyRepository {
   Future<List<TenantModel>> getAllTenants() async {
     try {
       final response = await DioClient.instance.get(AppEndpoints.allTenants);
-      final List<dynamic> result;
-      if (response.data is List) {
-        result = response.data as List<dynamic>;
-      } else if (response.data is Map && response.data['result'] != null) {
-        result = response.data['result'] as List<dynamic>;
-      } else {
-        result = [];
-      }
+      final result = _extractList(response.data);
       final tenants = result
           .whereType<Map>()
           .map((json) => TenantModel.fromJson(Map<String, dynamic>.from(json)))
@@ -745,14 +976,7 @@ class PropertyRepository {
     try {
       final response =
       await DioClient.instance.get(AppEndpoints.allLandlordDetails);
-      final List<dynamic> result;
-      if (response.data is List) {
-        result = response.data as List<dynamic>;
-      } else if (response.data is Map && response.data['result'] != null) {
-        result = response.data['result'] as List<dynamic>;
-      } else {
-        result = [];
-      }
+      final result = _extractList(response.data);
       final landlords = result
           .whereType<Map>()
           .map((json) =>
@@ -770,14 +994,20 @@ class PropertyRepository {
       String phone,
       String name,
       ) {
-    final userId = auth.userId.value;
-    final userPhone = auth.userPhone.value.replaceAll(' ', '');
+    final ids = auth.identityIds;
+    final userPhone = auth.userPhone.value.isNotEmpty
+        ? auth.userPhone.value
+        : auth.phoneNumber.value;
     final userName = auth.userName.value.trim().toLowerCase();
-    if (userId.isNotEmpty && id == userId) return true;
-    if (userPhone.isNotEmpty && phone.replaceAll(' ', '') == userPhone) {
+    final needle = id.trim().toLowerCase();
+    if (needle.isNotEmpty &&
+        ids.any((value) => value.toLowerCase() == needle)) {
       return true;
     }
-    if (userName.isNotEmpty && name.trim().toLowerCase() == userName) {
+    if (_samePhone(phone, userPhone)) return true;
+    if (userName.isNotEmpty &&
+        name.trim().toLowerCase() == userName &&
+        name.trim().toLowerCase() != 'n/a') {
       return true;
     }
     return false;

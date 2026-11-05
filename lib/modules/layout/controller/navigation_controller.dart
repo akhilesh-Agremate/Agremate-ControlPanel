@@ -2,7 +2,9 @@ import 'package:get/get.dart';
 import 'package:agremate_admin/modules/property/controller/property_controller.dart';
 import 'package:agremate_admin/modules/services/controller/services_controller.dart';
 import 'package:agremate_admin/core/utils/app_logger.dart';
+import 'package:agremate_admin/core/utils/browser_url.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:agremate_admin/core/widgets/app_toast.dart';
 
 enum SearchResultType { property, landlord, tenant, location, service }
 
@@ -29,7 +31,16 @@ class NavigationController extends GetxController {
 
   final GetStorage _box = GetStorage();
   static const _kIndex = 'nav.currentIndex';
+  static const _kPropertyId = 'nav.propertyDetailId';
+  static const _kDocumentId = 'nav.documentDetailId';
+  static const _kFinanceId = 'nav.financeDetailId';
+  static const _kFinanceName = 'nav.financeDetailName';
   bool _isRestorable(int i) => i >= 0 && i != 8;
+
+  String? get propertyDetailId => _box.read<String>(_kPropertyId);
+  String? get documentDetailId => _box.read<String>(_kDocumentId);
+  String? get financeDetailId => _box.read<String>(_kFinanceId);
+  String? get financeDetailName => _box.read<String>(_kFinanceName);
 
   @override
   void onInit() {
@@ -38,11 +49,78 @@ class NavigationController extends GetxController {
     if (saved != null && _isRestorable(saved)) {
       currentIndex.value = saved;
     }
+    _readUrl();
     ever<int>(currentIndex, (i) {
       if (_isRestorable(i)) _box.write(_kIndex, i);
+      _writeUrl();
     });
   }
 
+  void setPropertyDetailId(String? id) {
+    if (id == null || id.isEmpty) {
+      _box.remove(_kPropertyId);
+    } else {
+      _box.write(_kPropertyId, id);
+    }
+    _writeUrl();
+  }
+
+  void setDocumentDetailId(String? id) {
+    if (id == null || id.isEmpty) {
+      _box.remove(_kDocumentId);
+    } else {
+      _box.write(_kDocumentId, id);
+    }
+    _writeUrl();
+  }
+
+  void setFinanceDetail(String? id, String? name) {
+    if (id == null || id.isEmpty) {
+      _box.remove(_kFinanceId);
+      _box.remove(_kFinanceName);
+    } else {
+      _box.write(_kFinanceId, id);
+      _box.write(_kFinanceName, name ?? '');
+    }
+    _writeUrl();
+  }
+
+  void _readUrl() {
+    final frag = Uri.base.fragment;
+    if (!frag.contains('?')) return;
+    final q = frag.substring(frag.indexOf('?') + 1);
+    final params = Uri.splitQueryString(q);
+    final tab = params['tab'] ?? '';
+    final id = params['id'] ?? '';
+    if (id.isEmpty) return;
+    if (tab == 'property') {
+      currentIndex.value = 1;
+      _box.write(_kPropertyId, id);
+    } else if (tab == 'documents') {
+      currentIndex.value = 4;
+      _box.write(_kDocumentId, id);
+    } else if (tab == 'finance') {
+      currentIndex.value = 3;
+      _box.write(_kFinanceId, id);
+      _box.write(_kFinanceName, params['name'] ?? '');
+    }
+  }
+
+  void _writeUrl() {
+    String path = '/dashboard';
+    if (currentIndex.value == 1 && (propertyDetailId ?? '').isNotEmpty) {
+      path = '/dashboard?tab=property&id=$propertyDetailId';
+    } else if (currentIndex.value == 4 && (documentDetailId ?? '').isNotEmpty) {
+      path = '/dashboard?tab=documents&id=$documentDetailId';
+    } else if (currentIndex.value == 3 && (financeDetailId ?? '').isNotEmpty) {
+      path = '/dashboard?tab=finance&id=$financeDetailId';
+      final name = financeDetailName ?? '';
+      if (name.isNotEmpty) {
+        path += '&name=${Uri.encodeQueryComponent(name)}';
+      }
+    }
+    replaceAppHash(path);
+  }
 
   void changePage(int index) {
     currentIndex.value = index;
@@ -247,12 +325,7 @@ class NavigationController extends GetxController {
     if (searchResults.isNotEmpty) {
       onResultSelected(searchResults.first);
     } else {
-      Get.snackbar(
-        'Search',
-        'No matches found for "$query"',
-        snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 2),
-      );
+      AppToast.error('No matches found for "$query"');
     }
   }
 }

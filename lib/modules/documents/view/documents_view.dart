@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:agremate_admin/core/theme/theme.dart';
@@ -6,9 +7,12 @@ import 'package:agremate_admin/modules/documents/controller/document_controller.
 import 'package:agremate_admin/modules/documents/model/document_model.dart';
 import 'package:agremate_admin/modules/property/model/property_model.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/full_pdf_page.dart';
 import '../../../core/widgets/pdf_iframe_view.dart';
+import '../../auth/controller/auth_controller.dart';
+import '../model/document_category.dart';
 
 class DocumentsView extends StatelessWidget {
   const DocumentsView({super.key});
@@ -59,7 +63,6 @@ class _PropertyCardsView extends StatelessWidget {
   const _PropertyCardsView({required this.dc});
 
   final DocumentController dc;
-
   @override
   Widget build(BuildContext context) {
     final items = dc.visibleProperties;
@@ -67,42 +70,57 @@ class _PropertyCardsView extends StatelessWidget {
     return ColoredBox(
       color: AppColors.scaffoldLight,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(28),
-        child: items.isEmpty
-            ? const Padding(
-                padding: EdgeInsets.only(top: 80),
-                child: Center(
-                  child: Text(
-                    AppStrings.noPropertiesFound,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.hintGrey,
-                    ),
+        padding: EdgeInsets.all(
+          MediaQuery.sizeOf(context).width < 600
+              ? 14
+              : (MediaQuery.sizeOf(context).width < 850 ? 20 : 28),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            items.isEmpty
+                ? const Padding(
+              padding: EdgeInsets.only(top: 80),
+              child: Center(
+                child: Text(
+                  AppStrings.noPropertiesFound,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.hintGrey,
                   ),
                 ),
-              )
-            : LayoutBuilder(
-                builder: (context, constraints) {
-                  const crossAxisCount = 4;
-                  final cardWidth =
-                      (constraints.maxWidth - 16 * (crossAxisCount - 1)) /
-                          crossAxisCount;
-                  return Wrap(
-                    spacing: 16,
-                    runSpacing: 16,
-                    children: items
-                        .map(
-                          (prop) => _DocumentPropertyCard(
-                            prop: prop,
-                            width: cardWidth,
-                            onTap: () => dc.openPropertyDocuments(prop),
-                          ),
-                        )
-                        .toList(),
-                  );
-                },
               ),
+            )
+                : LayoutBuilder(
+              builder: (context, constraints) {
+                final crossAxisCount = constraints.maxWidth < 520
+                    ? 1
+                    : constraints.maxWidth < 820
+                    ? 2
+                    : constraints.maxWidth < 1100
+                    ? 3
+                    : 4;
+                final cardWidth =
+                    (constraints.maxWidth - 16 * (crossAxisCount - 1)) /
+                        crossAxisCount;
+                return Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  children: items
+                      .map(
+                        (prop) => _DocumentPropertyCard(
+                      prop: prop,
+                      width: cardWidth,
+                      onTap: () => dc.openPropertyDocuments(prop),
+                    ),
+                  )
+                      .toList(),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -281,13 +299,20 @@ class _PropertyDocumentsView extends StatelessWidget {
   Widget build(BuildContext context) {
     final files = dc.currentFiles;
 
+    final bool isSuperAdmin = Get.isRegistered<AuthController>()
+        ? !Get.find<AuthController>().isRestrictedRole
+        : false;
+
     return ColoredBox(
       color: AppColors.documentsBg,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            padding: EdgeInsets.symmetric(
+              horizontal: MediaQuery.sizeOf(context).width < 600 ? 14 : 24,
+              vertical: 20,
+            ),
             decoration: const BoxDecoration(
               color: AppColors.white,
               border: Border(bottom: BorderSide(color: AppColors.dividerLight)),
@@ -330,7 +355,7 @@ class _PropertyDocumentsView extends StatelessWidget {
             child: dc.isDetailLoading.value
                 ? const Center(child: CircularProgressIndicator())
                 : SingleChildScrollView(
-                    padding: const EdgeInsets.all(32),
+              padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 600 ? 14 : 32),
                     child: files.isEmpty
                         ? const Center(
                             child: Padding(
@@ -362,12 +387,11 @@ class _PropertyDocumentsView extends StatelessWidget {
                             itemBuilder: (context, idx) {
                               final file = files[idx];
                               return InkWell(
-                                onTap: () => _openDocument(context, file),
                                 borderRadius: BorderRadius.circular(12),
                                 child: Container(
                                   margin: const EdgeInsets.only(bottom: 12),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: MediaQuery.sizeOf(context).width < 600 ? 12 : 24,
                                     vertical: 18,
                                   ),
                                   decoration: BoxDecoration(
@@ -392,7 +416,7 @@ class _PropertyDocumentsView extends StatelessWidget {
                                           size: 24,
                                         ),
                                       ),
-                                      const SizedBox(width: 20),
+                                      SizedBox(width: MediaQuery.sizeOf(context).width < 600 ? 12 : 20),
                                       Expanded(
                                         child: Column(
                                           crossAxisAlignment:
@@ -400,6 +424,8 @@ class _PropertyDocumentsView extends StatelessWidget {
                                           children: [
                                             Text(
                                               file.name,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
                                               style: const TextStyle(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.w700,
@@ -419,6 +445,34 @@ class _PropertyDocumentsView extends StatelessWidget {
                                           ],
                                         ),
                                       ),
+                                      const SizedBox(width: 12),
+                                      if ((file.relativePath ?? '').isNotEmpty) ...[
+                                        _roundIconButton(
+                                          icon: Icons.visibility_outlined,
+                                          tooltip: 'Preview',
+                                          background: Colors.transparent,
+                                          iconColor: Colors.black,
+                                          onTap: () => _openDocument(context, file),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        _roundIconButton(
+                                          icon: Icons.download_rounded,
+                                          tooltip: 'Download',
+                                          background: Colors.transparent,
+                                          iconColor: const Color(0xFF475569),
+                                          onTap: () => downloadFileWeb(
+                                              file.relativePath!, file.name),
+                                        ),
+                                      ],
+                                      if (isSuperAdmin && file.isDeletable) ...[
+                                        _roundIconButton(
+                                          icon: Icons.delete_outline_rounded,
+                                          tooltip: 'Delete',
+                                          background: Colors.transparent,
+                                          iconColor: const Color(0xFFDC2626),
+                                          onTap: () => _confirmDelete(context, file),
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ),
@@ -428,6 +482,35 @@ class _PropertyDocumentsView extends StatelessWidget {
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _roundIconButton({
+    required IconData icon,
+    required String tooltip,
+    required Color background,
+    required Color iconColor,
+    required VoidCallback onTap,
+    Color? borderColor,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: background,
+            shape: BoxShape.circle,
+            border: borderColor != null
+                ? Border.all(color: borderColor, width: 1)
+                : null,
+          ),
+          child: Icon(icon, size: 19, color: iconColor),
+        ),
       ),
     );
   }
@@ -451,12 +534,52 @@ class _PropertyDocumentsView extends StatelessWidget {
     _showDocumentPreview(context, file);
   }
 
+  void _confirmDelete(BuildContext context, DocumentModel file) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Delete document',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          'Delete "${file.name}"? This can\'t be undone.',
+          style: const TextStyle(fontSize: 14, color: AppColors.hintGrey),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              dc.deleteDocument(file);
+            },
+            child: const Text(
+              'Delete',
+              style: TextStyle(
+                color: Color(0xFFDC2626),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showDocumentPreview(BuildContext context, DocumentModel file) {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
         backgroundColor: AppColors.white,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
+        insetPadding: EdgeInsets.symmetric(
+          horizontal: MediaQuery.sizeOf(context).width < 600 ? 12 : 40,
+          vertical: 40,
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Container(
           width: 900,
@@ -555,5 +678,318 @@ class _PropertyDocumentsView extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       child: WebNetworkImage(url: previewUrl, fit: BoxFit.contain),
     );
+  }
+}
+
+class _DocumentsToolbar extends StatelessWidget {
+  const _DocumentsToolbar();
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isSuperAdmin = Get.isRegistered<AuthController>()
+        ? !Get.find<AuthController>().isRestrictedRole
+        : false;
+    if (!isSuperAdmin) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: ElevatedButton.icon(
+          onPressed: () => showDialog(
+            context: context,
+            barrierColor: Colors.black.withValues(alpha: 0.45),
+            builder: (_) => const CreateDocumentDialog(),
+          ),
+          icon: const Icon(Icons.add_rounded, size: 20),
+          label: const Text(
+            'Create Document',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF2083D5),
+            foregroundColor: Colors.white,
+            elevation: 0,
+            minimumSize: const Size(0, 46),
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class CreateDocumentDialog extends StatefulWidget {
+  const CreateDocumentDialog({super.key});
+
+  @override
+  State<CreateDocumentDialog> createState() => CreateDocumentDialogState();
+}
+
+class CreateDocumentDialogState extends State<CreateDocumentDialog> {
+  PlatformFile? _file;
+  bool _uploading = false;
+
+  DocumentCategory _category = DocumentCategory.propertyDocuments;
+  PropertyModel? _property;
+
+  @override
+  void initState() {
+    super.initState();
+    _property = Get.find<DocumentController>().selectedProperty.value;
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  Future<void> _pickFile() async {
+    try {
+      final files = await FilePicker.pickFiles(type: FileType.any);
+      if (files.isEmpty) return;
+      setState(() => _file = files.first);
+    } catch (e) {
+      AppToast.error(e.toString());
+    }
+  }
+
+  Widget _label(String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Text(
+      text,
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: Color(0xFF1E293B),
+      ),
+    ),
+  );
+
+  InputDecoration _fieldDecoration() => InputDecoration(
+    filled: true,
+    fillColor: const Color(0xFFF7F9FC),
+    contentPadding:
+    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: Color(0xFF2083D5), width: 1.5),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Create document',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1E293B),
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () => Navigator.pop(context),
+                    customBorder: const CircleBorder(),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(Icons.close,
+                          size: 20, color: Color(0xFF64748B)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              _label('Category'),
+              DropdownButtonFormField<DocumentCategory>(
+                initialValue: _category,
+                isExpanded: true,
+                decoration: _fieldDecoration(),
+                items: DocumentCategory.all
+                    .map((c) => DropdownMenuItem(value: c, child: Text(c.label)))
+                    .toList(),
+                onChanged: (c) => setState(() => _category = c ?? _category),
+              ),
+              const SizedBox(height: 20),
+
+              if (_category.needsProperty) ...[
+                _label('Property'),
+                DropdownButtonFormField<PropertyModel>(
+                  initialValue: Get.find<DocumentController>()
+                      .properties
+                      .firstWhereOrNull((p) => p.id == _property?.id),
+                  isExpanded: true,
+                  menuMaxHeight: 240,
+                  hint: const Text('Select property'),
+                  decoration: _fieldDecoration(),
+                  items: Get.find<DocumentController>()
+                      .properties
+                      .map((p) => DropdownMenuItem(
+                    value: p,
+                    child: Text(p.name, overflow: TextOverflow.ellipsis),
+                  ))
+                      .toList(),
+                  onChanged: (p) => setState(() => _property = p),
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              _label('Upload file'),
+              InkWell(
+                onTap: _pickFile,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 28),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7F9FC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFD6E4F5)),
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFE8F1FD),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.upload_file_rounded,
+                            size: 22, color: Color(0xFF2083D5)),
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Click to choose a file',
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1E293B),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'PDF, images or any other document',
+                        style: TextStyle(
+                            fontSize: 12, color: Color(0xFF94A3B8)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (_file != null) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F1FD),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.insert_drive_file_outlined,
+                          size: 18, color: Color(0xFF2083D5)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _file!.name,
+                          style: const TextStyle(fontSize: 12.5),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () => setState(() => _file = null),
+                        child: const Icon(Icons.close, size: 16),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 24),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: _uploading ? null : _submit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2083D5),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: _uploading
+                        ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                        : const Text('Create document'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _submit() async {
+    if (_category.needsProperty && _property == null) {
+      AppToast.error('Please select a property.');
+      return;
+    }
+    if (_file == null) {
+      AppToast.error('Please choose a file to upload.');
+      return;
+    }
+    setState(() => _uploading = true);
+    final ok = await Get.find<DocumentController>().uploadDocument(
+      file: _file!,
+      category: _category,
+      property: _property,
+    );
+    if (!mounted) return;
+    setState(() => _uploading = false);
+    if (ok) Navigator.pop(context);
   }
 }

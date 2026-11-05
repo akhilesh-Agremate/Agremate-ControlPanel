@@ -77,6 +77,8 @@ class _KpiCardState extends State<KpiCard> {
 
   @override
   Widget build(BuildContext context) {
+    final bool hasSpark = widget.sparkData != null;
+
     return MouseRegion(
       onEnter: (_) => setState(() => _hovering = true),
       onExit: (_) {
@@ -107,8 +109,9 @@ class _KpiCardState extends State<KpiCard> {
           ],
         ),
         child: SizedBox(
-          height: 150,
+          height: hasSpark ? 150 : null,
           child: Column(
+            mainAxisSize: hasSpark ? MainAxisSize.max : MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -142,13 +145,17 @@ class _KpiCardState extends State<KpiCard> {
                 ],
               ),
               const SizedBox(height: 12),
-              Text(
-                widget.value,
-                style: AppTheme.kpiValue.copyWith(
-                  color: const Color(0xFF1B4FD8),
-                  fontSize: 28,
-                  height: 1.1,
-                  fontWeight: FontWeight.w800,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  widget.value,
+                  style: AppTheme.kpiValue.copyWith(
+                    color: const Color(0xFF1B4FD8),
+                    fontSize: 28,
+                    height: 1.1,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
               const SizedBox(height: 6),
@@ -164,12 +171,13 @@ class _KpiCardState extends State<KpiCard> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const Spacer(),
-              if (widget.sparkData != null)
+              if (hasSpark) ...[
+                const Spacer(),
                 SizedBox(
                   height: 28,
                   child: _buildInteractiveSparkline(widget.sparkData!),
                 ),
+              ],
             ],
           ),
         ),
