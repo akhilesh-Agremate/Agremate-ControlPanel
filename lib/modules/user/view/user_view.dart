@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:agremate_admin/core/theme/theme.dart';
+import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
 import 'package:agremate_admin/modules/property/controller/property_controller.dart';
 import 'package:agremate_admin/modules/property/model/landlord_model.dart';
 import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
@@ -44,10 +45,12 @@ class _UserViewState extends State<UserView> {
 
       final lq = _landlordSearch.text.trim().toLowerCase();
       final tq = _tenantSearch.text.trim().toLowerCase();
-      final landlords = pc.landlords
+      final visibleLandlords = _landlordsForLogin(pc);
+      final visibleTenants = _tenantsForLogin(pc, visibleLandlords);
+      final landlords = visibleLandlords
           .where((l) => lq.isEmpty || l.name.toLowerCase().contains(lq))
           .toList();
-      final tenants = pc.tenants
+      final tenants = visibleTenants
           .where((t) =>
       tq.isEmpty ||
           t.name.toLowerCase().contains(tq) ||
@@ -71,7 +74,7 @@ class _UserViewState extends State<UserView> {
                     child: _UserListCard(
                       title: 'Landlords',
                       subtitle: 'Manage landlords and their properties',
-                      total: pc.landlords.length,
+                      total: visibleLandlords.length,
                       icon: Icons.real_estate_agent_rounded,
                       fill: AppTheme.landlordFill,
                       searchHint: 'Search landlords...',
@@ -105,7 +108,7 @@ class _UserViewState extends State<UserView> {
                     child: _UserListCard(
                       title: 'Tenants',
                       subtitle: 'Manage tenants and their rented properties',
-                      total: pc.tenants.length,
+                      total: visibleTenants.length,
                       icon: Icons.groups_rounded,
                       fill: AppTheme.tenantFill,
                       searchHint: 'Search tenants...',
@@ -145,6 +148,77 @@ class _UserViewState extends State<UserView> {
 
   Widget _pane({required bool stacked, required Widget child}) =>
       stacked ? child : Expanded(child: child);
+
+  List<LandlordModel> _landlordsForLogin(PropertyController pc) {
+    final auth = Get.isRegistered<AuthController>()
+        ? Get.find<AuthController>()
+        : null;
+    if (auth == null || !auth.isLandlord) return pc.landlords.toList();
+
+    final ids = auth.identityIds.map((e) => e.toLowerCase()).toSet();
+    final name = auth.userName.value.trim().toLowerCase();
+    final email = auth.userEmail.value.trim().toLowerCase();
+    final phone = _digits(auth.userPhone.value.isNotEmpty
+        ? auth.userPhone.value
+        : auth.phoneNumber.value);
+    final propertyIds =
+        pc.properties.map((p) => p.landlordId.toLowerCase()).toSet();
+    final propertyNames =
+        pc.properties.map((p) => p.landlordName.trim().toLowerCase()).toSet();
+
+    final mine = pc.landlords.where((l) {
+      final id = l.id.toLowerCase();
+      return ids.contains(id) ||
+          propertyIds.contains(id) ||
+          (name.isNotEmpty && l.name.trim().toLowerCase() == name) ||
+          (email.isNotEmpty && l.email.trim().toLowerCase() == email) ||
+          _samePhone(l.phone, phone) ||
+          propertyNames.contains(l.name.trim().toLowerCase());
+    }).toList();
+    return mine;
+  }
+
+  List<TenantModel> _tenantsForLogin(
+    PropertyController pc,
+    List<LandlordModel> landlords,
+  ) {
+    final auth = Get.isRegistered<AuthController>()
+        ? Get.find<AuthController>()
+        : null;
+    if (auth == null || !auth.isLandlord) return pc.tenants.toList();
+
+    final propertyIds = pc.properties.map((p) => p.id.toLowerCase()).toSet();
+    final propertyNames =
+        pc.properties.map((p) => p.name.trim().toLowerCase()).toSet();
+    for (final landlord in landlords) {
+      for (final property in landlord.properties) {
+        if (property.id.isNotEmpty) {
+          propertyIds.add(property.id.toLowerCase());
+        }
+        if (property.name.trim().isNotEmpty) {
+          propertyNames.add(property.name.trim().toLowerCase());
+        }
+      }
+    }
+    return pc.tenants.where((t) {
+      final id = t.propertyId.toLowerCase();
+      final name = t.propertyName.trim().toLowerCase();
+      return (id.isNotEmpty && propertyIds.contains(id)) ||
+          (name.isNotEmpty &&
+              name != 'no property assigned' &&
+              propertyNames.contains(name));
+    }).toList();
+  }
+
+  String _digits(String value) => value.replaceAll(RegExp(r'\D'), '');
+
+  bool _samePhone(String? value, String phone) {
+    final other = _digits(value ?? '');
+    if (other.isEmpty || phone.isEmpty) return false;
+    return other == phone ||
+        other.endsWith(phone) ||
+        phone.endsWith(other);
+  }
 
   void _openLinkedProperty(BuildContext ctx, String? propertyId, String? propertyName) {
     final pc = Get.find<PropertyController>();

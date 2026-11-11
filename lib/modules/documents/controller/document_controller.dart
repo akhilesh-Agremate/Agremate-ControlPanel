@@ -21,6 +21,18 @@ class DocumentController extends GetxController {
   final isDetailLoading = false.obs;
   final errorMessage = ''.obs;
   final returnTabIndex = Rxn<int>();
+  final categories = <DocumentCategory>[].obs;
+  final isCategoriesLoading = false.obs;
+  final categoriesError = ''.obs;
+  final entities = <DocumentEntity>[].obs;
+  final isEntitiesLoading = false.obs;
+  final entitiesError = ''.obs;
+
+  DocumentCategory? get defaultCategory {
+    if (categories.isEmpty) return null;
+    return categories.firstWhereOrNull((c) => c.key == 'PropertyDocuments') ??
+        categories.first;
+  }
 
   String get searchQuery => Get.find<NavigationController>().searchQuery.value;
 
@@ -57,6 +69,7 @@ class DocumentController extends GetxController {
   void onInit() {
     super.onInit();
     fetchProperties();
+    fetchCategories();
   }
 
   Future<void> fetchProperties() async {
@@ -72,6 +85,22 @@ class DocumentController extends GetxController {
     } finally {
       isLoading.value = false;
       await _restoreDetailIfNeeded();
+    }
+  }
+
+  Future<void> fetchCategories({bool force = false}) async {
+    if (!force && categories.isNotEmpty) return;
+    try {
+      isCategoriesLoading.value = true;
+      categoriesError.value = '';
+      final list = await Get.find<DocumentRepository>().getDocumentCategories();
+
+      list.sort((a, b) => a.value.compareTo(b.value));
+      categories.assignAll(list);
+    } catch (e) {
+      categoriesError.value = e.toString().replaceFirst('Exception: ', '');
+    } finally {
+      isCategoriesLoading.value = false;
     }
   }
 
@@ -112,7 +141,24 @@ class DocumentController extends GetxController {
       final detail = await repo.getPropertyById(property.id);
       if (selectedProperty.value?.id != property.id) return;
       selectedProperty.value = detail;
-      documents.assignAll(_docsFromProperty(detail));
+
+      final docRepo = Get.find<DocumentRepository>();
+      final apiDocs = await docRepo.getPropertyDocuments(property.id);
+
+      final propDocs = _docsFromProperty(detail);
+      final combined = <DocumentModel>[...apiDocs];
+      for (final pd in propDocs) {
+        final alreadyPresent = combined.any((d) =>
+            (d.id.isNotEmpty && d.id.toLowerCase() == pd.id.toLowerCase()) ||
+            (d.name.isNotEmpty &&
+                d.name.toLowerCase() == pd.name.toLowerCase()) ||
+            (d.relativePath != null && d.relativePath == pd.relativePath));
+        if (!alreadyPresent) {
+          combined.add(pd);
+        }
+      }
+
+      documents.assignAll(combined);
       AppLogger.i(
         'DocumentController',
         'Property documents loaded count=${documents.length}',
@@ -126,27 +172,44 @@ class DocumentController extends GetxController {
     }
   }
 
+  Future<void> fetchEntities(int category) async {
+    try {
+      isEntitiesLoading.value = true;
+      entitiesError.value = '';
+      entities.clear();
+      final list =
+          await Get.find<DocumentRepository>().getEntitiesByCategory(category);
+      entities.assignAll(list);
+    } catch (e) {
+      entitiesError.value = e.toString().replaceFirst('Exception: ', '');
+    } finally {
+      isEntitiesLoading.value = false;
+    }
+  }
+
   Future<bool> uploadDocument({
     required PlatformFile file,
     required DocumentCategory category,
     PropertyModel? property,
+    String? entityId,
   }) async {
-    if (category.needsProperty && property == null) {
-      AppToast.error('Please select a property.');
+    final id = (entityId != null && entityId.isNotEmpty)
+        ? entityId
+        : (category.needsProperty ? property?.id : null);
+    if (id == null || id.isEmpty) {
+      AppToast.error('Please select an entity.');
       return false;
     }
     try {
-      final message = await Get.find<DocumentRepository>().uploadDocument(
-        propertyId: category.needsProperty ? property!.id : null,
-        category: category.value,
+      final uploadedDoc = await Get.find<DocumentRepository>().uploadDocument(
+        propertyId: id,
+        category: category.key,
         file: file,
         fileName: file.name,
       );
+      final message = (uploadedDoc?['message'] ?? 'Document uploaded successfully').toString();
       AppToast.success(message);
-      final open = selectedProperty.value;
-      if (open != null && property != null && open.id == property.id) {
-        await openPropertyDocuments(open);
-      }
+      await _refreshForEntity(id);
       return true;
     } catch (e) {
       AppToast.error(e.toString().replaceFirst('Exception: ', ''));
@@ -161,10 +224,12 @@ class DocumentController extends GetxController {
     }
     try {
       final ids = file.candidateIds.isNotEmpty ? file.candidateIds : [file.id];
-      print('DELETE candidate ids: $ids');
       final message =
-      await Get.find<DocumentRepository>().softDeleteDocument(ids);
-      documents.removeWhere((d) => d.id == file.id);
+          await Get.find<DocumentRepository>().softDeleteDocument(ids);
+      documents.removeWhere((d) =>
+          d.id == file.id ||
+          (file.name.isNotEmpty &&
+              d.name.toLowerCase() == file.name.toLowerCase()));
       selectedProperty.refresh();
       AppToast.success(message);
       return true;
@@ -173,6 +238,7 @@ class DocumentController extends GetxController {
       return false;
     }
   }
+
 
   List<DocumentModel> _docsFromProperty(PropertyModel property) {
     final list = <DocumentModel>[];
@@ -187,11 +253,44 @@ class DocumentController extends GetxController {
     return list;
   }
 
-  void refreshData() {
-    if (selectedProperty.value != null) {
-      openPropertyDocuments(selectedProperty.value!);
+  Future<void> _refreshForEntity(String entityId) async {
+    final lowerId = entityId.toLowerCase();
+    PropertyModel? match = properties.firstWhereOrNull(
+      (p) => p.id.toLowerCase() == lowerId || p.name.toLowerCase() == lowerId,
+    );
+
+    if (match == null && selectedProperty.value != null) {
+      final sel = selectedProperty.value!;
+      if (sel.id.toLowerCase() == lowerId || sel.name.toLowerCase() == lowerId) {
+        match = sel;
+      }
+    }
+
+    if (match == null) {
+      await fetchProperties();
+      match = properties.firstWhereOrNull(
+        (p) => p.id.toLowerCase() == lowerId || p.name.toLowerCase() == lowerId,
+      );
+    }
+
+    if (match != null) {
+      await openPropertyDocuments(match);
     } else {
-      fetchProperties();
+      try {
+        final repo = Get.find<PropertyRepository>();
+        final detail = await repo.getPropertyById(entityId);
+        await openPropertyDocuments(detail);
+      } catch (_) {
+        await refreshData();
+      }
+    }
+  }
+
+  Future<void> refreshData() async {
+    if (selectedProperty.value != null) {
+      await openPropertyDocuments(selectedProperty.value!);
+    } else {
+      await fetchProperties();
     }
   }
 

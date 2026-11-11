@@ -74,13 +74,12 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
     );
   }
 
-  void _startEdit() {
+  Future<void> _startEdit() async {
     final pc = Get.find<PropertyController>();
     if (pc.amenities.isEmpty) pc.fetchAmenities();
     if (pc.featureOptions.isEmpty) pc.fetchFeatures();
-    if (pc.selectedProperty.value == null || pc.selectedProperty.value!.id != widget.property.id) {
-      pc.openPropertyDetails(widget.property);
-    }
+    await pc.openPropertyDetails(widget.property);
+    if (!mounted) return;
     setState(() => _isEditing = true);
   }
 

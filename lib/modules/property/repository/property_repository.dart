@@ -364,6 +364,7 @@ class PropertyRepository {
 
   static const int _statusAvailable = 0;
   static const int _statusRented = 1;
+  static const int _statusBooked = 2;
   static const String _uploadCategory = 'TempPropertyUploads';
 
   int _propertyTypeFor(Map<String, dynamic> data) =>
@@ -740,7 +741,8 @@ class PropertyRepository {
   Future<void> updateProperty(PropertyModel existing, Map<String, dynamic> data) async {
     try {
       if (existing.status != PropertyStatus.available &&
-          existing.status != PropertyStatus.rented) {
+          existing.status != PropertyStatus.rented &&
+          existing.status != PropertyStatus.booked) {
         throw Exception(
           'Editing "${existing.statusLabel}" properties is not supported yet.',
         );
@@ -799,7 +801,7 @@ class PropertyRepository {
           'floor': data['floorNumber'],
           'doorNumber': data['doorNumber'],
         },
-        'status': tenant != null ? _statusRented : _statusAvailable,
+        'status': _statusForUpdate(existing, tenant),
         'amenityIds': amenityIds,
         'amenitiesDetails': amenitiesDetails,
         'documents': documents,
@@ -881,6 +883,17 @@ class PropertyRepository {
       AppLogger.e('PropertyRepository', 'deleteProperty error', e, stack);
       rethrow;
     }
+  }
+
+  int _statusForUpdate(PropertyModel existing, Map<String, dynamic>? tenant) {
+    if (existing.status == PropertyStatus.booked) {
+      final raw = existing.rawJson['status'];
+      if (raw is num) return raw.toInt();
+      final parsed = int.tryParse(raw?.toString() ?? '');
+      if (parsed != null) return parsed;
+      return _statusBooked;
+    }
+    return tenant != null ? _statusRented : _statusAvailable;
   }
 
   int? _intOrNull(dynamic v) {

@@ -176,6 +176,16 @@ class _PropertyLocationMapState extends State<PropertyLocationMap> {
   }
 
   @override
+  void dispose() {
+    try {
+      _iframe?.src = 'about:blank';
+      _iframe?.remove();
+      _iframe = null;
+    } catch (_) {}
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (!_hasCoords && widget.address.trim().isEmpty) {
       return const SizedBox.shrink();

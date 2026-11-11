@@ -442,30 +442,7 @@ class HomeController extends GetxController {
 
   final documentList = <Map<String, dynamic>>[].obs;
 
-  late final supportList =
-      List.generate(10, (i) {
-        final categories = ['Technical', 'Billing', 'Account', 'General'];
-        final statuses = ['Pending', 'In Progress', 'Solved'];
-        final messages = [
-          'System login issue',
-          'Payment failure',
-          'Update profile details',
-          'Feature request',
-          'Bug report',
-        ];
-        final status = statuses[i % statuses.length];
-        return {
-          'title': 'Ticket #${i + 1001}',
-          'category': categories[i % categories.length],
-          'status': status,
-          'message': messages[i % messages.length],
-          'date': 'May ${15 + i}, 2024',
-          'resolvedDate': status == 'Solved' ? 'May ${17 + i}, 2024' : null,
-          'type': 'support',
-          'detail':
-              'Category: ${categories[i % categories.length]} | Status: $status\nMessage: ${messages[i % messages.length]}',
-        };
-      }).obs;
+  final supportList = <Map<String, dynamic>>[].obs;
 
   String getAmount(String label, String period) {
     final o = overview.value;

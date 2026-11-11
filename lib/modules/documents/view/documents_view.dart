@@ -297,191 +297,321 @@ class _PropertyDocumentsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final files = dc.currentFiles;
+    return Obx(() {
+      final files = dc.currentFiles;
+      final propertyFiles = files.where((f) => !f.isSuperAdmin).toList();
+      final adminFiles = files.where((f) => f.isSuperAdmin).toList();
 
-    final bool isSuperAdmin = Get.isRegistered<AuthController>()
-        ? !Get.find<AuthController>().isRestrictedRole
-        : false;
+      final auth = Get.isRegistered<AuthController>()
+          ? Get.find<AuthController>()
+          : null;
+      final bool isSuperAdmin = auth != null && !auth.isRestrictedRole;
+      final bool showAdminPanel = auth != null && auth.isSuperAdmin;
 
-    return ColoredBox(
-      color: AppColors.documentsBg,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: MediaQuery.sizeOf(context).width < 600 ? 14 : 24,
-              vertical: 20,
+      return ColoredBox(
+        color: AppColors.documentsBg,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: MediaQuery.sizeOf(context).width < 600 ? 14 : 24,
+                vertical: 20,
+              ),
+              decoration: const BoxDecoration(
+                color: AppColors.white,
+                border: Border(bottom: BorderSide(color: AppColors.dividerLight)),
+              ),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: dc.goBack,
+                    icon: const Icon(Icons.arrow_back, color: Color(0xFF475569), size: 22),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          AppStrings.documents,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                        Text(
+                          property.name,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: AppColors.hintGrey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-            decoration: const BoxDecoration(
-              color: AppColors.white,
-              border: Border(bottom: BorderSide(color: AppColors.dividerLight)),
+            Expanded(
+              child: dc.isDetailLoading.value
+                  ? const Center(child: CircularProgressIndicator())
+                  : SingleChildScrollView(
+                      padding: EdgeInsets.all(
+                        MediaQuery.sizeOf(context).width < 600 ? 14 : 32,
+                      ),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final propertySection = _buildColumnSection(
+                            context: context,
+                            title: 'Property Documents',
+                            icon: Icons.folder_outlined,
+                            badgeColor: const Color(0xFFF1F5F9),
+                            badgeTextColor: const Color(0xFF64748B),
+                            emptyText: 'No property documents found',
+                            files: propertyFiles,
+                            isSuperAdmin: isSuperAdmin,
+                          );
+                          if (!showAdminPanel || adminFiles.isEmpty) return propertySection;
+
+                          final adminSection = _buildColumnSection(
+                            context: context,
+                            title: 'Super Admin Documents',
+                            icon: Icons.admin_panel_settings_outlined,
+                            badgeColor: const Color(0xFFE8F1FD),
+                            badgeTextColor: const Color(0xFF2083D5),
+                            emptyText: 'No documents uploaded by Super Admin',
+                            files: adminFiles,
+                            isSuperAdmin: isSuperAdmin,
+                          );
+                          final isTwoColumn = constraints.maxWidth >= 850;
+                          if (isTwoColumn) {
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(child: propertySection),
+                                const SizedBox(width: 24),
+                                Expanded(child: adminSection),
+                              ],
+                            );
+                          }
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              adminSection,
+                              const SizedBox(height: 24),
+                              propertySection,
+                            ],
+                          );
+                        },
+                      ),
+                    ),
             ),
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: dc.goBack,
-                  icon: const Icon(Icons.arrow_back, color: Color(0xFF475569), size: 22),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildColumnSection({
+    required BuildContext context,
+    required String title,
+    required IconData icon,
+    required Color badgeColor,
+    required Color badgeTextColor,
+    required String emptyText,
+    required List<DocumentModel> files,
+    required bool isSuperAdmin,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 18, color: badgeTextColor),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textDark,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: badgeColor,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${files.length}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: badgeTextColor,
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        AppStrings.documents,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                      Text(
-                        property.name,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.hintGrey,
-                        ),
-                      ),
-                    ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        if (files.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 40),
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFEDF2F7)),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.folder_off_rounded,
+                  color: AppColors.inputBorder,
+                  size: 40,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  emptyText,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.hintGrey,
                   ),
                 ),
               ],
             ),
+          )
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: files.length,
+            itemBuilder: (ctx, idx) => _buildDocumentCard(context, files[idx], isSuperAdmin),
           ),
-          Expanded(
-            child: dc.isDetailLoading.value
-                ? const Center(child: CircularProgressIndicator())
-                : SingleChildScrollView(
-              padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 600 ? 14 : 32),
-                    child: files.isEmpty
-                        ? const Center(
-                            child: Padding(
-                              padding: EdgeInsets.only(top: 80),
-                              child: Column(
-                                children: [
-                                  Icon(
-                                    Icons.folder_off_rounded,
-                                    color: AppColors.inputBorder,
-                                    size: 80,
-                                  ),
-                                  SizedBox(height: 16),
-                                  Text(
-                                    AppStrings.noDocumentsFound,
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.hintGrey,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                        : ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: files.length,
-                            itemBuilder: (context, idx) {
-                              final file = files[idx];
-                              return InkWell(
-                                borderRadius: BorderRadius.circular(12),
-                                child: Container(
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: MediaQuery.sizeOf(context).width < 600 ? 12 : 24,
-                                    vertical: 18,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: const Color(0xFFEDF2F7),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(10),
-                                        decoration: BoxDecoration(
-                                          color: file.fileColor
-                                              .withValues(alpha: 0.08),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Icon(
-                                          file.fileIcon,
-                                          color: file.fileColor,
-                                          size: 24,
-                                        ),
-                                      ),
-                                      SizedBox(width: MediaQuery.sizeOf(context).width < 600 ? 12 : 20),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              file.name,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w700,
-                                                color:AppColors.textDark,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              file.fileType?.toUpperCase() ??
-                                                  'FILE',
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w500,
-                                                color: AppColors.hintGrey,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      if ((file.relativePath ?? '').isNotEmpty) ...[
-                                        _roundIconButton(
-                                          icon: Icons.visibility_outlined,
-                                          tooltip: 'Preview',
-                                          background: Colors.transparent,
-                                          iconColor: Colors.black,
-                                          onTap: () => _openDocument(context, file),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        _roundIconButton(
-                                          icon: Icons.download_rounded,
-                                          tooltip: 'Download',
-                                          background: Colors.transparent,
-                                          iconColor: const Color(0xFF475569),
-                                          onTap: () => downloadFileWeb(
-                                              file.relativePath!, file.name),
-                                        ),
-                                      ],
-                                      if (isSuperAdmin && file.isDeletable) ...[
-                                        _roundIconButton(
-                                          icon: Icons.delete_outline_rounded,
-                                          tooltip: 'Delete',
-                                          background: Colors.transparent,
-                                          iconColor: const Color(0xFFDC2626),
-                                          onTap: () => _confirmDelete(context, file),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
+      ],
+    );
+  }
+
+  Widget _buildDocumentCard(BuildContext context, DocumentModel file, bool isSuperAdmin) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: EdgeInsets.symmetric(
+          horizontal: MediaQuery.sizeOf(context).width < 600 ? 12 : 20,
+          vertical: 16,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: const Color(0xFFEDF2F7),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: file.fileColor.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                file.fileIcon,
+                color: file.fileColor,
+                size: 24,
+              ),
+            ),
+            SizedBox(width: MediaQuery.sizeOf(context).width < 600 ? 10 : 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    file.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textDark,
+                    ),
                   ),
-          ),
-        ],
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Text(
+                        file.fileType?.toUpperCase() ?? 'FILE',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.hintGrey,
+                        ),
+                      ),
+                      if (file.tag != null && file.tag!.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8F1FD),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            file.tag!,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF2083D5),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            if ((file.relativePath ?? '').isNotEmpty) ...[
+              _roundIconButton(
+                icon: Icons.visibility_outlined,
+                tooltip: 'Preview',
+                background: Colors.transparent,
+                iconColor: Colors.black,
+                onTap: () => _openDocument(context, file),
+              ),
+              const SizedBox(width: 4),
+              _roundIconButton(
+                icon: Icons.download_rounded,
+                tooltip: 'Download',
+                background: Colors.transparent,
+                iconColor: const Color(0xFF475569),
+                onTap: () => downloadFileWeb(file.relativePath!, file.name),
+              ),
+            ],
+            if (isSuperAdmin && file.isDeletable) ...[
+              const SizedBox(width: 4),
+              _roundIconButton(
+                icon: Icons.delete_outline_rounded,
+                tooltip: 'Delete',
+                background: Colors.transparent,
+                iconColor: const Color(0xFFDC2626),
+                onTap: () => _confirmDelete(context, file),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -733,13 +863,33 @@ class CreateDocumentDialogState extends State<CreateDocumentDialog> {
   PlatformFile? _file;
   bool _uploading = false;
 
-  DocumentCategory _category = DocumentCategory.propertyDocuments;
-  PropertyModel? _property;
+  DocumentCategory? _category;
+  DocumentEntity? _entity;
+
+  final DocumentController _dc = Get.find<DocumentController>();
+
+  DocumentCategory? get _effectiveCategory => _category ?? _dc.defaultCategory;
 
   @override
   void initState() {
     super.initState();
-    _property = Get.find<DocumentController>().selectedProperty.value;
+    _dc.fetchCategories().then((_) {
+      final category = _effectiveCategory;
+      if (category != null) {
+        _dc.fetchEntities(category.value).then((_) {
+          if (!mounted) return;
+          final sel = _dc.selectedProperty.value;
+          if (sel != null && _entity == null) {
+            final match = _dc.entities.firstWhereOrNull((e) =>
+                e.id.toLowerCase() == sel.id.toLowerCase() ||
+                e.name.toLowerCase() == sel.name.toLowerCase());
+            if (match != null) {
+              setState(() => _entity = match);
+            }
+          }
+        });
+      }
+    });
   }
 
   @override
@@ -828,36 +978,122 @@ class CreateDocumentDialogState extends State<CreateDocumentDialog> {
               const SizedBox(height: 20),
 
               _label('Category'),
-              DropdownButtonFormField<DocumentCategory>(
-                initialValue: _category,
-                isExpanded: true,
-                decoration: _fieldDecoration(),
-                items: DocumentCategory.all
-                    .map((c) => DropdownMenuItem(value: c, child: Text(c.label)))
-                    .toList(),
-                onChanged: (c) => setState(() => _category = c ?? _category),
-              ),
+              Obx(() {
+                if (_dc.isCategoriesLoading.value) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 14),
+                    child: Center(
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                  );
+                }
+                if (_dc.categories.isEmpty) {
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _dc.categoriesError.value.isNotEmpty
+                              ? _dc.categoriesError.value
+                              : 'No categories available',
+                          style: const TextStyle(fontSize: 13, color: Color(0xFFDC2626)),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => _dc.fetchCategories(force: true),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  );
+                }
+                return DropdownButtonFormField<DocumentCategory>(
+                  key: ValueKey(_dc.categories.length),
+                  initialValue: _effectiveCategory,
+                  isExpanded: true,
+                  decoration: _fieldDecoration(),
+                  items: _dc.categories
+                      .map((c) => DropdownMenuItem(value: c, child: Text(c.label)))
+                      .toList(),
+                  onChanged: (c) {
+                    setState(() {
+                      _category = c;
+                      _entity = null;
+                    });
+                    if (c != null) _dc.fetchEntities(c.value);
+                  },
+                );
+              }),
               const SizedBox(height: 20),
 
-              if (_category.needsProperty) ...[
-                _label('Property'),
-                DropdownButtonFormField<PropertyModel>(
-                  initialValue: Get.find<DocumentController>()
-                      .properties
-                      .firstWhereOrNull((p) => p.id == _property?.id),
-                  isExpanded: true,
-                  menuMaxHeight: 240,
-                  hint: const Text('Select property'),
-                  decoration: _fieldDecoration(),
-                  items: Get.find<DocumentController>()
-                      .properties
-                      .map((p) => DropdownMenuItem(
-                    value: p,
-                    child: Text(p.name, overflow: TextOverflow.ellipsis),
-                  ))
-                      .toList(),
-                  onChanged: (p) => setState(() => _property = p),
-                ),
+              if (_effectiveCategory != null) ...[
+                _label('Entity'),
+                Obx(() {
+                  if (_dc.isEntitiesLoading.value) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 14),
+                      child: Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    );
+                  }
+                  if (_dc.entitiesError.value.isNotEmpty) {
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _dc.entitiesError.value,
+                            style: const TextStyle(
+                                fontSize: 13, color: Color(0xFFDC2626)),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            final category = _effectiveCategory;
+                            if (category != null) {
+                              _dc.fetchEntities(category.value);
+                            }
+                          },
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    );
+                  }
+                  if (_dc.entities.isEmpty) {
+                    return const Text(
+                      'No entities for this category',
+                      style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                    );
+                  }
+                  return DropdownButtonFormField<DocumentEntity>(
+                    key: ValueKey(
+                        '${_effectiveCategory?.value}-${_dc.entities.length}-${_entity?.id}'),
+                    value: _dc.entities
+                        .firstWhereOrNull((e) => e.id == _entity?.id),
+                    isExpanded: true,
+                    menuMaxHeight: 240,
+                    hint: const Text('Select entity'),
+                    decoration: _fieldDecoration(),
+                    items: _dc.entities
+                        .map((e) => DropdownMenuItem(
+                              value: e,
+                              child: Text(
+                                e.additionalInfo.isEmpty
+                                    ? e.name
+                                    : '${e.name} · ${e.additionalInfo}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ))
+                        .toList(),
+                    onChanged: (e) => setState(() => _entity = e),
+                  );
+                }),
                 const SizedBox(height: 20),
               ],
 
@@ -944,7 +1180,7 @@ class CreateDocumentDialogState extends State<CreateDocumentDialog> {
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
-                    onPressed: _uploading ? null : _submit,
+                    onPressed: (_uploading || _effectiveCategory == null) ? null : _submit,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF2083D5),
                       foregroundColor: Colors.white,
@@ -974,8 +1210,13 @@ class CreateDocumentDialogState extends State<CreateDocumentDialog> {
   }
 
   Future<void> _submit() async {
-    if (_category.needsProperty && _property == null) {
-      AppToast.error('Please select a property.');
+    final category = _effectiveCategory;
+    if (category == null) {
+      AppToast.error('Please select a category.');
+      return;
+    }
+    if (_entity == null) {
+      AppToast.error('Please select an entity.');
       return;
     }
     if (_file == null) {
@@ -983,10 +1224,10 @@ class CreateDocumentDialogState extends State<CreateDocumentDialog> {
       return;
     }
     setState(() => _uploading = true);
-    final ok = await Get.find<DocumentController>().uploadDocument(
+    final ok = await _dc.uploadDocument(
       file: _file!,
-      category: _category,
-      property: _property,
+      category: category,
+      entityId: _entity!.id,
     );
     if (!mounted) return;
     setState(() => _uploading = false);

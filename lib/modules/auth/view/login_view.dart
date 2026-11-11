@@ -7,13 +7,6 @@ import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/theme/app_colors.dart';
 
-const _navy = Color(0xFF0A1F5C);
-const _blue = Color(0xFF0B5BD3);
-const _sky = Color(0xFF2A9BFF);
-const _line = Color(0xFFBFD3F5);
-const _bg = Color(0xFFEAF2FF);
-const _errorRed = Color(0xFFEF4444);
-
 TextStyle _p(double size, {FontWeight w = FontWeight.w400, Color? color, double? height}) =>
     GoogleFonts.poppins(fontSize: size, fontWeight: w, color: color, height: height);
 
@@ -72,7 +65,7 @@ class _LoginViewState extends State<LoginView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: AppColors.bgBlue,
       body: LayoutBuilder(
         builder: (context, c) {
           final wide = c.maxWidth >= 900;
@@ -88,17 +81,469 @@ class _LoginViewState extends State<LoginView> {
               ),
             );
           }
-          return SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
+          return _buildMobileView(context);
+        },
+      ),
+    );
+  }
+
+  Widget _buildMobileView(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFF6EAFFF),
+            Color(0xFFA5CFFF),
+            Color(0xFFD6EAFF),
+            Color(0xFFEFF5FF),
+          ],
+          stops: [0.0, 0.35, 0.65, 1.0],
+        ),
+      ),
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildMobileHeader(),
+              _buildMobileTitles(),
+              _buildMobileFeatures(),
+              const _MobileHouseScene(),
+              _buildMobileFormCard(),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      child: Row(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.royalBlue.withValues(alpha: 0.14),
+                  blurRadius: 14,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Image.asset(
+              'assets/images/login_bg_v2.jpg',
+              fit: BoxFit.contain,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Agremate',
+                style: _p(24, w: FontWeight.w700, color: AppColors.navy, height: 1.1),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Rent • Manage • Grow',
+                style: _p(12.5, w: FontWeight.w500, color: AppColors.navy),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileTitles() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Smarter Property\nManagement',
+            style: _p(28, w: FontWeight.w700, color: AppColors.navy, height: 1.16),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Find, Rent and Manage Properties\nwith Ease',
+            style: _p(
+              15,
+              w: FontWeight.w400,
+              color: AppColors.navy.withValues(alpha: 0.9),
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileFeatures() {
+    return const Padding(
+      padding: EdgeInsets.fromLTRB(16, 22, 16, 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _MobileFeatureItem(
+            icon: Icons.home_rounded,
+            label: 'Manage\nProperties',
+          ),
+          _MobileFeatureItem(
+            icon: Icons.groups_rounded,
+            label: 'Connect\nTenants',
+          ),
+          _MobileFeatureItem(
+            icon: Icons.trending_up_rounded,
+            label: 'Grow Your\nBusiness',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileFormCard() {
+    return Transform.translate(
+      offset: const Offset(0, -32),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Obx(() {
+          final isOtpSent = auth.isOtpSent.value;
+          final loading = auth.isLoading.value;
+          final errMsg = auth.errorMessage.value;
+          final phoneErr =
+              auth.phoneError.value.isNotEmpty ? auth.phoneError.value : null;
+          final otpErr =
+              auth.otpError.value.isNotEmpty ? auth.otpError.value : null;
+          final secondsRemaining = auth.secondsRemaining.value;
+
+          return Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF1E50AA).withValues(alpha: 0.12),
+                  blurRadius: 30,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
             child: Column(
               children: [
-                const _BrandPanelNarrow(),
-                _formsPanel(wide: false),
+                Padding(
+                  padding: const EdgeInsets.only(top: 14),
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 24),
+                      const Expanded(
+                        child:
+                            Divider(color: Color(0xFFD6E4FA), thickness: 1.2),
+                      ),
+                      const SizedBox(width: 14),
+                      Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                          border: Border.all(
+                            color: const Color(0xFFD6E4FA),
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.royalBlue.withValues(alpha: 0.10),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          isOtpSent
+                              ? Icons.verified_user_rounded
+                              : Icons.home_outlined,
+                          size: 26,
+                          color: AppColors.royalBlue,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(
+                        child:
+                            Divider(color: Color(0xFFD6E4FA), thickness: 1.2),
+                      ),
+                      const SizedBox(width: 24),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 14, 22, 18),
+                  child: isOtpSent
+                      ? _buildMobileVerifyContent(
+                          loading: loading,
+                          otpErr: otpErr,
+                          secondsRemaining: secondsRemaining,
+                          errMsg: errMsg,
+                        )
+                      : _buildMobileLoginContent(
+                          loading: loading,
+                          phoneErr: phoneErr,
+                          errMsg: errMsg,
+                        ),
+                ),
+                _buildMobileFooter(),
               ],
             ),
           );
-        },
+        }),
       ),
+    );
+  }
+
+  Widget _buildMobileLoginContent({
+    required bool loading,
+    required String? phoneErr,
+    required String errMsg,
+  }) {
+    return Column(
+      children: [
+        Text.rich(
+          TextSpan(
+            text: 'Welcome ',
+            children: [
+              TextSpan(
+                text: 'Back!',
+                style: _p(26, w: FontWeight.w700, color: AppColors.royalBlue),
+              ),
+            ],
+          ),
+          textAlign: TextAlign.center,
+          style: _p(26, w: FontWeight.w700, color:AppColors.navy),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Login to your Agremate account',
+          textAlign: TextAlign.center,
+          style: _p(14, color: const Color(0xFF6B7A99)),
+        ),
+        const SizedBox(height: 22),
+        TextField(
+          controller: _phoneController,
+          keyboardType: TextInputType.phone,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            LengthLimitingTextInputFormatter(10),
+          ],
+          style: _p(15, w: FontWeight.w500, color: AppColors.textDark),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white,
+            hoverColor: Colors.transparent,
+            hintText: 'Enter 10 digit mobile number',
+            hintStyle: _p(14, color: const Color(0xFF8C9BAE)),
+            errorText: phoneErr,
+            errorStyle: _p(11, color: AppColors.error),
+            isDense: true,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
+            prefixIconConstraints:
+                const BoxConstraints(minWidth: 0, minHeight: 0),
+            prefixIcon: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(width: 16),
+                const Icon(Icons.call, color:AppColors.navy, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  AppStrings.countryCode,
+                  style: _p(15, w: FontWeight.w600, color:AppColors.navy),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  width: 1,
+                  height: 20,
+                  color: const Color(0xFFCBD5E1),
+                ),
+                const SizedBox(width: 10),
+              ],
+            ),
+            enabledBorder: _pill(const Color(0xFF2E80E5), 1.5),
+            border: _pill(const Color(0xFF2E80E5), 1.5),
+            focusedBorder: _pill(AppColors.sky, 2.2),
+            errorBorder: _pill(AppColors.error, 1.5),
+            focusedErrorBorder: _pill(AppColors.error, 2.2),
+          ),
+          onChanged: (val) => auth.onPhoneChanged(val),
+        ),
+        const SizedBox(height: 18),
+        _GradientButton(
+          label: AppStrings.sendOtp,
+          icon: Icons.arrow_forward,
+          loading: loading,
+          disabled: loading,
+          onTap: () => auth.onSendOtpPressed(_phoneController.text.trim()),
+        ),
+        if (errMsg.isNotEmpty) _errorRow(errMsg),
+      ],
+    );
+  }
+
+  Widget _buildMobileVerifyContent({
+    required bool loading,
+    required String? otpErr,
+    required int secondsRemaining,
+    required String errMsg,
+  }) {
+    return Column(
+      children: [
+        Text(
+          AppStrings.verifyOtp,
+          textAlign: TextAlign.center,
+          style: _p(24, w: FontWeight.w700, color:AppColors.navy),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          auth.isOtpSent.value
+              ? AppStrings.otpSentTo(
+                  AuthController.otpLength,
+                  auth.phoneNumber.value,
+                )
+              : 'Enter the ${AuthController.otpLength} digit code sent to your mobile number',
+          textAlign: TextAlign.center,
+          style: _p(13.5, color: const Color(0xFF6B7A99)),
+        ),
+        const SizedBox(height: 22),
+        LayoutBuilder(
+          builder: (context, c) {
+            const gap = 12.0;
+            final n = AuthController.otpLength;
+            final box = math.min(56.0, (c.maxWidth - gap * (n - 1)) / n);
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (int i = 0; i < n; i++) ...[
+                  if (i > 0) const SizedBox(width: gap),
+                  SizedBox(
+                    width: box,
+                    height: box,
+                    child: _otpBox(i, otpErr != null),
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
+        if (otpErr != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Text(
+              otpErr,
+              textAlign: TextAlign.center,
+              style: _p(12, color: AppColors.error),
+            ),
+          ),
+        const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            TextButton.icon(
+              onPressed: loading || secondsRemaining > 0
+                  ? null
+                  : () => auth.onResendOtpPressed(),
+              icon: Icon(
+                Icons.refresh_rounded,
+                size: 18,
+                color: secondsRemaining > 0 ? AppColors.hintGrey : AppColors.royalBlue,
+              ),
+              label: Text(
+                secondsRemaining > 0
+                    ? AppStrings.resendOtpIn(
+                        auth.formatTime(secondsRemaining),
+                      )
+                    : AppStrings.resendOtp,
+                style: _p(
+                  13.5,
+                  w: FontWeight.w500,
+                  color: secondsRemaining > 0 ? AppColors.hintGrey : AppColors.royalBlue,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: loading
+                  ? null
+                  : () {
+                      auth.onChangeNumberPressed();
+                      _clearOtpBoxes();
+                    },
+              child: Text(
+                AppStrings.changeNumber,
+                style: _p(13.5, w: FontWeight.w500, color: AppColors.textGrey),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _GradientButton(
+          label: 'Verify & Login',
+          loading: loading,
+          disabled: loading,
+          onTap: () => auth.onVerifyOtpPressed(_otpValue.trim()),
+        ),
+        if (errMsg.isNotEmpty) _errorRow(errMsg),
+      ],
+    );
+  }
+
+  Widget _buildMobileFooter() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Divider(color: Color(0xFFD8E2F0), thickness: 1),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Text(
+                  'Trusted by Property Owners & Tenants',
+                  style:
+                      _p(11, w: FontWeight.w500, color: const Color(0xFF6B7A99)),
+                ),
+              ),
+              const Expanded(
+                child: Divider(color: Color(0xFFD8E2F0), thickness: 1),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        const ClipRRect(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+          child: SizedBox(
+            width: double.infinity,
+            height: 38,
+            child: CustomPaint(painter: _SkylinePainter()),
+          ),
+        ),
+      ],
     );
   }
 
@@ -200,9 +645,9 @@ class _LoginViewState extends State<LoginView> {
           Text.rich(
             TextSpan(
               text: 'Welcome ',
-              children: [TextSpan(text: 'Back!', style: _p(34, w: FontWeight.w700, color: _blue))],
+              children: [TextSpan(text: 'Back!', style: _p(34, w: FontWeight.w700, color: AppColors.royalBlue))],
             ),
-            style: _p(34, w: FontWeight.w700, color: _navy),
+            style: _p(34, w: FontWeight.w700, color:AppColors.navy),
           ),
           const SizedBox(height: 8),
           Text('Login to your Agremate account',
@@ -223,7 +668,7 @@ class _LoginViewState extends State<LoginView> {
               hintText: 'Enter 10 digit mobile number',
               hintStyle: _p(15, color: const Color(0xFF6B7A99)),
               errorText: phoneErr,
-              errorStyle: _p(11, color: _errorRed),
+              errorStyle: _p(11, color: AppColors.error),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
               prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
@@ -231,18 +676,18 @@ class _LoginViewState extends State<LoginView> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const SizedBox(width: 16),
-                  const Icon(Icons.call, color: _navy, size: 22),
+                  const Icon(Icons.call, color:AppColors.navy, size: 22),
                   const SizedBox(width: 8),
                   Text(AppStrings.countryCode,
                       style: _p(16, w: FontWeight.w600, color: AppColors.textDark)),
                   const SizedBox(width: 8),
                 ],
               ),
-              enabledBorder: _pill(_blue, 2),
-              border: _pill(_blue, 2),
-              focusedBorder: _pill(_sky, 3),
-              errorBorder: _pill(_errorRed, 2),
-              focusedErrorBorder: _pill(_errorRed, 3),
+              enabledBorder: _pill(AppColors.royalBlue, 2),
+              border: _pill(AppColors.royalBlue, 2),
+              focusedBorder: _pill(AppColors.sky, 3),
+              errorBorder: _pill(AppColors.error, 2),
+              focusedErrorBorder: _pill(AppColors.error, 3),
             ),
             onChanged: (val) => auth.onPhoneChanged(val),
           ),
@@ -294,7 +739,7 @@ class _LoginViewState extends State<LoginView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(AppStrings.verifyOtp,
-                        style: _p(26, w: FontWeight.w600, color: _navy)),
+                        style: _p(26, w: FontWeight.w600, color:AppColors.navy)),
                     const SizedBox(height: 4),
                     Text(
                       isOtpSent
@@ -326,7 +771,7 @@ class _LoginViewState extends State<LoginView> {
           if (otpErr != null)
             Padding(
               padding: const EdgeInsets.only(top: 10, left: 4),
-              child: Text(otpErr, style: _p(13, color: _errorRed)),
+              child: Text(otpErr, style: _p(13, color: AppColors.error)),
             ),
           const SizedBox(height: 20),
           Row(
@@ -338,14 +783,14 @@ class _LoginViewState extends State<LoginView> {
                     : () => auth.onResendOtpPressed(),
                 icon: Icon(Icons.refresh_rounded,
                     size: 22,
-                    color: secondsRemaining > 0 ? AppColors.hintGrey : _blue),
+                    color: secondsRemaining > 0 ? AppColors.hintGrey : AppColors.royalBlue),
                 label: Text(
                   secondsRemaining > 0
                       ? AppStrings.resendOtpIn(auth.formatTime(secondsRemaining))
                       : AppStrings.resendOtp,
                   style: _p(16,
                       w: FontWeight.w500,
-                      color: secondsRemaining > 0 ? AppColors.hintGrey : _blue),
+                      color: secondsRemaining > 0 ? AppColors.hintGrey : AppColors.royalBlue),
                 ),
               ),
               TextButton(
@@ -394,7 +839,7 @@ class _LoginViewState extends State<LoginView> {
         keyboardType: TextInputType.number,
         maxLength: 1,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        style: _p(26, w: FontWeight.w600, color: _navy),
+        style: _p(26, w: FontWeight.w600, color:AppColors.navy),
         decoration: InputDecoration(
           filled: true,
           fillColor: Colors.white,
@@ -404,11 +849,11 @@ class _LoginViewState extends State<LoginView> {
           contentPadding: EdgeInsets.zero,
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: hasError ? _errorRed : _line, width: 2),
+            borderSide: BorderSide(color: hasError ? AppColors.error: AppColors.borderBlue, width: 2),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: hasError ? _errorRed : _blue, width: 2.5),
+            borderSide: BorderSide(color: hasError ? AppColors.error: AppColors.royalBlue, width: 2.5),
           ),
         ),
         onChanged: (v) {
@@ -425,9 +870,9 @@ class _LoginViewState extends State<LoginView> {
     padding: const EdgeInsets.only(top: 20),
     child: Row(
       children: [
-        const Icon(Icons.info_outline, color: _errorRed, size: 16),
+        const Icon(Icons.info_outline, color: AppColors.error, size: 16),
         const SizedBox(width: 8),
-        Expanded(child: Text(message, style: _p(13, color: _errorRed))),
+        Expanded(child: Text(message, style: _p(13, color: AppColors.error))),
       ],
     ),
   );
@@ -457,10 +902,10 @@ class _GradientButton extends StatelessWidget {
         height: 54,
         decoration: BoxDecoration(
           borderRadius: radius,
-          gradient: const LinearGradient(colors: [Color(0xFF0B4FD0), _sky]),
+          gradient: const LinearGradient(colors: [Color(0xFF0B4FD0), AppColors.sky]),
           boxShadow: [
             BoxShadow(
-              color: _blue.withValues(alpha: 0.3),
+              color: AppColors.royalBlue.withValues(alpha: 0.3),
               blurRadius: 24,
               offset: const Offset(0, 12),
             ),
@@ -582,12 +1027,12 @@ class _BrandText extends StatelessWidget {
         const SizedBox(height: 36),
         Text(
           'Smarter Property\nManagement',
-          style: _p(wide ? 46 : 32, w: FontWeight.w700, color: _navy, height: 1.12),
+          style: _p(wide ? 46 : 32, w: FontWeight.w700, color:AppColors.navy, height: 1.12),
         ),
         const SizedBox(height: 12),
         Text(
           'Find, Rent and Manage Properties\nwith Ease',
-          style: _p(wide ? 20 : 16, color: _navy, height: 1.4),
+          style: _p(wide ? 20 : 16, color:AppColors.navy, height: 1.4),
         ),
         const SizedBox(height: 28),
         const Wrap(
@@ -725,14 +1170,19 @@ class _Logo extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        CustomPaint(size: const Size(88, 70), painter: _HousePainter()),
+        Image.asset(
+          'assets/images/login_bg_v2.jpg',
+          width: 88,
+          height: 70,
+          fit: BoxFit.contain,
+        ),
         const SizedBox(width: 8),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Agremate', style: _p(38, w: FontWeight.w700, color: _navy, height: 1)),
+            Text('Agremate', style: _p(38, w: FontWeight.w700, color:AppColors.navy, height: 1)),
             const SizedBox(height: 6),
-            Text('Rent • Manage • Grow', style: _p(14, w: FontWeight.w500, color: _navy)),
+            Text('Rent • Manage • Grow', style: _p(14, w: FontWeight.w500, color:AppColors.navy)),
           ],
         ),
       ],
@@ -744,7 +1194,7 @@ class _HousePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size s) {
     final roof = Paint()
-      ..color = _blue
+      ..color = AppColors.royalBlue
       ..style = PaintingStyle.stroke
       ..strokeWidth = 11
       ..strokeCap = StrokeCap.round
@@ -755,7 +1205,7 @@ class _HousePainter extends CustomPainter {
       ..lineTo(s.width * .90, s.height * .55);
     canvas.drawPath(path, roof);
 
-    final win = Paint()..color = _navy;
+    final win = Paint()..color =AppColors.navy;
     final w = s.width * .12;
     for (final dx in [.30, .45]) {
       for (final dy in [.48, .70]) {
@@ -787,20 +1237,190 @@ class _Feature extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: _blue.withValues(alpha: 0.18),
+                  color: AppColors.royalBlue.withValues(alpha: 0.18),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
               ],
             ),
-            child: Icon(icon, size: 34, color: _blue),
+            child: Icon(icon, size: 34, color: AppColors.royalBlue),
           ),
           const SizedBox(height: 8),
           Text(label,
               textAlign: TextAlign.center,
-              style: _p(13, w: FontWeight.w500, color: _navy, height: 1.25)),
+              style: _p(13, w: FontWeight.w500, color:AppColors.navy, height: 1.25)),
         ],
       ),
     );
   }
+}
+
+class _MobileFeatureItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _MobileFeatureItem({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          width: 66,
+          height: 66,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.88),
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.royalBlue.withValues(alpha: 0.12),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Icon(icon, size: 32, color: AppColors.royalBlue),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: _p(12, w: FontWeight.w600, color:AppColors.navy, height: 1.25),
+        ),
+      ],
+    );
+  }
+}
+
+class _MobileHouseScene extends StatelessWidget {
+  const _MobileHouseScene();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 195,
+      width: double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ShaderMask(
+            blendMode: BlendMode.dstIn,
+            shaderCallback: (r) => const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Colors.transparent, Colors.white],
+              stops: [0.0, 0.24],
+            ).createShader(r),
+            child: Image.asset(
+              'assets/images/house.jpg',
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 65,
+            child: CustomPaint(painter: _WavePainter()),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SkylinePainter extends CustomPainter {
+  const _SkylinePainter();
+
+  @override
+  void paint(Canvas canvas, Size s) {
+    final w = s.width;
+    final h = s.height;
+
+    final buildingPaint = Paint()
+      ..color = const Color(0xFF7CB8F8).withValues(alpha: 0.5)
+      ..style = PaintingStyle.fill;
+
+    final buildingPaintDark = Paint()
+      ..color = const Color(0xFF5BA4F5).withValues(alpha: 0.55)
+      ..style = PaintingStyle.fill;
+
+    final treePaint = Paint()
+      ..color = const Color(0xFF58A0F5).withValues(alpha: 0.6)
+      ..style = PaintingStyle.fill;
+
+    final windowPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.75)
+      ..style = PaintingStyle.fill;
+
+    final buildings = [
+      [0.02, 0.045, 0.50, 0],
+      [0.08, 0.055, 0.85, 1],
+      [0.15, 0.045, 0.40, 0],
+      [0.21, 0.060, 0.70, 1],
+      [0.29, 0.045, 0.55, 0],
+      [0.35, 0.065, 0.92, 1],
+      [0.43, 0.050, 0.50, 0],
+      [0.50, 0.065, 0.78, 1],
+      [0.58, 0.048, 0.60, 0],
+      [0.64, 0.065, 0.95, 1],
+      [0.72, 0.048, 0.45, 0],
+      [0.78, 0.065, 0.75, 1],
+      [0.86, 0.050, 0.55, 0],
+      [0.92, 0.055, 0.40, 0],
+    ];
+
+    for (int i = 0; i < buildings.length; i++) {
+      final b = buildings[i];
+      final bx = (b[0] as double) * w;
+      final bw = (b[1] as double) * w;
+      final bh = (b[2] as double) * h;
+      final by = h - bh;
+
+      final paint = i % 2 == 0 ? buildingPaint : buildingPaintDark;
+      canvas.drawRRect(
+        RRect.fromRectAndCorners(
+          Rect.fromLTWH(bx, by, bw, bh),
+          topLeft: const Radius.circular(2),
+          topRight: const Radius.circular(2),
+        ),
+        paint,
+      );
+
+      if (b[3] == 1 && bh > 16) {
+        final winW = math.max(1.8, bw * 0.18);
+        final winH = math.max(2.0, bh * 0.08);
+        for (double wy = by + 4; wy < h - 4; wy += winH + 3) {
+          canvas.drawRect(
+            Rect.fromLTWH(bx + bw * 0.22, wy, winW, winH),
+            windowPaint,
+          );
+          canvas.drawRect(
+            Rect.fromLTWH(bx + bw * 0.58, wy, winW, winH),
+            windowPaint,
+          );
+        }
+      }
+    }
+
+    final treeX = [
+      0.065,
+      0.19,
+      0.275,
+      0.415,
+      0.485,
+      0.565,
+      0.705,
+      0.765,
+      0.845,
+      0.905
+    ];
+    for (final tx in treeX) {
+      canvas.drawCircle(Offset(tx * w, h - 5), 4.5, treePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
