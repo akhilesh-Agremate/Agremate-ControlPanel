@@ -33,6 +33,7 @@ class AppEndpoints {
   static const userForgotPassword = "/User/forgot-password";
   static const amenitiesList = "/Amenities/amenities";
   static const uploadDoc = "/Document/UploadFiles";
+  static const uploadDocumentFiles = "/document/upload-files";
   static const updateProfile = "/User/";
   static const getMyPropertyList = "/Property/list-by-user";
   static const landlordDetails = "/Landlord/landlord-details";
@@ -43,7 +44,6 @@ class AppEndpoints {
   static const allTenants = '/AdminDashboard/tenants';
   static const allLandlordDetails = '/AdminDashboard/landlords';
   static const currentUserDetails = '/User/current-user-details';
-  static const landlordSubscriptionSummary = '/landlord-subscription/summary';
   static const allDocuments = '/documents/all-details';
   static const String uploadFile = '/Files/upload';
   static const String amenities  = '/Amenities';
@@ -53,7 +53,8 @@ class AppEndpoints {
   static String financePropertyDetail(String id) =>
       '/AdminDashboard/finance/properties/$id';
   static const String adminControlSettings = '/AdminDashboard/admin-control/settings';
-  static const String landlordContactAccess = '/User/landlord-contact-access';
+  static const String landlordContactAccessStatus =
+      '/AdminDashboard/landlord-contact-access';
   static const String getRoles = '/UserRole/get-roles';
   static const String adminDashboardUsers = '/AdminDashboard/users';
   static const String maintenanceRequestStatuses = "/MaintenanceRequests/statuses";
@@ -62,5 +63,13 @@ class AppEndpoints {
   static String softDeleteDocument(String id) => "/Document/soft-delete/$id";
   static const String rentalAgreements = '/AdminDashboard/rental-agreements';
   static String deleteDocument(String id) => "/Document/$id";
+  static String adminServiceDetail(String id) => '/AdminDashboard/services/$id';
+  static String adminServiceMessages(String id) => '/AdminDashboard/services/$id/messages';
+  static const String documentCategories = '/admindashboard/document-categories';
+  static const String entitiesByCategory = '/admindashboard/entities-by-category';
+  static const String getPropertyDocumentByPropertyId =
+      '/Document/get-property-document-by-propertyId';
+  static const String createArticle = '/Article/create';
+  static const String articleGrantAccess = '/Article/grant-access';
 }
 

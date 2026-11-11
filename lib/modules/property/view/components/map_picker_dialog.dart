@@ -94,6 +94,10 @@ class _MapPickerState extends State<_MapPicker> {
 
   @override
   void dispose() {
+    try {
+      _map?.dispose();
+      _map = null;
+    } catch (_) {}
     _searchC.dispose();
     super.dispose();
   }

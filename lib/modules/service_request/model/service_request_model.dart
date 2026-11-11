@@ -122,43 +122,103 @@ class ServiceRequestModel {
     final tenantMessage = json['tenantMessage']?.toString().trim() ?? '';
     final landlordMessage = json['landlordMessage']?.toString().trim() ?? '';
 
-    final rawMessages = json['messages'] as List<dynamic>? ?? [];
+    final rawMessages = json['messages'] as List<dynamic>? ??
+        json['chatMessages'] as List<dynamic>? ??
+        json['chat'] as List<dynamic>? ??
+        [];
     final messages = rawMessages
         .whereType<Map>()
         .map((m) => ServiceMessage.fromJson(Map<String, dynamic>.from(m)))
         .toList();
 
+
     final chatMessages = <Map<String, dynamic>>[];
+    final rawMaps = rawMessages.whereType<Map>().toList();
+
     if (messages.isNotEmpty) {
-      for (final m in messages) {
-        if (m.message.trim().isEmpty) continue;
-        final isTenant =
-            _isTenantMessage(
-              senderUserId: m.senderUserId,
-              senderName: m.senderName,
-              senderRole: m.senderRole,
-              tenantId: tenantId,
-              tenantName: tenantName,
-              landlordName: landlordName,
-            ) ||
-            (tenantMessage.isNotEmpty &&
-                m.message.trim().toLowerCase() == tenantMessage.toLowerCase());
+      for (var i = 0; i < messages.length; i++) {
+        final m = messages[i];
+        final raw = rawMaps[i];
+
+        String? attachmentName;
+        String? attachmentUrl;
+        final atts = raw['fileAttachments'] ??
+            raw['attachments'] ??
+            raw['files'] ??
+            raw['media'];
+        if (atts is List && atts.isNotEmpty) {
+          final first = atts.first;
+          if (first is Map) {
+            attachmentUrl = _pick(first, [
+              'url', 'fileUrl', 'fileURL', 'filePath', 'path', 'link',
+              'location', 'attachmentUrl', 'signedUrl', 'presignedUrl',
+              'absolutePath', 'relativePath',
+            ]);
+            attachmentName = _pick(first, ['fileName', 'name', 'originalName', 'originalFileName']);
+          } else {
+            final s = first.toString();
+            if (s.startsWith('http')) attachmentUrl = s;
+            attachmentName = s;
+          }
+          if (attachmentName == null && attachmentUrl != null) {
+            attachmentName = attachmentUrl.split('?').first.split('/').last;
+          }
+        }
+        if (attachmentUrl == null) {
+          final directUrl = _pick(raw, [
+            'fileUrl', 'attachmentUrl', 'imageUrl', 'mediaUrl',
+          ]);
+          if (directUrl != null && directUrl.isNotEmpty) {
+            attachmentUrl = directUrl;
+            attachmentName ??= directUrl.split('?').first.split('/').last;
+          }
+        }
+
+        if (m.message.trim().isEmpty &&
+            attachmentName == null &&
+            attachmentUrl == null) {
+          continue;
+        }
+
+        final sender = _senderKind(
+          senderUserId: m.senderUserId,
+          senderName: m.senderName,
+          senderRole: m.senderRole,
+          tenantId: tenantId,
+          tenantName: tenantName,
+          landlordName: landlordName,
+        );
+        String senderName;
+        if (sender == 'admin') {
+          senderName = 'Support Team';
+        } else if (sender == 'tenant') {
+          senderName = m.senderName.isNotEmpty
+              ? m.senderName
+              : (tenantName.isNotEmpty ? tenantName : 'Tenant');
+        } else {
+          senderName = m.senderName.isNotEmpty
+              ? m.senderName
+              : (landlordName != 'N/A' ? landlordName : 'Landlord');
+        }
+
         chatMessages.add({
-          'sender': isTenant ? 'tenant' : 'landlord',
-          'senderName': isTenant
-              ? (m.senderName.isNotEmpty
-                  ? m.senderName
-                  : (tenantName.isNotEmpty ? tenantName : 'Tenant'))
-              : (m.senderName.isNotEmpty
-                  ? m.senderName
-                  : (landlordName != 'N/A' ? landlordName : 'Landlord')),
+          'sender': sender,
+          'senderName': senderName,
           'message': m.message,
           'time': _formatTime(m.sentAt),
           'isRead': m.isSeen,
           'senderUserId': m.senderUserId,
           'sentAt': m.sentAt,
+          if (attachmentName != null) 'attachmentName': attachmentName,
+          if (attachmentUrl != null) 'attachmentUrl': attachmentUrl,
         });
       }
+      chatMessages.sort((a, b) {
+        final da = a['sentAt'];
+        final db = b['sentAt'];
+        if (da is DateTime && db is DateTime) return da.compareTo(db);
+        return 0;
+      });
     }
 
     final hasTenantChat = chatMessages.any((m) => m['sender'] == 'tenant');
@@ -220,8 +280,15 @@ class ServiceRequestModel {
       messages: messages,
     );
   }
+  static String? _pick(Map m, List<String> keys) {
+    for (final k in keys) {
+      final v = m[k];
+      if (v != null && v.toString().isNotEmpty) return v.toString();
+    }
+    return null;
+  }
 
-  static bool _isTenantMessage({
+  static String _senderKind({
     required String senderUserId,
     required String senderName,
     required String senderRole,
@@ -229,18 +296,23 @@ class ServiceRequestModel {
     required String tenantName,
     required String landlordName,
   }) {
-    final role = senderRole.toLowerCase();
-    if (role.contains('tenant')) return true;
-    if (role.contains('landlord')) return false;
-    if (tenantId.isNotEmpty && senderUserId == tenantId) return true;
+    final role = senderRole.toLowerCase().replaceAll(' ', '');
+    if (role.contains('superadmin') ||
+        role.contains('admin') ||
+        role.contains('support')) {
+      return 'admin';
+    }
+    if (role.contains('landlord')) return 'landlord';
+    if (role.contains('tenant')) return 'tenant';
+    if (tenantId.isNotEmpty && senderUserId == tenantId) return 'tenant';
     final name = senderName.trim().toLowerCase();
     final tenant = tenantName.trim().toLowerCase();
-    if (tenant.isNotEmpty && name == tenant) return true;
+    if (tenant.isNotEmpty && name == tenant) return 'tenant';
     final landlord = landlordName.trim().toLowerCase();
     if (landlord.isNotEmpty && landlord != 'n/a' && name == landlord) {
-      return false;
+      return 'landlord';
     }
-    return false;
+    return 'tenant';
   }
 
   static String? _tryParseAddress(String raw) {

@@ -126,8 +126,10 @@ class _TopBarState extends State<TopBar> {
   }
 
   void _hideOverlay() {
-    _overlayEntry?.remove();
+    final entry = _overlayEntry;
+    if (entry == null) return;
     _overlayEntry = null;
+    entry.remove();
   }
 
   @override

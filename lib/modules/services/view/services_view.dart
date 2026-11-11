@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -605,6 +606,7 @@ class ServicesView extends StatelessWidget {
     final String tenantName = req.tenantName;
     final String landlordName = req.landlordName;
     final String location = req.location;
+    final String requestId = (req.id ?? '').toString();
 
     final bool canReply = Get.isRegistered<AuthController>()
         ? !Get.find<AuthController>().isRestrictedRole
@@ -614,6 +616,32 @@ class ServicesView extends StatelessWidget {
     final scrollCtrl = ScrollController();
     PlatformFile? pending;
     bool pendingIsImage = false;
+    Timer? poll;
+    var started = false;
+    var sending = false;
+    final sc = Get.find<ServicesController>();
+
+    void applyMessages(
+      List<Map<String, dynamic>> loaded,
+      StateSetter setDialogState,
+    ) {
+      setDialogState(() {
+        messages
+          ..clear()
+          ..addAll(loaded);
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (scrollCtrl.hasClients) {
+          scrollCtrl.jumpTo(scrollCtrl.position.maxScrollExtent);
+        }
+      });
+    }
+
+    Future<void> refreshChat(StateSetter setDialogState) async {
+      if (requestId.isEmpty) return;
+      final loaded = await sc.loadChat(requestId);
+      if (loaded != null) applyMessages(loaded, setDialogState);
+    }
 
     Future<void> pickAttachment(
         bool image, StateSetter setDialogState) async {
@@ -631,40 +659,37 @@ class ServicesView extends StatelessWidget {
       }
     }
 
-    void sendMessage(StateSetter setDialogState) {
+    Future<void> sendMessage(StateSetter setDialogState) async {
       final text = textCtrl.text.trim();
-      if (text.isEmpty && pending == null) return;
       final file = pending;
-      final isImage = pendingIsImage;
-      setDialogState(() {
-        messages.add({
-          'sender': 'admin',
-          'senderName': 'Support',
-          'message': text,
-          'time': DateFormat('MMM d, yyyy · h:mm a').format(DateTime.now()),
-          'isRead': false,
-          if (file != null) 'attachmentName': file.name,
-          if (file != null) 'attachmentType': isImage ? 'image' : 'file',
-        });
-        pending = null;
-      });
+      if ((text.isEmpty && file == null) || sending || requestId.isEmpty) return;
+      sending = true;
       textCtrl.clear();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (scrollCtrl.hasClients) {
-          scrollCtrl.animateTo(
-            scrollCtrl.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOut,
-          );
-        }
-      });
+      final ok = await sc.sendChatMessage(
+        requestId,
+        text,
+        files: file != null ? [file] : const [],
+      );
+      if (ok) {
+        setDialogState(() => pending = null);
+        await refreshChat(setDialogState);
+      }
+      sending = false;
     }
 
     showDialog(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.45),
       builder: (_) => StatefulBuilder(
-        builder: (dialogCtx, setDialogState) => Dialog(
+        builder: (dialogCtx, setDialogState) {
+          if (!started) {
+            started = true;
+            refreshChat(setDialogState);
+            poll = Timer.periodic(const Duration(seconds: 9), (_) {
+              refreshChat(setDialogState);
+            });
+          }
+          return Dialog(
           backgroundColor: Colors.transparent,
           insetPadding: Responsive.isMobile(context)
               ? const EdgeInsets.symmetric(horizontal: 12, vertical: 16)
@@ -918,12 +943,12 @@ class ServicesView extends StatelessWidget {
                           final isAdmin = msg['sender'] == 'admin';
                           return _buildChatBubble(
                             message: (msg['message'] as String?) ?? '',
-                            senderName: msg['senderName'] as String,
-                            time: msg['time'] as String,
+                            senderName: (msg['senderName'] as String?) ?? '',
+                            time: (msg['time'] as String?) ?? '',
                             isTenant: isTenant,
                             isAdmin: isAdmin,
                             isRead: msg['isRead'] as bool? ?? true,
-                            attachment: _attachmentWidget(msg),
+                            attachment: _attachmentWidget(ctx,msg),
                           );
                         },
                       ),
@@ -1120,9 +1145,10 @@ class ServicesView extends StatelessWidget {
               );
             },
           ),
-        ),
+        );
+        },
       ),
-    );
+    ).whenComplete(() => poll?.cancel());
   }
 
   Widget _chatParticipantChip(
@@ -1199,10 +1225,11 @@ class ServicesView extends StatelessWidget {
         : isTenant
         ? const Color(0xFF1565C0)
         : const Color(0xFF2E7D32);
+    final alignLeft = !isAdmin;
     final CrossAxisAlignment crossAlign =
-    isTenant ? CrossAxisAlignment.start : CrossAxisAlignment.end;
+    alignLeft ? CrossAxisAlignment.start : CrossAxisAlignment.end;
     final MainAxisAlignment rowAlign =
-    isTenant ? MainAxisAlignment.start : MainAxisAlignment.end;
+    alignLeft ? MainAxisAlignment.start : MainAxisAlignment.end;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
@@ -1210,7 +1237,10 @@ class ServicesView extends StatelessWidget {
         mainAxisAlignment: rowAlign,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (isTenant) ...[_avatarCircle(isTenant), const SizedBox(width: 8)],
+          if (alignLeft) ...[
+            _avatarCircle(isTenant, isAdmin: isAdmin),
+            const SizedBox(width: 8),
+          ],
           Flexible(
             child: Column(
               crossAxisAlignment: crossAlign,
@@ -1235,8 +1265,8 @@ class ServicesView extends StatelessWidget {
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(16),
                       topRight: const Radius.circular(16),
-                      bottomLeft: Radius.circular(isTenant ? 4 : 16),
-                      bottomRight: Radius.circular(isTenant ? 16 : 4),
+                      bottomLeft: Radius.circular(alignLeft ? 4 : 16),
+                      bottomRight: Radius.circular(alignLeft ? 16 : 4),
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -1276,7 +1306,7 @@ class ServicesView extends StatelessWidget {
                         color: Color(0xFF9E9E9E),
                       ),
                     ),
-                    if (!isTenant) ...[
+                    if (!alignLeft) ...[
                       const SizedBox(width: 4),
                       Icon(
                         isRead ? Icons.done_all : Icons.done,
@@ -1291,7 +1321,7 @@ class ServicesView extends StatelessWidget {
               ],
             ),
           ),
-          if (!isTenant) ...[
+          if (!alignLeft) ...[
             const SizedBox(width: 8),
             _avatarCircle(isTenant, isAdmin: isAdmin),
           ],
@@ -1299,22 +1329,79 @@ class ServicesView extends StatelessWidget {
       ),
     );
   }
-  Widget? _attachmentWidget(Map<String, dynamic> msg) {
+
+  Widget? _attachmentWidget(BuildContext context, Map<String, dynamic> msg) {
     final name = msg['attachmentName'] as String?;
-    if (name == null) return null;
-    final isImage = msg['attachmentType'] == 'image';
+    final url =
+    (msg['attachmentUrl'] ?? msg['fileUrl'] ?? msg['url'])?.toString();
+    if (name == null && (url == null || url.isEmpty)) return null;
+
+    final lower = (name ?? url ?? '').toLowerCase().split('?').first;
+    final isImage = msg['attachmentType'] == 'image' ||
+        RegExp(r'\.(png|jpe?g|gif|webp|bmp)$').hasMatch(lower);
+
+    if (isImage && url != null && url.isNotEmpty) {
+      return GestureDetector(
+        onTap: () => showDialog(
+          context: context,
+          builder: (dctx) => Dialog(
+            backgroundColor: Colors.black,
+            insetPadding: const EdgeInsets.all(12),
+            child: Stack(
+              children: [
+                InteractiveViewer(
+                  child: Image.network(url, fit: BoxFit.contain),
+                ),
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.pop(dctx),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 240, maxHeight: 240),
+            child: Image.network(
+              url,
+              fit: BoxFit.cover,
+              loadingBuilder: (c, child, progress) => progress == null
+                  ? child
+                  : const SizedBox(
+                width: 240,
+                height: 160,
+                child: Center(
+                    child: CircularProgressIndicator(strokeWidth: 2)),
+              ),
+              errorBuilder: (_, __, ___) => const SizedBox(
+                width: 240,
+                height: 120,
+                child: Center(
+                  child: Icon(Icons.broken_image_outlined,
+                      color: Color(0xFF9E9E9E), size: 32),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          isImage ? Icons.image_outlined : Icons.insert_drive_file_outlined,
-          size: 18,
-          color: const Color(0xFF5E35B1),
-        ),
+        const Icon(Icons.insert_drive_file_outlined,
+            size: 18, color: Color(0xFF5E35B1)),
         const SizedBox(width: 6),
         Flexible(
           child: Text(
-            name,
+            name ?? 'Attachment',
             style: const TextStyle(fontSize: 12, color: Color(0xFF212121)),
             overflow: TextOverflow.ellipsis,
           ),

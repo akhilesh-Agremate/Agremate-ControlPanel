@@ -2,6 +2,8 @@ import 'package:agremate_admin/network_utils/dio_client.dart';
 import 'package:agremate_admin/network_utils/app_end_points.dart';
 import 'package:agremate_admin/modules/service_request/model/service_request_model.dart';
 import 'package:agremate_admin/core/utils/app_logger.dart';
+import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
 
 class ServicesRepository {
   Future<Map<String, dynamic>> getDashboardServices() async {
@@ -54,6 +56,61 @@ class ServicesRepository {
     } catch (e) {
       AppLogger.e('ServicesRepository', 'Fetch service requests failed', e);
       rethrow;
+    }
+  }
+
+  Future<ServiceRequestModel> getServiceDetail(String id) async {
+    final response =
+        await DioClient.instance.get(AppEndpoints.adminServiceDetail(id));
+    AppLogger.d(
+      'ServicesRepository',
+      'getServiceDetail status=${response.statusCode}',
+    );
+    final data = response.data;
+    final result = data is Map ? data['result'] : null;
+    if (result is! Map) throw Exception('Unexpected chat response');
+    final map = Map<String, dynamic>.from(result);
+    final inner = map['serviceRequest'];
+    final json = inner is Map ? Map<String, dynamic>.from(inner) : map;
+    if (json['messages'] == null && map['messages'] is List) {
+      json['messages'] = map['messages'];
+    }
+    if (json['chatMessages'] == null && map['chatMessages'] is List) {
+      json['chatMessages'] = map['chatMessages'];
+    }
+    return ServiceRequestModel.fromJson(json);
+  }
+
+  Future<void> sendMessage(
+      String id,
+      String message, {
+        List<PlatformFile> files = const [],
+      }) async {
+    try {
+      final form = FormData();
+      form.fields.add(MapEntry('Message', message));
+
+      for (final f in files) {
+        final bytes = await f.readAsBytes();
+        form.files.add(
+          MapEntry('Files', MultipartFile.fromBytes(bytes, filename: f.name)),
+        );
+      }
+
+      final response = await DioClient.instance.post(
+        AppEndpoints.adminServiceMessages(id),
+        data: form,
+        options: Options(contentType: 'multipart/form-data'),
+      );
+      final data = response.data;
+      if (data is Map && data['status'] == false) {
+        throw Exception(data['message'] ?? 'Failed to send message');
+      }
+    } on DioException catch (e) {
+      final d = e.response?.data;
+      throw Exception(d is Map && d['message'] != null
+          ? d['message'].toString()
+          : (e.message ?? 'Failed to send message'));
     }
   }
 

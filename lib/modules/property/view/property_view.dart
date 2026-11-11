@@ -314,6 +314,7 @@ class PropertyView extends StatelessWidget {
                   final cardWidth =
                       (constraints.maxWidth - cardGap * (crossAxisCount - 1)) /
                           crossAxisCount;
+                  final isMobile = constraints.maxWidth < 600;
 
                   if (isLoading) {
                     return const SizedBox(
@@ -332,7 +333,7 @@ class PropertyView extends StatelessWidget {
                   return Wrap(
                     key: ValueKey('page_$page'),
                     spacing: cardGap,
-                    runSpacing: 24,
+                    runSpacing: isMobile ? 14 : 24,
                     children: pageItems
                         .map(
                           (prop) => _PropertyCard(
@@ -423,6 +424,8 @@ class _PropertyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
+    final cardHeight = isMobile ? width : _cardHeight;
     final tenantName =
     (prop.primaryTenantName != null && prop.primaryTenantName!.isNotEmpty)
         ? prop.primaryTenantName!
@@ -458,12 +461,12 @@ class _PropertyCard extends StatelessWidget {
       width: width,
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(isMobile ? 18 : 24),
           boxShadow: [
             BoxShadow(
               color: const Color(0xFF2563EB).withValues(alpha: 0.12),
-              blurRadius: 28,
-              offset: const Offset(0, 12),
+              blurRadius: isMobile ? 16 : 28,
+              offset: Offset(0, isMobile ? 6 : 12),
             ),
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.06),
@@ -476,7 +479,7 @@ class _PropertyCard extends StatelessWidget {
           color: Colors.white,
           clipBehavior: Clip.antiAlias,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(isMobile ? 18 : 24),
             side: isSelected
                 ? const BorderSide(color: AppTheme.accentGreen, width: 2)
                 : const BorderSide(color: Color(0xFFD6E8FA), width: 1.5),
@@ -484,7 +487,7 @@ class _PropertyCard extends StatelessWidget {
           child: InkWell(
             onTap: () => pc.openPropertyDetails(prop),
             child: SizedBox(
-              height: _cardHeight,
+              height: cardHeight,
               width: double.infinity,
               child: Stack(
                 fit: StackFit.expand,
@@ -498,15 +501,16 @@ class _PropertyCard extends StatelessWidget {
                   else
                     _placeholder(),
                   Positioned(
-                    top: 12,
-                    left: 12,
+                    top: isMobile ? 8 : 12,
+                    left: isMobile ? 8 : 12,
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(20),
                       child: BackdropFilter(
                         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 7),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: isMobile ? 8 : 14,
+                              vertical: isMobile ? 4 : 7),
                           decoration: BoxDecoration(
                             color: const Color(0xFFBDBDBD)
                                 .withValues(alpha: 0.35),
@@ -516,11 +520,11 @@ class _PropertyCard extends StatelessWidget {
                           ),
                           child: Text(
                             priceLabel,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.white,
-                              fontSize: 13,
+                              fontSize: isMobile ? 11 : 13,
                               fontWeight: FontWeight.w600,
-                              shadows: [
+                              shadows: const [
                                 Shadow(
                                   color: Colors.black26,
                                   blurRadius: 3,
@@ -537,7 +541,7 @@ class _PropertyCard extends StatelessWidget {
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    height: 150,
+                    height: isMobile ? 100 : 150,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -545,23 +549,24 @@ class _PropertyCard extends StatelessWidget {
                           end: Alignment.bottomCenter,
                           colors: [
                             Colors.transparent,
-                            Colors.black.withValues(alpha: 0.75),
+                            Colors.black.withValues(alpha: 0.8),
                           ],
                         ),
                       ),
                     ),
                   ),
                   Positioned(
-                    top: 12,
-                    right: 12,
+                    top: isMobile ? 8 : 12,
+                    right: isMobile ? 8 : 12,
                     child: prop.isPg
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(20),
                             child: BackdropFilter(
                               filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 14, vertical: 7),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: isMobile ? 8 : 14,
+                                    vertical: isMobile ? 4 : 7),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFBDBDBD)
                                       .withValues(alpha: 0.35),
@@ -570,13 +575,13 @@ class _PropertyCard extends StatelessWidget {
                                       color: Colors.white
                                           .withValues(alpha: 0.6)),
                                 ),
-                                child: const Text(
+                                child: Text(
                                   'PG',
                                   style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 13,
+                                    fontSize: isMobile ? 11 : 13,
                                     fontWeight: FontWeight.w600,
-                                    shadows: [
+                                    shadows: const [
                                       Shadow(
                                         color: Colors.black26,
                                         blurRadius: 3,
@@ -591,9 +596,9 @@ class _PropertyCard extends StatelessWidget {
                         : statusBadge,
                   ),
                   Positioned(
-                    left: 16,
-                    right: 16,
-                    bottom: 14,
+                    left: isMobile ? 10 : 16,
+                    right: isMobile ? 10 : 16,
+                    bottom: isMobile ? 8 : 14,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -602,46 +607,48 @@ class _PropertyCard extends StatelessWidget {
                           prop.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
-                            fontSize: 18,
+                            fontSize: isMobile ? 14 : 18,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: isMobile ? 2 : 4),
                         Row(
                           children: [
-                            const Icon(Icons.location_on_rounded,
-                                color: Colors.white, size: 14),
-                            const SizedBox(width: 4),
+                            Icon(Icons.location_on_rounded,
+                                color: Colors.white, size: isMobile ? 12 : 14),
+                            const SizedBox(width: 3),
                             Expanded(
                               child: Text(
                                 prop.address.address,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 12,
+                                  fontSize: isMobile ? 10.5 : 12,
                                 ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
+                        SizedBox(height: isMobile ? 3 : 8),
                         Row(
                           children: [
                             Expanded(
                               child: _personLabel(
                                 icon: Icons.person_rounded,
                                 text: 'Landlord: ${prop.landlordName}',
+                                isMobile: isMobile,
                               ),
                             ),
                             if (!prop.isPg) ...[
-                              const SizedBox(width: 8),
+                              SizedBox(width: isMobile ? 4 : 8),
                               Expanded(
                                 child: _personLabel(
                                   icon: Icons.groups_outlined,
                                   text: 'Tenant: $tenantName',
+                                  isMobile: isMobile,
                                 ),
                               ),
                             ],
@@ -669,19 +676,19 @@ class _PropertyCard extends StatelessWidget {
     );
   }
 
-  Widget _personLabel({required IconData icon, required String text}) {
+  Widget _personLabel({required IconData icon, required String text, bool isMobile = false}) {
     return Row(
       children: [
-        Icon(icon, color: Colors.white70, size: 14),
-        const SizedBox(width: 4),
+        Icon(icon, color: Colors.white70, size: isMobile ? 11 : 14),
+        const SizedBox(width: 3),
         Expanded(
           child: Text(
             text,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white70,
-              fontSize: 12,
+              fontSize: isMobile ? 10 : 12,
               fontWeight: FontWeight.w600,
             ),
           ),

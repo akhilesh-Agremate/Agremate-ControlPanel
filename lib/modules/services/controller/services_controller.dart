@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:get/get.dart';
 import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
 import 'package:agremate_admin/modules/property/controller/property_controller.dart';
@@ -50,6 +51,30 @@ class ServicesController extends GetxController {
       statusOptions.assignAll(await _repo.getStatuses());
     } catch (e) {
       AppLogger.e('ServicesController', 'Load statuses failed', e);
+    }
+  }
+
+  Future<List<Map<String, dynamic>>?> loadChat(String requestId) async {
+    try {
+      final detail = await _repo.getServiceDetail(requestId);
+      return detail.chatMessages;
+    } catch (e) {
+      AppLogger.e('ServicesController', 'Load chat failed', e);
+      return null;
+    }
+  }
+
+  Future<bool> sendChatMessage(
+      String requestId,
+      String text, {
+        List<PlatformFile> files = const [],
+      }) async {
+    try {
+      await _repo.sendMessage(requestId, text, files: files);
+      return true;
+    } catch (e) {
+      AppToast.error(e.toString().replaceFirst('Exception: ', ''));
+      return false;
     }
   }
 
