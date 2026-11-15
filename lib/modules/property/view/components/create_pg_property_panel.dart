@@ -186,7 +186,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
     if (widget.initial != null) {
       _prefill(widget.initial!);
     } else {
-      _buildLayoutFromPattern();
+    _buildLayoutFromPattern();
     }
   }
 
@@ -682,9 +682,9 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
   void _saveCustomRule() {
     final txt = customRuleC.text.trim();
     if (txt.isEmpty) return;
-    setState(() {
-      if (!availableRules.contains(txt)) availableRules.add(txt);
-      selectedRules.add(txt);
+      setState(() {
+        if (!availableRules.contains(txt)) availableRules.add(txt);
+        selectedRules.add(txt);
       customRuleC.clear();
       _showAddRule = false;
     });
@@ -715,11 +715,11 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setD) => AlertDialog(
-          backgroundColor: Colors.white,
+        backgroundColor: Colors.white,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Text(floor.name),
-          content: SizedBox(
+        content: SizedBox(
             width: min(320.0, MediaQuery.sizeOf(ctx).width - 128),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -735,20 +735,20 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                 ),
               ],
             ),
-          ),
-          actions: [
+        ),
+        actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, 'default'),
               child: const Text('Use default',
                   style: TextStyle(color: _muted)),
             ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, 'save'),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'save'),
               child: const Text('Save',
                   style: TextStyle(
                       color: _blue, fontWeight: FontWeight.w700)),
-            ),
-          ],
+          ),
+        ],
         ),
       ),
     );
@@ -761,10 +761,10 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
     }
   }
 
-    Future<void> _openRoomDetails(int fi, int ri) async {
-      final room = floors[fi].rooms[ri];
-      final nameCtl = TextEditingController(text: room.name);
-      final rentCtl = TextEditingController(text: _money(_roomRent(room)));
+  Future<void> _openRoomDetails(int fi, int ri) async {
+    final room = floors[fi].rooms[ri];
+    final nameCtl = TextEditingController(text: room.name);
+    final rentCtl = TextEditingController(text: _money(_roomRent(room)));
       final advanceCtl = TextEditingController(
         text: room.advanceOverride != null
             ? _money(room.advanceOverride!)
@@ -781,7 +781,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
 
       final hadBedOverrides =
       room.beds.any((b) => b.rent != null || b.advance != null);
-      final features = List<String>.from(room.roomAmenities);
+    final features = List<String>.from(room.roomAmenities);
       var applyAll = !hadBedOverrides;
       int? roomPayDate = paymentDate;
       final amenityNames = widget.amenityOptions.isNotEmpty
@@ -858,10 +858,10 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
       }
 
       final res = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => StatefulBuilder(
-          builder: (ctx, setD) => AlertDialog(
-            backgroundColor: Colors.white,
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          backgroundColor: Colors.white,
             insetPadding: Responsive.isMobile(ctx)
                 ? const EdgeInsets.symmetric(horizontal: 12, vertical: 24)
                 : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
@@ -919,17 +919,17 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                 ),
               ],
             ),
-            content: SizedBox(
+          content: SizedBox(
               width: min(
                 480.0,
                 MediaQuery.sizeOf(ctx).width -
                     (Responsive.isMobile(ctx) ? 24 : 80) - 40,
               ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                     const Text('Photos',
                         style: TextStyle(
                             fontSize: 14,
@@ -1016,14 +1016,14 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                     const SizedBox(height: 12),
                     if (applyAll)
                       _twoCol(
-                        _uField(
-                          'Rent per bed',
-                          'e.g. 6,000',
-                          rentCtl,
-                          prefix: '₹ ',
-                          keyboard: TextInputType.number,
-                          formatters: [_IndianAmountFormatter()],
-                        ),
+                  _uField(
+                    'Rent per bed',
+                    'e.g. 6,000',
+                    rentCtl,
+                    prefix: '₹ ',
+                    keyboard: TextInputType.number,
+                    formatters: [_IndianAmountFormatter()],
+                  ),
                         _uField(
                           'Advance Amount',
                           '10000',
@@ -1035,7 +1035,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                     else
                       for (int i = 0; i < room.beds.length; i++)
                         bedPricingCard(i, setD),
-                    _gap,
+                  _gap,
                     _dropdownBox<int>(
                       'Rent Payment Date',
                       roomPayDate,
@@ -1051,7 +1051,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                         Icon(Icons.star_outline, size: 18, color: _blue),
                         SizedBox(width: 6),
                         Text('Amenities',
-                            style: TextStyle(
+                      style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                                 color: _ink)),
@@ -1063,22 +1063,22 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                       style: TextStyle(fontSize: 12.5, color: _muted),
                     ),
                     const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                       children: amenityNames.map((a) {
-                        final sel = features.contains(a);
-                        return _chip(a, sel, (v) {
-                          setD(() {
-                            if (v) {
-                              features.add(a);
-                            } else {
-                              features.remove(a);
-                            }
-                          });
+                      final sel = features.contains(a);
+                      return _chip(a, sel, (v) {
+                        setD(() {
+                          if (v) {
+                            features.add(a);
+                          } else {
+                            features.remove(a);
+                          }
                         });
-                      }).toList(),
-                    ),
+                      });
+                    }).toList(),
+                  ),
                     const SizedBox(height: 18),
                     SizedBox(
                       width: double.infinity,
@@ -1093,17 +1093,17 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                 ),
               ),
             ),
-          ),
         ),
-      );
+      ),
+    );
 
-      final newName = nameCtl.text.trim();
-      final newRent = _amount(rentCtl.text);
+    final newName = nameCtl.text.trim();
+    final newRent = _amount(rentCtl.text);
       final newAdvance = _amount(advanceCtl.text);
       final bedRents = bedRentCtls.map((c) => _amount(c.text)).toList();
       final bedAdvs = bedAdvCtls.map((c) => _amount(c.text)).toList();
-      nameCtl.dispose();
-      rentCtl.dispose();
+    nameCtl.dispose();
+    rentCtl.dispose();
       advanceCtl.dispose();
       for (final c in bedRentCtls) {
         c.dispose();
@@ -1111,12 +1111,12 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
       for (final c in bedAdvCtls) {
         c.dispose();
       }
-      if (!mounted) return;
+    if (!mounted) return;
 
       if (res == true) {
-        setState(() {
-          if (newName.isNotEmpty) room.name = newName;
-          room.roomAmenities = features;
+      setState(() {
+        if (newName.isNotEmpty) room.name = newName;
+        room.roomAmenities = features;
           if (roomPayDate != null) paymentDate = roomPayDate;
 
           if (applyAll) {
@@ -1142,9 +1142,9 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
               room.beds[i].advance = bedAdvs[i] > 0 ? bedAdvs[i] : null;
             }
           }
-        });
-      }
+      });
     }
+  }
 
   Future<void> _openEditBeds(_PgRoomDraft room) async {
     int count = room.beds.length;
@@ -1343,7 +1343,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,
                                     color: Color(0xFF475569))),
-                            const SizedBox(height: 8),
+                    const SizedBox(height: 8),
                             TextField(
                               controller: rentCtl,
                               keyboardType: TextInputType.number,
@@ -1392,9 +1392,9 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                     controller: phoneCtl,
                     keyboardType: TextInputType.phone,
                     inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(10),
-                    ],
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(10),
+                      ],
                     style: fieldStyle,
                     decoration:
                     deco('90000 00000', icon: Icons.phone_outlined),
@@ -1414,12 +1414,12 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                     borderRadius: BorderRadius.circular(12),
                     onTap: () async {
                       final now = DateTime.now();
-                      final d = await showDatePicker(
-                        context: ctx,
+                            final d = await showDatePicker(
+                              context: ctx,
                         initialDate: start ?? now,
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2100),
-                      );
+                              firstDate: DateTime(2000),
+                              lastDate: DateTime(2100),
+                            );
                       if (d != null) {
                         setD(() {
                           start = d;
@@ -1615,7 +1615,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
       'genderAllowed': genderAllowed,
       'city': cityC.text.trim().isNotEmpty ? cityC.text.trim() : 'Bengaluru',
       'pincode':
-          pincodeC.text.trim().isNotEmpty ? pincodeC.text.trim() : '560001',
+      pincodeC.text.trim().isNotEmpty ? pincodeC.text.trim() : '560001',
       'rentPaymentDate': paymentDate ?? 5,
       'zone': zone ?? 1,
       'contractReference': contractRefC.text.trim().isNotEmpty
@@ -1711,32 +1711,32 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
     final mobile = Responsive.isMobile(context);
 
     final cancelBtn = OutlinedButton(
-      onPressed: _submitting ? null : widget.onBack,
-      style: OutlinedButton.styleFrom(
-        shape: const StadiumBorder(),
+            onPressed: _submitting ? null : widget.onBack,
+            style: OutlinedButton.styleFrom(
+              shape: const StadiumBorder(),
         padding: EdgeInsets.symmetric(
             horizontal: mobile ? 18 : 22, vertical: mobile ? 12 : 14),
-      ),
-      child: const Text('Cancel'),
+            ),
+            child: const Text('Cancel'),
     );
 
     final submitBtn = ElevatedButton(
-      onPressed: _submitting ? null : _submit,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: _blue,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        shape: const StadiumBorder(),
+              onPressed: _submitting ? null : _submit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _blue,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: const StadiumBorder(),
         padding: EdgeInsets.symmetric(
             horizontal: mobile ? 22 : 32, vertical: mobile ? 12 : 14),
-      ),
-      child: _submitting
-          ? const SizedBox(
-        width: 18,
-        height: 18,
-        child: CircularProgressIndicator(
-            strokeWidth: 2, color: Colors.white),
-      )
+              ),
+              child: _submitting
+                  ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white),
+              )
           : Text(_isEdit ? 'Update' : 'Create Property'),
     );
 
@@ -1754,8 +1754,8 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
           horizontal: mobile ? 8 : 20, vertical: mobile ? 10 : 14),
       child: mobile
           ? Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+          mainAxisSize: MainAxisSize.min,
+          children: [
           Row(children: [
             IconButton(
               onPressed: widget.onBack,
@@ -1769,9 +1769,9 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [cancelBtn, const SizedBox(width: 10), submitBtn],
+              ),
             ),
-          ),
-        ],
+          ],
       )
           : Row(
         children: [
@@ -1874,19 +1874,19 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
               maxLines: 2,
               validator: (v) => _required(v, 'Description')),
           _gap,
-          _dropdownBox<int>(
-            'PG type',
-            pgType,
-            [1, 2, 3],
+            _dropdownBox<int>(
+              'PG type',
+              pgType,
+              [1, 2, 3],
                 (v) => setState(() {
               pgType = v ?? 1;
               genderAllowed = pgType;
             }),
-            itemLabel: (v) => v == 1
-                ? 'Co-ed'
-                : v == 2
-                ? 'Boys'
-                : 'Girls',
+              itemLabel: (v) => v == 1
+                  ? 'Co-ed'
+                  : v == 2
+                  ? 'Boys'
+                  : 'Girls',
           ),
           _gap,
           _twoCol(
@@ -1949,17 +1949,17 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
         children: [
           if (availableRules.isNotEmpty)
             Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: availableRules.map((rule) {
+        spacing: 10,
+        runSpacing: 10,
+        children: availableRules.map((rule) {
                 return InputChip(
                   label: Text(rule),
                   selected: true,
                   showCheckmark: false,
                   onDeleted: () {
-                    setState(() {
+            setState(() {
                       availableRules.remove(rule);
-                      selectedRules.remove(rule);
+                selectedRules.remove(rule);
                     });
                   },
                   backgroundColor: _lightBlue,
@@ -1981,7 +1981,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
           if (_showAddRule) ...[
             if (availableRules.isNotEmpty) const SizedBox(height: 14),
             Row(
-              children: [
+        children: [
                 Expanded(
                   child: TextField(
                     controller: customRuleC,
@@ -2651,11 +2651,11 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
             ),
           ),
           if (child != null) ...[
-            const Divider(height: 1, color: _line),
-            Padding(
+          const Divider(height: 1, color: _line),
+          Padding(
               padding: EdgeInsets.all(mobile ? 14 : 18),
-              child: child,
-            ),
+            child: child,
+          ),
           ],
         ],
       ),
@@ -2875,13 +2875,13 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
             items: list
                 .map((e) => DropdownMenuItem<T>(
               value: e,
-              child: Text(
+          child: Text(
                 itemLabel != null ? itemLabel(e) : '$e',
-                style: const TextStyle(fontSize: 14),
-              ),
-            ))
-                .toList(),
-            onChanged: onChanged,
+            style: const TextStyle(fontSize: 14),
+          ),
+        ))
+            .toList(),
+        onChanged: onChanged,
           ),
         ),
       ),

@@ -2,21 +2,30 @@ import 'package:get/get.dart';
 import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
 import 'package:agremate_admin/modules/service_request/model/service_request_model.dart';
 import 'package:agremate_admin/modules/property/controller/property_controller.dart';
+import 'package:agremate_admin/modules/services/repository/services_repository.dart';
+import 'package:intl/intl.dart';
 import '../model/dashboard_overview_model.dart';
 import '../model/registered_user_models.dart';
 import '../model/rent_collection_model.dart';
 import '../model/rental_agreement_item.dart';
 import '../model/subscription_model.dart';
+import '../model/support_ticket_model.dart';
 import '../repository/dashboard_repository.dart';
 import 'package:agremate_admin/core/utils/app_logger.dart';
 import 'package:agremate_admin/core/constants/app_strings.dart';
 import '../repository/rental_agreement_repository.dart';
+import '../repository/support_ticket_repository.dart';
 
 class HomeController extends GetxController {
   final isLoading = false.obs;
   final _dashboardRepo = DashboardRepository();
   final overview = Rxn<DashboardOverviewModel>();
-  final isOverviewLoading = false.obs;
+  final useLandlordKpis = false.obs;
+  final landlordRegisteredUsers = 0.obs;
+  final landlordActiveSupport = 0.obs;
+  final landlordContactOwner = 0.obs;
+  final landlordRentalAgreements = 0.obs;
+  final isOverviewLoading = true.obs;
   final showRentCollectionDetails = false.obs;
   final rentCollections = <RentCollectionModel>[].obs;
   final isRentCollectionsLoading = false.obs;
@@ -149,6 +158,126 @@ class HomeController extends GetxController {
 
   void closeRentalAgreementDetails() => showRentalAgreements.value = false;
 
+  final _supportRepo = SupportTicketRepository();
+  final showSupportDetails = false.obs;
+  final supportTickets = <SupportTicketModel>[].obs;
+  final supportSummary = Rxn<SupportSummary>();
+  final isSupportLoading = false.obs;
+  final supportError = ''.obs;
+  final supportStatusFilter = RxnInt();
+  final supportSearch = ''.obs;
+  final supportPage = 1.obs;
+  final supportTotal = 0.obs;
+  static const supportPageSize = 20;
+
+  final selectedTicket = Rxn<SupportTicketDetail>();
+  final isTicketLoading = false.obs;
+  final isTicketSending = false.obs;
+
+  static const ticketStatuses = [
+    'Open', 'Assigned', 'In Progress', 'Waiting On User',
+    'Escalated', 'Resolved', 'Closed', 'Reopened',
+  ];
+
+  bool get isSupportStaff =>
+      Get.isRegistered<AuthController>() &&
+          !Get.find<AuthController>().isRestrictedRole;
+
+  Future<void> openSupportDetails() async {
+    supportStatusFilter.value = null;
+    supportSearch.value = '';
+    supportPage.value = 1;
+    showSupportDetails.value = true;
+    await fetchSupportTickets();
+  }
+
+  void closeSupportDetails() {
+    showSupportDetails.value = false;
+    supportError.value = '';
+  }
+
+  void setSupportStatus(int? status) {
+    supportStatusFilter.value = status;
+    supportPage.value = 1;
+    fetchSupportTickets();
+  }
+
+  void setSupportSearch(String q) {
+    supportSearch.value = q.trim();
+    supportPage.value = 1;
+    fetchSupportTickets();
+  }
+
+  void setSupportPage(int p) {
+    supportPage.value = p;
+    fetchSupportTickets();
+  }
+
+  Future<void> fetchSupportTickets() async {
+    try {
+      isSupportLoading.value = true;
+      supportError.value = '';
+      final result = isSupportStaff
+          ? await _supportRepo.getAll(
+        status: supportStatusFilter.value,
+        search: supportSearch.value,
+        page: supportPage.value,
+        pageSize: supportPageSize,
+      )
+          : await _supportRepo.getMy(status: supportStatusFilter.value);
+      supportTickets.assignAll(result.tickets);
+      supportSummary.value = result.summary;
+      supportTotal.value = result.totalFiltered;
+    } catch (e, st) {
+      AppLogger.e('HomeController', 'Fetch support tickets failed', e, st);
+      supportError.value = 'Failed: $e';
+      supportTickets.clear();
+    } finally {
+      isSupportLoading.value = false;
+    }
+  }
+
+  Future<void> openTicket(String id) async {
+    try {
+      selectedTicket.value = null;
+      isTicketLoading.value = true;
+      selectedTicket.value = await _supportRepo.getDetail(id);
+      _supportRepo.markSeen(id).catchError((_) {});
+    } catch (e, st) {
+      AppLogger.e('HomeController', 'Fetch ticket failed', e, st);
+    } finally {
+      isTicketLoading.value = false;
+    }
+  }
+
+  Future<String?> sendTicketMessage(String id, String text,
+      {bool internal = false}) async {
+    try {
+      isTicketSending.value = true;
+      await _supportRepo.sendMessage(id, text, isInternal: internal);
+      selectedTicket.value = await _supportRepo.getDetail(id);
+      fetchSupportTickets();
+      return null;
+    } catch (e) {
+      return e.toString().replaceFirst('Exception: ', '');
+    } finally {
+      isTicketSending.value = false;
+    }
+  }
+
+  Future<String?> changeTicketStatus(String id, int newStatus,
+      {String? notes, String? resolutionNote}) async {
+    try {
+      await _supportRepo.updateStatus(id, newStatus,
+          notes: notes, resolutionNote: resolutionNote);
+      selectedTicket.value = await _supportRepo.getDetail(id);
+      fetchSupportTickets();
+      return null;
+    } catch (e) {
+      return e.toString().replaceFirst('Exception: ', '');
+    }
+  }
+
   @override
   void onInit() {
     super.onInit();
@@ -161,6 +290,17 @@ class HomeController extends GetxController {
       AppLogger.i('HomeController', 'Fetch overview started');
       isOverviewLoading.value = true;
       overview.value = await _dashboardRepo.getOverview();
+      if (Get.isRegistered<AuthController>() &&
+          Get.find<AuthController>().isLandlord) {
+        useLandlordKpis.value = true;
+        landlordRegisteredUsers.value = 0;
+        landlordActiveSupport.value = 0;
+        landlordContactOwner.value = 0;
+        landlordRentalAgreements.value = 0;
+        await _loadLandlordKpis();
+      } else {
+        useLandlordKpis.value = false;
+      }
       AppLogger.i('HomeController', 'Fetch overview success');
     } catch (e, st) {
       AppLogger.e('HomeController', 'Fetch overview failed', e, st);
@@ -445,14 +585,27 @@ class HomeController extends GetxController {
   final supportList = <Map<String, dynamic>>[].obs;
 
   String getAmount(String label, String period) {
-    final o = overview.value;
-    if (o == null) {
-      return isOverviewLoading.value ? 'API Integration' : '0';
+    if (useLandlordKpis.value) {
+      switch (label) {
+        case AppStrings.registeredUsers:
+          return landlordRegisteredUsers.value.toString();
+        case AppStrings.activeSupport:
+          return landlordActiveSupport.value.toString();
+        case AppStrings.contactOwner:
+          return landlordContactOwner.value.toString();
+        case AppStrings.rentalAgreement:
+          return landlordRentalAgreements.value.toString();
+        default:
+          return '0';
+      }
     }
+
+    final o = overview.value;
+    if (o == null) return '0';
 
     switch (label) {
       case AppStrings.registeredUsers:
-        return o.registeredUsersCount.toString();
+        return NumberFormat.decimalPattern('en_IN').format(o.registeredUsersCount);
       case AppStrings.activeSupport:
         return o.activeSupportCount.toString();
       case AppStrings.contactOwner:
@@ -462,6 +615,142 @@ class HomeController extends GetxController {
       default:
         return '0';
     }
+  }
+
+  String _digits(String value) => value.replaceAll(RegExp(r'\D'), '');
+
+  bool _samePhone(String a, String b) {
+    final x = _digits(a);
+    final y = _digits(b);
+    if (x.isEmpty || y.isEmpty) return false;
+    final left = x.length > 10 ? x.substring(x.length - 10) : x;
+    final right = y.length > 10 ? y.substring(y.length - 10) : y;
+    return left == right;
+  }
+
+  Future<void> _loadLandlordKpis() async {
+    final auth = Get.find<AuthController>();
+    final phone = auth.userPhone.value.trim().isNotEmpty
+        ? auth.userPhone.value.trim()
+        : auth.phoneNumber.value.trim();
+    final userName = auth.userName.value.trim().toLowerCase();
+
+    final propertyNames = <String>{};
+    final propertyIds = <String>{};
+    if (Get.isRegistered<PropertyController>()) {
+      for (final p in Get.find<PropertyController>().properties) {
+        if (p.id.isNotEmpty) propertyIds.add(p.id);
+        if (p.name.trim().isNotEmpty) {
+          propertyNames.add(p.name.trim().toLowerCase());
+        }
+      }
+    }
+
+    var userCount = 0;
+    try {
+      final landlords =
+          await _dashboardRepo.getRegisteredLandlords(pageSize: 500);
+      RegisteredLandlordItem? mine;
+      for (final landlord in landlords) {
+        if (_samePhone(landlord.phone, phone) ||
+            (userName.isNotEmpty &&
+                landlord.name.trim().toLowerCase() == userName)) {
+          mine = landlord;
+          break;
+        }
+      }
+      if (mine != null) {
+        userCount = 1;
+        for (final property in mine.properties) {
+          if (property.name.trim().isNotEmpty) {
+            propertyNames.add(property.name.trim().toLowerCase());
+          }
+        }
+        final seen = <String>{};
+        for (final tenant in mine.tenants) {
+          final key = tenant.phone.trim().isNotEmpty
+              ? _digits(tenant.phone)
+              : tenant.id;
+          if (key.isNotEmpty && seen.add(key)) userCount++;
+        }
+      }
+
+      final tenants = await _dashboardRepo.getRegisteredTenants(pageSize: 500);
+      final seenTenants = <String>{};
+      if (mine != null) {
+        for (final tenant in mine.tenants) {
+          final key = tenant.phone.trim().isNotEmpty
+              ? _digits(tenant.phone)
+              : tenant.id;
+          if (key.isNotEmpty) seenTenants.add(key);
+        }
+      }
+      for (final tenant in tenants) {
+        final name = tenant.propertyName.trim().toLowerCase();
+        if (name.isEmpty || !propertyNames.contains(name)) continue;
+        final key = tenant.phone.trim().isNotEmpty
+            ? _digits(tenant.phone)
+            : tenant.id;
+        if (key.isNotEmpty && seenTenants.add(key)) userCount++;
+      }
+      if (userCount == 0 && (mine != null || propertyNames.isNotEmpty)) {
+        userCount = 1;
+      }
+    } catch (e) {
+      AppLogger.e('HomeController', 'Landlord user count failed', e);
+    }
+
+    var supportCount = 0;
+    var contactCount = 0;
+    try {
+      final data = await ServicesRepository().getDashboardServices();
+      final requests = data['requests'];
+      if (requests is List<ServiceRequestModel>) {
+        for (final request in requests) {
+          final propertyName = request.propertyName.trim().toLowerCase();
+          final matchesProperty =
+              (request.propertyId.isNotEmpty &&
+                  propertyIds.contains(request.propertyId)) ||
+              (propertyName.isNotEmpty && propertyNames.contains(propertyName));
+          final matchesName = userName.isNotEmpty &&
+              request.landlordName.trim().toLowerCase() == userName;
+          if (!matchesProperty && !matchesName) continue;
+          final status = request.status.trim().toLowerCase();
+          final done = status == 'completed' ||
+              status == 'closed' ||
+              status == 'cancelled' ||
+              status == 'resolved';
+          if (!done) supportCount++;
+          final type = request.serviceType.toLowerCase();
+          if (type.contains('contact')) contactCount++;
+        }
+      }
+    } catch (e) {
+      AppLogger.e('HomeController', 'Landlord support count failed', e);
+    }
+
+    var agreementCount = 0;
+    try {
+      final agreements =
+          await _rentalRepo.getRentalAgreements(page: 1, pageSize: 500);
+      for (final agreement in agreements) {
+        final propertyName = agreement.propertyName.trim().toLowerCase();
+        final landlordName = agreement.landlordName.trim().toLowerCase();
+        if (propertyName.isNotEmpty && propertyNames.contains(propertyName)) {
+          agreementCount++;
+        } else if (userName.isNotEmpty && landlordName == userName) {
+          agreementCount++;
+        }
+      }
+    } catch (e) {
+      AppLogger.e('HomeController', 'Landlord agreement count failed', e);
+    }
+
+    landlordRegisteredUsers.value = userCount;
+    landlordActiveSupport.value = supportCount;
+    landlordContactOwner.value = contactCount;
+    landlordRentalAgreements.value = agreementCount;
+    useLandlordKpis.value = true;
   }
 
   void updatePeriod(String cardLabel, String period) {
@@ -652,17 +941,28 @@ class HomeController extends GetxController {
     }).toList();
   }
 
-  int get registeredLandlordCount =>
-      overview.value?.landlordCount ?? registeredLandlords.length;
+  int get registeredLandlordCount {
+    if (_isLoggedInLandlord) return registeredLandlords.length;
+    return overview.value?.landlordCount ?? registeredLandlords.length;
+  }
 
-  int get registeredTenantCount =>
-      overview.value?.tenantCount ?? registeredTenants.length;
+  int get registeredTenantCount {
+    if (_isLoggedInLandlord) return registeredTenants.length;
+    return overview.value?.tenantCount ?? registeredTenants.length;
+  }
 
   int get registeredUsersTotalCount {
+    if (_isLoggedInLandlord) {
+      return registeredLandlordCount + registeredTenantCount;
+    }
     final total = overview.value?.registeredUsersCount ?? 0;
     if (total > 0) return total;
     return registeredLandlordCount + registeredTenantCount;
   }
+
+  bool get _isLoggedInLandlord =>
+      Get.isRegistered<AuthController>() &&
+      Get.find<AuthController>().isLandlord;
 
   Future<void> openRegisteredUsersDetails() async {
     showRegisteredUsersDetails.value = true;
@@ -692,6 +992,7 @@ class HomeController extends GetxController {
       if (registeredTenants.isEmpty) {
         registeredTenants.assignAll(_uniqueTenantsFromLandlords());
       }
+      _keepLoggedInLandlord();
     } catch (e, st) {
       AppLogger.e('HomeController', 'Fetch registered users failed', e, st);
       registeredUsersError.value = 'Unable to load registered users.';
@@ -699,6 +1000,50 @@ class HomeController extends GetxController {
       registeredTenants.clear();
     } finally {
       isRegisteredUsersLoading.value = false;
+    }
+  }
+
+  void _keepLoggedInLandlord() {
+    if (!_isLoggedInLandlord) return;
+    final auth = Get.find<AuthController>();
+    final phone = auth.userPhone.value.trim().isNotEmpty
+        ? auth.userPhone.value.trim()
+        : auth.phoneNumber.value.trim();
+    final name = auth.userName.value.trim().toLowerCase();
+
+    final mine = registeredLandlords.where((landlord) {
+      if (phone.isNotEmpty && _samePhone(landlord.phone, phone)) return true;
+      if (name.isNotEmpty && landlord.name.trim().toLowerCase() == name) {
+        return true;
+      }
+      return false;
+    }).toList();
+    registeredLandlords.assignAll(mine);
+
+    final propertyNames = <String>{};
+    for (final landlord in mine) {
+      for (final property in landlord.properties) {
+        if (property.name.trim().isNotEmpty) {
+          propertyNames.add(property.name.trim().toLowerCase());
+        }
+      }
+    }
+    if (Get.isRegistered<PropertyController>()) {
+      for (final property in Get.find<PropertyController>().properties) {
+        if (property.name.trim().isNotEmpty) {
+          propertyNames.add(property.name.trim().toLowerCase());
+        }
+      }
+    }
+
+    registeredTenants.assignAll(
+      registeredTenants.where((tenant) {
+        final propertyName = tenant.propertyName.trim().toLowerCase();
+        return propertyName.isNotEmpty && propertyNames.contains(propertyName);
+      }).toList(),
+    );
+    if (registeredTenants.isEmpty && mine.isNotEmpty) {
+      registeredTenants.assignAll(_uniqueTenantsFromLandlords());
     }
   }
 

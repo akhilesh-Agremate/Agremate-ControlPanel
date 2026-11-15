@@ -68,9 +68,14 @@ class PropertyView extends StatelessWidget {
           );
         }
         if (prop.isPg) {
-          return PgPropertyDetailView(property: prop);
+          final page = PgPropertyDetailView(property: prop);
+          if (!prop.isDeleted) return page;
+          return GreyScale(child: page);
         }
-        return PropertyDetailPanel(property: prop);
+        if (!prop.isDeleted) {
+          return PropertyDetailPanel(property: prop);
+        }
+        return GreyScale(child: PropertyDetailPanel(property: prop));
       }
 
       final mobile = Responsive.isMobile(context);
@@ -493,13 +498,15 @@ class _PropertyCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   if (hasImage)
-                    Image.network(
-                      prop.imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (c, e, s) => _placeholder(),
+                    _greyPhoto(
+                      Image.network(
+                        prop.imageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (c, e, s) => _placeholder(),
+                      ),
                     )
                   else
-                    _placeholder(),
+                    _greyPhoto(_placeholder()),
                   Positioned(
                     top: isMobile ? 8 : 12,
                     left: isMobile ? 8 : 12,
@@ -558,7 +565,9 @@ class _PropertyCard extends StatelessWidget {
                   Positioned(
                     top: isMobile ? 8 : 12,
                     right: isMobile ? 8 : 12,
-                    child: prop.isPg
+                    child: prop.isDeleted
+                        ? StatusBadge.deleted()
+                        : prop.isPg
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(20),
                             child: BackdropFilter(
@@ -664,6 +673,11 @@ class _PropertyCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _greyPhoto(Widget child) {
+    if (!prop.isDeleted) return child;
+    return GreyScale(child: child);
   }
 
   Widget _placeholder() {

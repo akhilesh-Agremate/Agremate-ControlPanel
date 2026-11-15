@@ -5,6 +5,11 @@ import 'package:agremate_admin/core/theme/theme.dart';
 import 'package:agremate_admin/core/constants/constants.dart';
 import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
 import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
+import 'package:agremate_admin/modules/home/controller/home_controller.dart';
+import 'package:agremate_admin/modules/property/controller/property_controller.dart';
+import 'package:agremate_admin/modules/services/controller/services_controller.dart';
+import 'package:agremate_admin/modules/finance/controller/finance_controller.dart';
+import 'package:agremate_admin/modules/documents/controller/document_controller.dart';
 
 class Sidebar extends StatelessWidget {
   const Sidebar({super.key,this.collapsed = false});
@@ -57,6 +62,10 @@ class Sidebar extends StatelessWidget {
                       label: item['label'] as String,
                       isActive: nav.currentIndex.value == item['index'],
                       onTap: () => nav.changePage(item['index'] as int),
+                      onDoubleTap: () => _onSidebarDoubleTap(
+                        nav,
+                        () => nav.changePage(item['index'] as int),
+                      ),
                     ),
                   ),
                 Obx(() {
@@ -67,6 +76,10 @@ class Sidebar extends StatelessWidget {
                     label: 'Admin Control',
                     isActive: nav.currentIndex.value == 9,
                     onTap: () => nav.changePage(9),
+                    onDoubleTap: () => _onSidebarDoubleTap(
+                      nav,
+                      () => nav.changePage(9),
+                    ),
                   );
                 }),
               ],
@@ -84,6 +97,10 @@ class Sidebar extends StatelessWidget {
                     label: 'My Account',
                     isActive: nav.currentIndex.value == 7,
                     onTap: () => nav.changePage(7),
+                    onDoubleTap: () => _onSidebarDoubleTap(
+                      nav,
+                      () => nav.changePage(7),
+                    ),
                   ),
                 ),
                 Obx(
@@ -93,6 +110,10 @@ class Sidebar extends StatelessWidget {
                     label: 'Support',
                     isActive: nav.currentIndex.value == 5,
                     onTap: () => nav.changePage(5),
+                    onDoubleTap: () => _onSidebarDoubleTap(
+                      nav,
+                      () => nav.changePage(5),
+                    ),
                   ),
                 ),
                 _NavItem(
@@ -109,6 +130,99 @@ class Sidebar extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _onSidebarDoubleTap(NavigationController nav, VoidCallback openPage) {
+    if (_closeOpenDetail(nav)) return;
+    openPage();
+  }
+
+  bool _closeOpenDetail(NavigationController nav) {
+    final index = nav.currentIndex.value;
+
+    if (index == 0 && Get.isRegistered<HomeController>()) {
+      final home = Get.find<HomeController>();
+      if (home.selectedSubscription.value != null) {
+        home.selectedSubscription.value = null;
+        return true;
+      }
+      if (home.showRentCollectionDetails.value) {
+        home.closeRentCollectionDetails();
+        return true;
+      }
+      if (home.showPendingPaymentDetails.value) {
+        home.closePendingPaymentDetails();
+        return true;
+      }
+      if (home.showSubscriptionDetails.value) {
+        home.closeSubscriptionDetails();
+        return true;
+      }
+      if (home.showExpiredSubscriptionDetails.value) {
+        home.closeExpiredSubscriptionDetails();
+        return true;
+      }
+      if (home.showRegisteredUsersDetails.value) {
+        home.closeRegisteredUsersDetails();
+        return true;
+      }
+      if (home.showRentalAgreements.value) {
+        home.closeRentalAgreementDetails();
+        return true;
+      }
+    }
+
+    if (index == 1 && Get.isRegistered<PropertyController>()) {
+      final pc = Get.find<PropertyController>();
+      if (pc.isAddOpen.value) {
+        pc.isAddOpen.value = false;
+        return true;
+      }
+      if (pc.selectedProperty.value != null) {
+        if (pc.returnTabIndex.value != null) {
+          nav.currentIndex.value = pc.returnTabIndex.value!;
+          pc.returnTabIndex.value = null;
+        }
+        pc.search('');
+        pc.closePropertyDetails();
+        return true;
+      }
+    }
+
+    if (index == 2 && Get.isRegistered<ServicesController>()) {
+      final sc = Get.find<ServicesController>();
+      if (sc.selectedServiceType.value.isNotEmpty) {
+        sc.selectedServiceType.value = '';
+        return true;
+      }
+    }
+
+    if (index == 3 && Get.isRegistered<FinanceController>()) {
+      final fc = Get.find<FinanceController>();
+      if (fc.selectedPropertyId.value != null) {
+        fc.clearSelection();
+        return true;
+      }
+    }
+
+    if (index == 4 && Get.isRegistered<DocumentController>()) {
+      final dc = Get.find<DocumentController>();
+      if (dc.selectedProperty.value != null) {
+        dc.goBack();
+        return true;
+      }
+    }
+
+    if (index == 8 && Get.isRegistered<PropertyController>()) {
+      final pc = Get.find<PropertyController>();
+      if (pc.selectedTenantDetails.value != null) {
+        pc.selectedTenantDetails.value = null;
+        nav.currentIndex.value = 6;
+        return true;
+      }
+    }
+
+    return false;
   }
 
   IconData _outlinedIcon(String label, IconData fallback) {
@@ -292,6 +406,7 @@ class _NavItem extends StatefulWidget {
   final bool isLogout;
   final bool collapsed;
   final VoidCallback onTap;
+  final VoidCallback? onDoubleTap;
 
   const _NavItem({
     required this.icon,
@@ -299,6 +414,7 @@ class _NavItem extends StatefulWidget {
     required this.isActive,
     this.isLogout = false,
     required this.onTap,
+    this.onDoubleTap,
     this.collapsed = false,
   });
 
@@ -331,6 +447,16 @@ class _NavItemState extends State<_NavItem> {
         widget.onTap();
         if (drawerOpen) Navigator.of(context).pop();
       },
+      onDoubleTap: widget.isLogout
+          ? null
+          : () {
+              widget.onDoubleTap?.call();
+              final scaffold = Scaffold.maybeOf(context);
+              final drawerOpen = scaffold != null &&
+                  scaffold.hasDrawer &&
+                  scaffold.isDrawerOpen;
+              if (drawerOpen) Navigator.of(context).pop();
+            },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.symmetric(vertical: 4),

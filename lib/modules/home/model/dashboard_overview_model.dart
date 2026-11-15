@@ -18,7 +18,8 @@ class DashboardOverviewModel {
   factory DashboardOverviewModel.fromJson(Map<String, dynamic> json) {
     int asInt(dynamic v) {
       if (v is num) return v.toInt();
-      return int.tryParse(v?.toString() ?? '') ?? 0;
+      final digits = (v?.toString() ?? '').replaceAll(RegExp(r'[^\d]'), '');
+      return int.tryParse(digits) ?? 0;
     }
 
     final users = json['registeredUsers'];

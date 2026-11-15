@@ -273,12 +273,10 @@ class NavigationController extends GetxController {
     switch (result.type) {
       case SearchResultType.property:
       case SearchResultType.location:
-        searchQuery.value = '';
         pc.selectedProperty.value = result.originalData;
         currentIndex.value = 1;
         break;
       case SearchResultType.landlord:
-        searchQuery.value = '';
         currentIndex.value = 1;
         final matches = pc.properties
             .where(
@@ -295,7 +293,6 @@ class NavigationController extends GetxController {
         }
         break;
       case SearchResultType.tenant:
-        searchQuery.value = '';
         currentIndex.value = 1;
         final matches = pc.properties
             .where(

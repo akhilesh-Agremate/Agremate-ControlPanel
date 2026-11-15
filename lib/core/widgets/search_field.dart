@@ -7,6 +7,7 @@ class SearchField extends StatefulWidget {
   final ValueChanged<String> onChanged;
   final ValueChanged<String>? onSubmitted;
   final VoidCallback? onClear;
+  final VoidCallback? onTap;
 
   const SearchField({
     super.key,
@@ -15,6 +16,7 @@ class SearchField extends StatefulWidget {
     required this.onChanged,
     this.onSubmitted,
     this.onClear,
+    this.onTap,
   });
 
   @override
@@ -66,6 +68,7 @@ class _SearchFieldState extends State<SearchField> {
         focusNode: _focusNode,
         onChanged: widget.onChanged,
         onSubmitted: widget.onSubmitted,
+        onTap: widget.onTap,
         style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
         decoration: InputDecoration(
           hintText: widget.hint,

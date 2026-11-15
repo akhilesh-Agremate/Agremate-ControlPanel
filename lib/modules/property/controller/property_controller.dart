@@ -510,6 +510,7 @@ class PropertyController extends GetxController {
       isDetailLoading.value = true;
       final detail = await _repository.getPropertyById(property.id);
       if (selectedProperty.value?.id == property.id) {
+        if (property.isDeleted) detail.isDeleted = true;
         selectedProperty.value = detail;
       }
     } catch (e) {
