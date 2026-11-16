@@ -71,5 +71,14 @@ class AppEndpoints {
       '/Document/get-property-document-by-propertyId';
   static const String createArticle = '/Article/create';
   static const String articleGrantAccess = '/Article/grant-access';
+  static const String supportFaqs = '/SupportFAQs';
+  static const String supportTickets = '/support-tickets';
+  static const String supportTicketsMy = '/support-tickets/my';
+  static String supportTicketDetail(String id) => '/support-tickets/$id';
+  static String supportTicketMessages(String id) => '/support-tickets/$id/messages';
+  static String supportTicketSeen(String id) => '/support-tickets/$id/messages/seen';
+  static String supportTicketStatus(String id) => '/support-tickets/$id/status';
+  static String supportTicketReopen(String id) => '/support-tickets/$id/reopen';
+  static String supportTicketRating(String id) => '/support-tickets/$id/rating';
 }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:get/get.dart';
 import 'package:agremate_admin/core/theme/theme.dart';
 import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
@@ -7,6 +8,8 @@ import 'package:agremate_admin/core/widgets/search_field.dart';
 import 'package:agremate_admin/modules/property/controller/property_controller.dart';
 import '../../../auth/controller/auth_controller.dart';
 import '../../../documents/view/documents_view.dart';
+import '../../../documents/controller/document_controller.dart';
+import '../../../property/model/property_model.dart';
 
 class TopBar extends StatefulWidget {
   const TopBar({super.key});
@@ -17,6 +20,7 @@ class TopBar extends StatefulWidget {
 
 class _TopBarState extends State<TopBar> {
   final LayerLink _layerLink = LayerLink();
+  final GlobalKey _searchKey = GlobalKey();
   OverlayEntry? _overlayEntry;
   final nav = Get.find<NavigationController>();
   static const double _compactBreakpoint = 600;
@@ -30,7 +34,20 @@ class _TopBarState extends State<TopBar> {
         final double overlayWidth =
         screenW < _compactBreakpoint ? screenW - 32 : 320;
 
-        return Positioned(
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: _OutsideTap(
+                passThrough: _tapInsideSearch,
+                onOutside: () {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    _hideOverlay();
+                    FocusManager.instance.primaryFocus?.unfocus();
+                  });
+                },
+              ),
+            ),
+            Positioned(
           width: overlayWidth,
           child: CompositedTransformFollower(
             link: _layerLink,
@@ -108,8 +125,15 @@ class _TopBarState extends State<TopBar> {
                           ),
                         ),
                         onTap: () {
-                          nav.onResultSelected(result);
+                          FocusScope.of(context).unfocus();
                           _hideOverlay();
+                          nav.searchResults.clear();
+                          if (nav.currentIndex.value == 4 &&
+                              result.type != SearchResultType.service) {
+                            _openDocumentResult(result);
+                          } else {
+                            nav.onResultSelected(result);
+                          }
                         },
                       );
                     },
@@ -118,11 +142,53 @@ class _TopBarState extends State<TopBar> {
               ),
             ),
           ),
+        ),
+          ],
         );
       },
     );
 
     Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _openSearchResults() {
+    final q = nav.searchQuery.value.trim();
+    if (q.isEmpty) return;
+    nav.updateSearchResults(nav.searchQuery.value);
+    if (nav.searchResults.isNotEmpty) _showOverlay();
+  }
+
+  void _openDocumentResult(GlobalSearchResult result) {
+    if (!Get.isRegistered<DocumentController>()) return;
+    final dc = Get.find<DocumentController>();
+    final pc = Get.find<PropertyController>();
+    PropertyModel? property;
+    if (result.originalData is PropertyModel) {
+      property = result.originalData as PropertyModel;
+    } else if (result.type == SearchResultType.landlord) {
+      for (final p in pc.properties) {
+        if (p.landlordName.toLowerCase() == result.title.toLowerCase()) {
+          property = p;
+          break;
+        }
+      }
+    } else if (result.type == SearchResultType.tenant) {
+      for (final p in pc.properties) {
+        if ((p.primaryTenantName ?? '').toLowerCase() ==
+            result.title.toLowerCase()) {
+          property = p;
+          break;
+        }
+      }
+    }
+    if (property != null) dc.openPropertyDocuments(property);
+  }
+
+  bool _tapInsideSearch(Offset global) {
+    final box = _searchKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return false;
+    final rect = box.localToGlobal(Offset.zero) & box.size;
+    return rect.contains(global);
   }
 
   void _hideOverlay() {
@@ -143,11 +209,7 @@ class _TopBarState extends State<TopBar> {
       }
     });
     ever(Get.find<PropertyController>().selectedProperty, (_) {
-      if (_overlayEntry != null) {
-        nav.searchResults.clear();
-        nav.searchQuery.value = '';
-        _hideOverlay();
-      }
+      _hideOverlay();
     });
     ever(nav.currentIndex, (_) {
       if (_overlayEntry != null) {
@@ -188,6 +250,7 @@ class _TopBarState extends State<TopBar> {
       );
 
       final Widget searchWidget = CompositedTransformTarget(
+        key: _searchKey,
         link: _layerLink,
         child: SearchField(
           hint: index == 0 ? 'Search tenant, property, location...' : 'Search ${title.toLowerCase()}...',
@@ -200,6 +263,7 @@ class _TopBarState extends State<TopBar> {
               nav.searchResults.clear();
             }
           },
+          onTap: _openSearchResults,
           onSubmitted: (q) => nav.performGlobalSearch(q),
           onClear: () => nav.searchResults.clear(),
         ),
@@ -303,5 +367,46 @@ class _TopBarState extends State<TopBar> {
         ),
       );
     });
+  }
+}
+
+class _OutsideTap extends SingleChildRenderObjectWidget {
+  final bool Function(Offset global) passThrough;
+  final VoidCallback onOutside;
+
+  const _OutsideTap({
+    required this.passThrough,
+    required this.onOutside,
+  }) : super(child: const SizedBox.expand());
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _RenderOutsideTap(passThrough, onOutside);
+  }
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderOutsideTap renderObject) {
+    renderObject
+      ..passThrough = passThrough
+      ..onOutside = onOutside;
+  }
+}
+
+class _RenderOutsideTap extends RenderProxyBox {
+  bool Function(Offset global) passThrough;
+  VoidCallback onOutside;
+
+  _RenderOutsideTap(this.passThrough, this.onOutside);
+
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) {
+    if (passThrough(localToGlobal(position))) return false;
+    result.add(BoxHitTestEntry(this, position));
+    return true;
+  }
+
+  @override
+  void handleEvent(PointerEvent event, BoxHitTestEntry entry) {
+    if (event is PointerDownEvent) onOutside();
   }
 }

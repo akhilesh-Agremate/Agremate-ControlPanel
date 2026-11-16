@@ -254,11 +254,11 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
             children: [
               Expanded(
                 child: Text(
-                  docName,
+                docName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTheme.heading2.copyWith(color: Colors.black87,fontSize: 20),
-                ),
+              ),
               ),
               IconButton(
                 icon: const Icon(Icons.close_rounded),
@@ -689,9 +689,9 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
                       ? () => _showOccupiedTenantsDialog(pg)
                       : null,
                   borderRadius: BorderRadius.circular(12),
-                  child: _buildLayoutStatBox(
-                    label: 'Occupied',
-                    value: '$occupiedBeds',
+                child: _buildLayoutStatBox(
+                  label: 'Occupied',
+                  value: '$occupiedBeds',
                     valueColor: const Color(0xFF16A34A),
                   ),
                 ),
@@ -1208,14 +1208,14 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
-                  'FINANCE & PRICING',
+                'FINANCE & PRICING',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.0,
-                    color: Colors.black54,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.0,
+                  color: Colors.black54,
                   ),
                 ),
               ),
@@ -1568,31 +1568,31 @@ class _PgFloorBedDetailsDialogState extends State<_PgFloorBedDetailsDialog> {
     Widget row(IconData icon, String label, String? value) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
-        children: [
-          Container(
+                children: [
+                  Container(
             width: 36,
             height: 36,
-            decoration: BoxDecoration(
+                    decoration: BoxDecoration(
               color: const Color(0xFFEAF1FF),
               borderRadius: BorderRadius.circular(10),
-            ),
+                    ),
             child: Icon(icon, size: 18, color: const Color(0xFF2F6BFF)),
-          ),
+                  ),
           const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                 Text(label,
                     style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-                Text(
+                        Text(
                   (value == null || value.trim().isEmpty) ? '-' : value,
                   style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
               ],
-            ),
-          ),
-        ],
+                          ),
+                        ),
+                      ],
       ),
     );
 
@@ -1607,14 +1607,14 @@ class _PgFloorBedDetailsDialogState extends State<_PgFloorBedDetailsDialog> {
               child: Text(
                 'Tenant details · ${room.roomName} · ${bed.bedNumber}',
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
               ),
-            ),
-            IconButton(
-              onPressed: () => Navigator.pop(ctx),
-              icon: const Icon(Icons.close_rounded),
-            ),
-          ],
-        ),
         content: SizedBox(
           width: (MediaQuery.sizeOf(context).width - 80).clamp(240.0, 380.0).toDouble(),
           child: Column(
@@ -1965,42 +1965,42 @@ class _PgFloorBedDetailsDialogState extends State<_PgFloorBedDetailsDialog> {
                                                 onTap: showName ? () => _showTenantDetailsDialog(room, bed) : null,
                                                 borderRadius: BorderRadius.circular(14),
                                                 child: Container(
-                                                  width: 120,
-                                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                                                  decoration: BoxDecoration(
-                                                    color: const Color(0xFFF8FAFC),
-                                                    borderRadius: BorderRadius.circular(14),
-                                                    border: Border.all(color: const Color(0xFFCBD5E1)),
-                                                  ),
-                                                  child: Column(
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    children: [
-                                                      const Icon(
-                                                        Icons.single_bed_outlined,
-                                                        color: Color(0xFF64748B),
-                                                        size: 24,
-                                                      ),
-                                                      const SizedBox(height: 6),
+                                                width: 120,
+                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFFF8FAFC),
+                                                  borderRadius: BorderRadius.circular(14),
+                                                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                                                ),
+                                                child: Column(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    const Icon(
+                                                      Icons.single_bed_outlined,
+                                                      color: Color(0xFF64748B),
+                                                      size: 24,
+                                                    ),
+                                                    const SizedBox(height: 6),
                                                       Text(
                                                         label,
                                                         style: const TextStyle(
-                                                          color: Color(0xFF475569),
-                                                          fontWeight: FontWeight.w600,
+                                                        color: Color(0xFF475569),
+                                                        fontWeight: FontWeight.w600,
                                                           fontSize: 14,
-                                                        ),
+                                                      ),
                                                         maxLines: 1,
                                                         overflow: TextOverflow.ellipsis,
-                                                      ),
-                                                      const SizedBox(height: 4),
-                                                      Text(
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Text(
                                                         rentFormatted,
-                                                        style: const TextStyle(
-                                                          color: Color(0xFF64748B),
-                                                          fontWeight: FontWeight.w500,
-                                                          fontSize: 12,
-                                                        ),
+                                                      style: const TextStyle(
+                                                        color: Color(0xFF64748B),
+                                                        fontWeight: FontWeight.w500,
+                                                        fontSize: 12,
                                                       ),
-                                                    ],
+                                                    ),
+                                                  ],
                                                   ),
                                                 ),
                                               );

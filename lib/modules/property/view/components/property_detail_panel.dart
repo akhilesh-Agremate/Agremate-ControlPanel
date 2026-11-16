@@ -27,22 +27,27 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
   String? _currentImageUrl;
   String? _openDocName;
   String? _openDocUrl;
+  bool _galleryOpen = false;
 
   bool _isEditing = false;
 
   bool get _canEdit {
+    if (widget.property.isDeleted) return false;
     if (!Get.isRegistered<AuthController>()) return true;
     final auth = Get.find<AuthController>();
     return auth.isSuperAdmin || auth.isLandlord;
   }
 
   bool get _canDelete {
+    if (widget.property.isDeleted) return false;
     if (!Get.isRegistered<AuthController>()) return true;
     final auth = Get.find<AuthController>();
     return !auth.isTenant;
   }
 
   void _confirmDelete(BuildContext context, PropertyController pc) {
+    if (widget.property.isDeleted) return;
+    setState(() => _galleryOpen = true);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -71,10 +76,13 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           ),
         ],
       ),
-    );
+    ).whenComplete(() {
+      if (mounted) setState(() => _galleryOpen = false);
+    });
   }
 
   Future<void> _startEdit() async {
+    if (widget.property.isDeleted) return;
     final pc = Get.find<PropertyController>();
     if (pc.amenities.isEmpty) pc.fetchAmenities();
     if (pc.featureOptions.isEmpty) pc.fetchFeatures();
@@ -101,7 +109,9 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
   @override
   Widget build(BuildContext context) {
     if (widget.property.isPg) {
-      return PgPropertyDetailView(property: widget.property);
+      final page = PgPropertyDetailView(property: widget.property);
+      if (!widget.property.isDeleted) return page;
+      return GreyScale(child: page);
     }
     final pc = Get.find<PropertyController>();
     final nav = Get.find<NavigationController>();
@@ -182,7 +192,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           )
         : _buildEmptyTenantCard();
 
-    return Container(
+    final page = Container(
       width: double.infinity,
       height: double.infinity,
       color: const Color(0xFFF8FAFD),
@@ -301,6 +311,8 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
         ],
       ),
     );
+    if (!widget.property.isDeleted) return page;
+    return GreyScale(child: page);
   }
 
   Widget _buildDetailsAndContacts({
@@ -608,12 +620,16 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
               ],
             ),
             const SizedBox(height: 16),
-            PropertyLocationMap(
-              title: widget.property.name,
-              address: widget.property.address.address,
-              latitude: widget.property.address.latitude,
-              longitude: widget.property.address.longitude,
-            ),
+            if (_galleryOpen)
+              const SizedBox(height: 190)
+            else
+              PropertyLocationMap(
+                title: widget.property.name,
+                address: widget.property.address.address,
+                latitude: widget.property.address.latitude,
+                longitude: widget.property.address.longitude,
+                grey: widget.property.isDeleted,
+              ),
           ],
         );
 
@@ -1265,8 +1281,10 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
   }
 
   void _showImageGallery(BuildContext context, int initialIndex) {
+    setState(() => _galleryOpen = true);
     showDialog(
       context: context,
+      barrierDismissible: true,
       builder: (context) {
         int currentIndex = initialIndex;
         return StatefulBuilder(
@@ -1345,9 +1363,12 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           },
         );
       },
-    );
+    ).whenComplete(() {
+      if (mounted) setState(() => _galleryOpen = false);
+    });
   }
 }
+
 /// Row on wide containers; wraps (dropping Spacers/gaps) on narrow ones.
 class _AdaptiveHeader extends StatelessWidget {
   final List<Widget> children;

@@ -8,6 +8,7 @@ import 'package:agremate_admin/modules/documents/model/document_model.dart';
 import 'package:agremate_admin/modules/property/model/property_model.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/status_badge.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/full_pdf_page.dart';
 import '../../../core/widgets/pdf_iframe_view.dart';
@@ -181,13 +182,15 @@ class _DocumentPropertyCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   if (hasImage)
-                    Image.network(
-                      prop.imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (c, e, s) => _placeholder(),
+                    _greyPhoto(
+                      Image.network(
+                        prop.imageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (c, e, s) => _placeholder(),
+                      ),
                     )
                   else
-                    _placeholder(),
+                    _greyPhoto(_placeholder()),
                   Positioned(
                     left: 0,
                     right: 0,
@@ -245,6 +248,12 @@ class _DocumentPropertyCard extends StatelessWidget {
                       ],
                     ),
                   ),
+                  if (prop.isDeleted)
+                    Positioned(
+                      top: 10,
+                      right: 10,
+                      child: StatusBadge.deleted(),
+                    ),
                 ],
               ),
             ),
@@ -252,6 +261,11 @@ class _DocumentPropertyCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _greyPhoto(Widget child) {
+    if (!prop.isDeleted) return child;
+    return GreyScale(child: child);
   }
 
   Widget _placeholder() {

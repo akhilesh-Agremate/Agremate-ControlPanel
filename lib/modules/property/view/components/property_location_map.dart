@@ -14,6 +14,7 @@ class PropertyLocationMap extends StatefulWidget {
   final double? latitude;
   final double? longitude;
   final double height;
+  final bool grey;
 
   const PropertyLocationMap({
     super.key,
@@ -22,6 +23,7 @@ class PropertyLocationMap extends StatefulWidget {
     this.latitude,
     this.longitude,
     this.height = 190,
+    this.grey = false,
   });
 
   @override
@@ -82,6 +84,9 @@ class _PropertyLocationMapState extends State<PropertyLocationMap> {
             ? 'none'
             : 'auto'
         ..allowFullscreen = true;
+      if (widget.grey) {
+        _iframe!.style.filter = 'grayscale(1)';
+      }
       return _iframe!;
     });
 

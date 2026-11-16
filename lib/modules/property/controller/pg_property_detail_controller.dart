@@ -24,19 +24,24 @@ class PgPropertyDetailController extends GetxController {
 
   String? _currentPropertyId;
 
+  bool _listDeleted = false;
+
   bool get canEdit {
+    if (_listDeleted) return false;
     if (!Get.isRegistered<AuthController>()) return true;
     final auth = Get.find<AuthController>();
     return auth.isSuperAdmin || auth.isLandlord;
   }
 
   bool get canDelete {
+    if (_listDeleted) return false;
     if (!Get.isRegistered<AuthController>()) return true;
     final auth = Get.find<AuthController>();
     return !auth.isTenant;
   }
 
   void init(PropertyModel model) {
+    _listDeleted = model.isDeleted;
     if (_currentPropertyId == model.id && property.value != null) {
       return;
     }
@@ -110,6 +115,7 @@ class PgPropertyDetailController extends GetxController {
   }
 
   void startEdit() {
+    if (_listDeleted) return;
     if (Get.isRegistered<PropertyController>()) {
       final pc = Get.find<PropertyController>();
       if (pc.amenities.isEmpty) pc.fetchAmenities();

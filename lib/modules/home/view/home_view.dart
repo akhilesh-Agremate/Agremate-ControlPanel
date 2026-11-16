@@ -22,6 +22,7 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/dashboard_kpi_card.dart';
 import '../../../core/widgets/full_pdf_page.dart';
 import 'components/rental_agreements_detail.dart';
+import 'components/support_tickets_detail_view.dart';
 
 class HomeView extends StatelessWidget {
   const HomeView({super.key});
@@ -101,6 +102,10 @@ class HomeView extends StatelessWidget {
         return const RentalAgreementsDetailView();
       }
 
+      if (controller.showSupportDetails.value) {
+        return const SupportTicketsDetailView();
+      }
+
       return ColoredBox(
         color: const Color(0xFFF8FAFD),
           child: Stack(
@@ -152,23 +157,31 @@ class HomeView extends StatelessWidget {
                         onTap = controller.openRegisteredUsersDetails;
                       } else if (label == AppStrings.rentalAgreement) {
                         onTap = controller.openRentalAgreementDetails;
+                      } else if (label == AppStrings.activeSupport) {
+                        onTap = controller.openSupportDetails;
                       }
 
                       return SizedBox(
                         height: 140,
-                        child: DashboardKpiCard(
-                          label: label,
-                          onTap: onTap,
-                          value: Obx(
-                                () => Text(
-                              controller.getAmount(label, periodVar.value),
+                        child: Obx(() {
+                          final amount = controller.getAmount(
+                              label, periodVar.value);
+
+                          return DashboardKpiCard(
+                            label: label,
+                            onTap: controller.isOverviewLoading.value
+                                ? null
+                                : onTap,
+                            isLoading: controller.isOverviewLoading.value,
+                            value: Text(
+                              amount,
                               style: AppTheme.kpiValue.copyWith(
                                 fontSize: isMobile ? 24 : 32,
                                 color: const Color(0xFF2F6BFF),
                               ),
                             ),
-                          ),
-                        ),
+                          );
+                        }),
                       );
                     }
 
@@ -3540,7 +3553,6 @@ class _HomeServiceRequestCard extends StatelessWidget {
   }
 }
 
-/// Scales a fixed-width panel down only when the space is narrower than [designWidth].
 class _ScaleToFit extends StatelessWidget {
   final Widget child;
   final double designWidth;
@@ -3564,7 +3576,6 @@ class _ScaleToFit extends StatelessWidget {
   }
 }
 
-/// Row on wide containers; stacks children vertically on narrow ones.
 class _AdaptiveRow extends StatelessWidget {
   final List<Widget> children;
   final double breakpoint;
@@ -3600,7 +3611,6 @@ class _AdaptiveRow extends StatelessWidget {
   }
 }
 
-/// [head] and [tail] sit side by side on wide containers; tail drops below on narrow ones.
 class _ResponsiveSplit extends StatelessWidget {
   final List<Widget> head;
   final Widget tail;

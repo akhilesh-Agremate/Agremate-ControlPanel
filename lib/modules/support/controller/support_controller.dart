@@ -1,36 +1,123 @@
 import 'package:get/get.dart';
+import 'package:agremate_admin/core/widgets/app_toast.dart';
+import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
+import 'package:agremate_admin/modules/support/model/support_faq.dart';
+import 'package:agremate_admin/modules/support/repository/support_repository.dart';
 
 class SupportController extends GetxController {
-  final name = ''.obs;
-  final email = ''.obs;
-  final message = ''.obs;
-  final isSubmitting = false.obs;
-  final isSubmitted = false.obs;
+  final SupportRepository _repository = SupportRepository();
 
-  final faqs = <Map<String, String>>[
-    {'q': 'How do I add a new landlord?', 'a': 'Go to the Property section and click the "Add Landlord" button in the top right corner. Fill in the required details and submit.'},
-    {'q': 'How do I view tenant details?', 'a': 'Navigate to the Property section and click on any tenant badge in the recent logins list to see their rented property details.'},
-    {'q': 'How do I track rent payments?', 'a': 'Go to the Finance section where you can see all rented properties. Click on any property to view month-wise rent payment history.'},
-    {'q': 'How do I manage service requests?', 'a': 'The Services section shows all 8 service categories. Click on any category card to see properties that have requested that specific service.'},
-    {'q': 'How do I access documents?', 'a': 'The Documents section works like Google Drive. Navigate through Landlord and Tenant folders to find specific documents.'},
-    {'q': 'How do I contact support?', 'a': 'You can reach us at contact@agremate.com or call +91 9876543210. You can also submit a ticket through the form below.'},
-  ].obs;
+  final faqs = <SupportFaq>[].obs;
+  final isFaqsLoading = false.obs;
+  final faqError = ''.obs;
+  final selectedCategory = 'All'.obs;
+  final faqQuery = ''.obs;
+  final isSavingFaq = false.obs;
 
-  void addFaq(String q, String a) {
-    if (q.isNotEmpty && a.isNotEmpty) {
-      faqs.insert(0, {'q': q, 'a': a});
+  bool get isSuperAdmin {
+    if (!Get.isRegistered<AuthController>()) return false;
+    return Get.find<AuthController>().isSuperAdmin;
+  }
+
+  List<String> get categories {
+    final names = <String>[];
+    for (final faq in faqs) {
+      final name = faq.category.trim();
+      if (name.isNotEmpty && !names.contains(name)) names.add(name);
+    }
+    return names;
+  }
+
+  List<SupportFaq> get visibleFaqs {
+    final query = faqQuery.value.trim().toLowerCase();
+    final category = selectedCategory.value;
+    return faqs.where((faq) {
+      if (category != 'All' &&
+          faq.category.trim().toLowerCase() != category.toLowerCase()) {
+        return false;
+      }
+      if (query.isEmpty) return true;
+      return faq.question.toLowerCase().contains(query) ||
+          faq.answer.toLowerCase().contains(query);
+    }).toList();
+  }
+
+  @override
+  void onInit() {
+    super.onInit();
+    fetchFaqs();
+  }
+
+  Future<void> fetchFaqs() async {
+    try {
+      isFaqsLoading.value = true;
+      faqError.value = '';
+      faqs.assignAll(
+        await _repository.getFaqs(includeInactive: isSuperAdmin),
+      );
+    } catch (e) {
+      faqError.value = _repository.errorText(e, 'Failed to load FAQs');
+    } finally {
+      isFaqsLoading.value = false;
     }
   }
 
-  void submitTicket() async {
-    if (name.value.isEmpty || email.value.isEmpty || message.value.isEmpty) return;
-    isSubmitting.value = true;
-    await Future.delayed(const Duration(seconds: 1));
-    isSubmitting.value = false;
-    isSubmitted.value = true;
-    Future.delayed(const Duration(seconds: 3), () { isSubmitted.value = false; });
-    name.value = '';
-    email.value = '';
-    message.value = '';
+  Future<bool> createFaq({
+    required String question,
+    required String answer,
+    String? category,
+  }) async {
+    try {
+      isSavingFaq.value = true;
+      final message = await _repository.createFaq(
+        question: question.trim(),
+        answer: answer.trim(),
+        category: category,
+        displayOrder: faqs.length + 1,
+      );
+      AppToast.success(message);
+      await fetchFaqs();
+      return true;
+    } catch (e) {
+      AppToast.error(_repository.errorText(e, 'Failed to create FAQ'));
+      return false;
+    } finally {
+      isSavingFaq.value = false;
+    }
+  }
+
+  Future<bool> updateFaq(SupportFaq faq) async {
+    try {
+      isSavingFaq.value = true;
+      final message = await _repository.updateFaq(faq);
+      AppToast.success(message);
+      await fetchFaqs();
+      return true;
+    } catch (e) {
+      AppToast.error(_repository.errorText(e, 'Failed to update FAQ'));
+      return false;
+    } finally {
+      isSavingFaq.value = false;
+    }
+  }
+
+  Future<void> toggleFaq(SupportFaq faq) async {
+    try {
+      final message = await _repository.updateFaq(faq, isActive: !faq.isActive);
+      AppToast.success(message);
+      await fetchFaqs();
+    } catch (e) {
+      AppToast.error(_repository.errorText(e, 'Failed to update FAQ'));
+    }
+  }
+
+  Future<void> deleteFaq(SupportFaq faq) async {
+    try {
+      final message = await _repository.deleteFaq(faq.id);
+      AppToast.success(message);
+      await fetchFaqs();
+    } catch (e) {
+      AppToast.error(_repository.errorText(e, 'Failed to delete FAQ'));
+    }
   }
 }

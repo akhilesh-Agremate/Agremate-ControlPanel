@@ -1,6 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:agremate_admin/core/theme/theme.dart';
 
+class GreyScale extends StatelessWidget {
+  final Widget child;
+
+  const GreyScale({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return ColorFiltered(
+      colorFilter: const ColorFilter.matrix(<double>[
+        0.2126, 0.7152, 0.0722, 0, 0,
+        0.2126, 0.7152, 0.0722, 0, 0,
+        0.2126, 0.7152, 0.0722, 0, 0,
+        0, 0, 0, 1, 0,
+      ]),
+      child: child,
+    );
+  }
+}
+
 class StatusBadge extends StatelessWidget {
   final String label;
   final Color color;
@@ -88,6 +107,13 @@ class StatusBadge extends StatelessWidget {
     color: Color(0xFF9E9E9E),
     backgroundColor: Color(0xFFF5F5F5),
     textColor: Color(0xFF757575),
+  );
+  factory StatusBadge.deleted() => const StatusBadge(
+    label: 'Deleted',
+    color: Color(0xFF757575),
+    backgroundColor: Color(0xFFF3F4F6),
+    textColor: Color(0xFF4B5563),
+    borderColor: Color(0xFFD1D5DB),
   );
 
   factory StatusBadge.active() => const StatusBadge(

@@ -128,7 +128,7 @@ class PropertyRepository {
       for (final p in list) {
         if (p.id.isNotEmpty) {
           combined[p.id] = p;
-        } else {
+      } else {
           combined['anon-$fallbackIndex'] = p;
           fallbackIndex++;
         }
@@ -808,6 +808,8 @@ class PropertyRepository {
         'images': images,
         'isSelfOwned': raw['isSelfOwned'] ?? true,
         if (landlord != null) ...{
+          'landlordId': (raw['landlord'] is Map ? raw['landlord']['id'] : null) ??
+              existing.landlordId,
           'landlordName': landlord['name'],
           'landlordPhoneNumber': _withCountryCode(landlord['phone']),
           if ((landlord['email'] ?? '').toString().isNotEmpty)

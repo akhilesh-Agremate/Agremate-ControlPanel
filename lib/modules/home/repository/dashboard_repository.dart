@@ -163,11 +163,13 @@ class DashboardRepository {
     }
   }
 
-  Future<List<RegisteredLandlordItem>> getRegisteredLandlords() async {
+  Future<List<RegisteredLandlordItem>> getRegisteredLandlords({
+    int pageSize = 50,
+  }) async {
     try {
       final response = await DioClient.instance.get(
         AppEndpoints.allLandlordDetails,
-        queryParameters: {'page': 1, 'pageSize': 50},
+        queryParameters: {'page': 1, 'pageSize': pageSize},
       );
       AppLogger.d(
         'DashboardRepository',
@@ -314,11 +316,13 @@ class DashboardRepository {
     return points;
   }
 
-  Future<List<RegisteredTenantItem>> getRegisteredTenants() async {
+  Future<List<RegisteredTenantItem>> getRegisteredTenants({
+    int pageSize = 50,
+  }) async {
     try {
       final response = await DioClient.instance.get(
         AppEndpoints.allTenants,
-        queryParameters: {'page': 1, 'pageSize': 50},
+        queryParameters: {'page': 1, 'pageSize': pageSize},
       );
       AppLogger.d(
         'DashboardRepository',

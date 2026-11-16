@@ -4,12 +4,14 @@ class DashboardKpiCard extends StatelessWidget {
   final String label;
   final Widget value;
   final VoidCallback? onTap;
+  final bool isLoading;
 
   const DashboardKpiCard({
     super.key,
     required this.label,
     required this.value,
     this.onTap,
+    this.isLoading = false,
   });
 
   @override
@@ -17,7 +19,7 @@ class DashboardKpiCard extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap,
+        onTap: isLoading ? null : onTap,
         borderRadius: BorderRadius.circular(20),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
@@ -55,7 +57,20 @@ class DashboardKpiCard extends StatelessWidget {
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
-                child: FittedBox(
+                height: 44,
+                child: isLoading
+                    ? const Align(
+                  alignment: Alignment.centerLeft,
+                  child: SizedBox(
+                    width: 26,
+                    height: 26,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 3,
+                      color: Color(0xFF2F6BFF),
+                    ),
+                  ),
+                )
+                    : FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
                   child: value,

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:agremate_admin/core/theme/theme.dart';
 import 'package:agremate_admin/modules/support/controller/support_controller.dart';
-import 'package:agremate_admin/core/widgets/glass_card.dart';
+import 'package:agremate_admin/modules/support/model/support_faq.dart';
 import '../../../core/utils/responsive.dart';
 
 class SupportView extends StatelessWidget {
@@ -20,9 +20,21 @@ class SupportView extends StatelessWidget {
           children: [
             LayoutBuilder(builder: (context, c) {
               final cards = [
-                _ContactCard(icon: Icons.email_rounded, title: 'Email', value: 'contact@agremate.com', color: AppTheme.accentCyan),
-                _ContactCard(icon: Icons.phone_rounded, title: 'Phone', value: '+91 9876543210', color: AppTheme.accentGreen),
-                _ContactCard(icon: Icons.location_on_rounded, title: 'Address', value: 'Mumbai, Maharashtra, India', color: AppTheme.accentPurple),
+                const _ContactCard(
+                  icon: Icons.email_outlined,
+                  title: 'Email',
+                  value: 'contact@agremate.com',
+                ),
+                const _ContactCard(
+                  icon: Icons.phone_outlined,
+                  title: 'Phone',
+                  value: '+91 9876543210',
+                ),
+                const _ContactCard(
+                  icon: Icons.location_on_outlined,
+                  title: 'Address',
+                  value: 'Mumbai, Maharashtra, India',
+                ),
               ];
               if (c.maxWidth < 600) {
                 return Column(
@@ -52,111 +64,143 @@ class SupportView extends StatelessWidget {
                   child: Text('Frequently Asked Questions', style: AppTheme.heading2),
                 ),
                 const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  onPressed: () => _showAddFaqDialog(context, sc),
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Add Question'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accentGreen,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                if (sc.isSuperAdmin)
+                  ElevatedButton.icon(
+                    onPressed: () => _showFaqDialog(context, sc),
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: const Text('Add Question'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.brandSteelBlue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
                   ),
-                ),
               ],
             ),
             const SizedBox(height: 16),
-            ...sc.faqs.map((faq) => Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Theme(
-                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                child: ExpansionTile(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: const BorderSide(color: AppTheme.accentBlue, width: 1.5),
-                  ),
-                  collapsedShape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    side: const BorderSide(color: AppTheme.border, width: 1.0),
-                  ),
-                  tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                  childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                  iconColor: AppTheme.accentGreen,
-                  collapsedIconColor: AppTheme.textMuted,
-                  title: Text(faq['q']!, style: AppTheme.heading3.copyWith(fontSize: 14)),
-                  children: [Text(faq['a']!, style: AppTheme.bodyText)],
-                ),
-              ),
-            )),
-            const SizedBox(height: 32),
-
-            Text('Submit a Ticket', style: AppTheme.heading2),
+            const _FaqSearch(),
+            const SizedBox(height: 12),
+            _categoryChips(sc),
             const SizedBox(height: 16),
-            GlassCard(
-              glowColor: AppTheme.accentBlue,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    onChanged: (v) => sc.name.value = v,
-                    style: const TextStyle(color: AppTheme.textPrimary),
-                    decoration: const InputDecoration(labelText: 'Your Name'),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    onChanged: (v) => sc.email.value = v,
-                    style: const TextStyle(color: AppTheme.textPrimary),
-                    decoration: const InputDecoration(labelText: 'Email'),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    onChanged: (v) => sc.message.value = v,
-                    maxLines: 4,
-                    style: const TextStyle(color: AppTheme.textPrimary),
-                    decoration: const InputDecoration(labelText: 'Message', alignLabelWithHint: true),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      ElevatedButton(
-                        onPressed: sc.isSubmitting.value ? null : sc.submitTicket,
-                        child: sc.isSubmitting.value
-                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.bgDark))
-                            : const Text('Submit Ticket'),
-                      ),
-                      const SizedBox(width: 16),
-                      if (sc.isSubmitted.value)
-                        const Flexible(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.check_circle, color: AppTheme.accentGreen, size: 20),
-                              SizedBox(width: 6),
-                              Flexible(
-                                child: Text('Ticket submitted!',
-                                    style: TextStyle(color: AppTheme.accentGreen),
-                                    overflow: TextOverflow.ellipsis),
-                              ),
-                            ],
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+            if (sc.isFaqsLoading.value)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (sc.faqError.value.isNotEmpty)
+              Text(sc.faqError.value, style: AppTheme.bodyText)
+            else if (sc.visibleFaqs.isEmpty)
+              Text('No questions found.', style: AppTheme.bodyText)
+            else
+              ...sc.visibleFaqs.map((faq) => _faqTile(context, sc, faq)),
           ],
         ),
       );
     });
   }
-  void _showAddFaqDialog(BuildContext context, SupportController sc) {
-    final qController = TextEditingController();
-    final aController = TextEditingController();
+  Widget _categoryChips(SupportController sc) {
+    final chips = ['All', ...sc.categories];
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: chips.map((name) {
+        final selected = sc.selectedCategory.value == name;
+        return ChoiceChip(
+          label: Text(name),
+          selected: selected,
+          selectedColor: AppTheme.brandPaleSky,
+          labelStyle: TextStyle(
+            color: selected ? AppTheme.brandSteelBlue : AppTheme.textMuted,
+            fontWeight: FontWeight.w600,
+          ),
+          side: BorderSide(
+            color: selected ? AppTheme.brandSteelBlue : AppTheme.border,
+          ),
+          onSelected: (_) => sc.selectedCategory.value = name,
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _faqTile(BuildContext context, SupportController sc, SupportFaq faq) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.brandWhite,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: AppTheme.brandSteelBlue, width: 1.5),
+          ),
+          collapsedShape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: AppTheme.border, width: 1.0),
+          ),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+          childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          iconColor: AppTheme.brandSteelBlue,
+          collapsedIconColor: AppTheme.textMuted,
+          title: Text(faq.question, style: AppTheme.heading3.copyWith(fontSize: 14)),
+          subtitle: faq.category.isEmpty
+              ? null
+              : Text(faq.category, style: AppTheme.caption),
+          trailing: sc.isSuperAdmin
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      faq.isActive ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                      color: faq.isActive ? AppTheme.brandSteelBlue : AppTheme.textMuted,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.expand_more, color: AppTheme.textMuted),
+                  ],
+                )
+              : null,
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(faq.answer, style: AppTheme.bodyText),
+            ),
+            if (sc.isSuperAdmin) ...[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                children: [
+                  TextButton(
+                    onPressed: () => sc.toggleFaq(faq),
+                    child: Text(faq.isActive ? 'Hide' : 'Show'),
+                  ),
+                  TextButton(
+                    onPressed: () => _showFaqDialog(context, sc, faq: faq),
+                    child: const Text('Edit'),
+                  ),
+                  TextButton(
+                    onPressed: () => _confirmDelete(context, sc, faq),
+                    child: const Text(
+                      'Delete',
+                      style: TextStyle(color: AppTheme.brandRed),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showFaqDialog(BuildContext context, SupportController sc, {SupportFaq? faq}) {
+    final qController = TextEditingController(text: faq?.question ?? '');
+    final aController = TextEditingController(text: faq?.answer ?? '');
+    final cController = TextEditingController(text: faq?.category ?? '');
 
     showDialog(
       context: context,
@@ -167,12 +211,9 @@ class SupportView extends StatelessWidget {
             : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
         backgroundColor: AppTheme.bgCard,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            const Icon(Icons.help_outline_rounded, color: AppTheme.accentGreen),
-            const SizedBox(width: 12),
-            const Text('Add New FAQ', style: TextStyle(color: AppTheme.textPrimary)),
-          ],
+        title: Text(
+          faq == null ? 'Add New FAQ' : 'Edit FAQ',
+          style: const TextStyle(color: AppTheme.textPrimary),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -180,10 +221,7 @@ class SupportView extends StatelessWidget {
             TextField(
               controller: qController,
               style: const TextStyle(color: AppTheme.textPrimary),
-              decoration: const InputDecoration(
-                labelText: 'Question',
-                hintText: 'e.g., How do I reset my password?',
-              ),
+              decoration: const InputDecoration(labelText: 'Question'),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -192,8 +230,16 @@ class SupportView extends StatelessWidget {
               style: const TextStyle(color: AppTheme.textPrimary),
               decoration: const InputDecoration(
                 labelText: 'Answer',
-                hintText: 'Provide a clear explanation...',
                 alignLabelWithHint: true,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: cController,
+              style: const TextStyle(color: AppTheme.textPrimary),
+              decoration: const InputDecoration(
+                labelText: 'Category',
+                hintText: 'Payments, Agreement, Support',
               ),
             ),
           ],
@@ -204,16 +250,98 @@ class SupportView extends StatelessWidget {
             child: const Text('Cancel', style: TextStyle(color: AppTheme.textMuted)),
           ),
           ElevatedButton(
-            onPressed: () {
-              if (qController.text.isNotEmpty && aController.text.isNotEmpty) {
-                sc.addFaq(qController.text, aController.text);
-                Navigator.pop(ctx);
-              }
+            onPressed: () async {
+              final question = qController.text.trim();
+              final answer = aController.text.trim();
+              if (question.isEmpty || answer.isEmpty) return;
+              final ok = faq == null
+                  ? await sc.createFaq(
+                      question: question,
+                      answer: answer,
+                      category: cController.text.trim(),
+                    )
+                  : await sc.updateFaq(
+                      SupportFaq(
+                        id: faq.id,
+                        question: question,
+                        answer: answer,
+                        category: cController.text.trim(),
+                        displayOrder: faq.displayOrder,
+                        isActive: faq.isActive,
+                      ),
+                    );
+              if (ok && ctx.mounted) Navigator.pop(ctx);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentGreen),
-            child: const Text('Add Question'),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.brandSteelBlue),
+            child: Text(faq == null ? 'Add Question' : 'Save'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context, SupportController sc, SupportFaq faq) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.bgCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete FAQ'),
+        content: const Text('This question will be deleted permanently.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              sc.deleteFaq(faq);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.brandRed),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FaqSearch extends StatefulWidget {
+  const _FaqSearch();
+
+  @override
+  State<_FaqSearch> createState() => _FaqSearchState();
+}
+
+class _FaqSearchState extends State<_FaqSearch> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sc = Get.find<SupportController>();
+    return TextField(
+      controller: _controller,
+      onChanged: (value) => sc.faqQuery.value = value,
+      decoration: InputDecoration(
+        hintText: 'Search questions',
+        prefixIcon: const Icon(Icons.search, color: AppTheme.brandSteelBlue),
+        filled: true,
+        fillColor: AppTheme.brandWhite,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppTheme.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppTheme.border),
+        ),
       ),
     );
   }
@@ -223,30 +351,61 @@ class _ContactCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String value;
-  final Color color;
-  const _ContactCard({required this.icon, required this.title, required this.value, required this.color});
+  const _ContactCard({
+    required this.icon,
+    required this.title,
+    required this.value,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GlassCard(
-      glowColor: color,
-      padding: const EdgeInsets.all(20),
-      child: SizedBox(
-        width: double.infinity,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
-              child: Icon(icon, color: color, size: 28),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppTheme.brandWhite,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.border, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.brandSteelBlue.withValues(alpha: 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AppTheme.brandPaleSky,
+              borderRadius: BorderRadius.circular(14),
             ),
-            const SizedBox(height: 12),
-            Text(title, style: AppTheme.heading3),
-            const SizedBox(height: 6),
-            Text(value, style: AppTheme.bodyText, textAlign: TextAlign.center),
-          ],
-        ),
+            child: Icon(icon, color: AppTheme.brandSteelBlue, size: 24),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: AppTheme.caption.copyWith(
+                    color: AppTheme.brandSteelBlue,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: AppTheme.heading3.copyWith(fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

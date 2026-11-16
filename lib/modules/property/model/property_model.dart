@@ -122,7 +122,10 @@ class PropertyModel {
     this.totalRooms,
     this.totalBeds,
     this.availableBeds,
+    this.isDeleted = false,
   });
+
+  bool isDeleted;
 
   factory PropertyModel.fromJson(Map<String, dynamic> json) {
     try {
@@ -316,6 +319,7 @@ class PropertyModel {
         totalRooms: (json['totalRooms'] as num?)?.toInt(),
         totalBeds: (json['totalBeds'] as num?)?.toInt(),
         availableBeds: (json['availableBeds'] as num?)?.toInt(),
+        isDeleted: json['isDeleted'] == true,
       );
     } catch (e, stack) {
       AppLogger.e('PropertyModel', 'fromJson failed', e, stack);
