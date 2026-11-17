@@ -164,16 +164,17 @@ class DashboardRepository {
   }
 
   Future<List<RegisteredLandlordItem>> getRegisteredLandlords({
+    int page = 1,
     int pageSize = 50,
   }) async {
     try {
       final response = await DioClient.instance.get(
         AppEndpoints.allLandlordDetails,
-        queryParameters: {'page': 1, 'pageSize': pageSize},
+        queryParameters: {'page': page, 'pageSize': pageSize},
       );
       AppLogger.d(
         'DashboardRepository',
-        'getRegisteredLandlords success status=${response.statusCode}',
+        'getRegisteredLandlords page=$page status=${response.statusCode}',
       );
       return _asMapList(response.data)
           .map(RegisteredLandlordItem.fromJson)
@@ -317,16 +318,17 @@ class DashboardRepository {
   }
 
   Future<List<RegisteredTenantItem>> getRegisteredTenants({
+    int page = 1,
     int pageSize = 50,
   }) async {
     try {
       final response = await DioClient.instance.get(
         AppEndpoints.allTenants,
-        queryParameters: {'page': 1, 'pageSize': pageSize},
+        queryParameters: {'page': page, 'pageSize': pageSize},
       );
       AppLogger.d(
         'DashboardRepository',
-        'getRegisteredTenants success status=${response.statusCode}',
+        'getRegisteredTenants page=$page status=${response.statusCode}',
       );
       return _asMapList(response.data)
           .map(RegisteredTenantItem.fromJson)

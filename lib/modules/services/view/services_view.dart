@@ -12,6 +12,8 @@ import 'package:agremate_admin/core/widgets/status_badge.dart';
 import 'package:intl/intl.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/app_toast.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../../core/widgets/web_network_image.dart';
 
 class ServicesView extends StatelessWidget {
   const ServicesView({super.key});
@@ -1331,16 +1333,67 @@ class ServicesView extends StatelessWidget {
   }
 
   Widget? _attachmentWidget(BuildContext context, Map<String, dynamic> msg) {
-    final name = msg['attachmentName'] as String?;
-    final url =
-    (msg['attachmentUrl'] ?? msg['fileUrl'] ?? msg['url'])?.toString();
-    if (name == null && (url == null || url.isEmpty)) return null;
+    final items = <Map<String, String>>[];
+    final raw = msg['attachments'];
+    if (raw is List) {
+      for (final item in raw) {
+        if (item is! Map) continue;
+        final name = item['name']?.toString() ?? '';
+        final url = item['url']?.toString() ?? '';
+        final thumb = item['thumb']?.toString() ?? '';
+        if (name.isEmpty && url.isEmpty && thumb.isEmpty) continue;
+        items.add({'name': name, 'url': url, 'thumb': thumb});
+      }
+    }
+    if (items.isEmpty) {
+      final name = msg['attachmentName']?.toString() ?? '';
+      final url = (msg['attachmentUrl'] ?? msg['fileUrl'] ?? msg['url'])
+          ?.toString() ??
+          '';
+      if (name.isEmpty && url.isEmpty) return null;
+      items.add({'name': name, 'url': url});
+    }
 
-    final lower = (name ?? url ?? '').toLowerCase().split('?').first;
-    final isImage = msg['attachmentType'] == 'image' ||
-        RegExp(r'\.(png|jpe?g|gif|webp|bmp)$').hasMatch(lower);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          if (i > 0) const SizedBox(height: 8),
+          _oneChatFile(
+            context,
+            items[i]['name'] ?? '',
+            items[i]['url'] ?? '',
+            items[i]['thumb'] ?? '',
+          ),
+        ],
+      ],
+    );
+  }
 
-    if (isImage && url != null && url.isNotEmpty) {
+  bool _isChatImage(String name, String url) {
+    final lower = '$name $url'.toLowerCase().split('?').first;
+    return RegExp(r'\.(png|jpe?g|gif|webp|bmp)(\?|$|\s|/)').hasMatch(lower) ||
+        lower.contains('image/');
+  }
+
+  String _fileTypeLabel(String name) {
+    final clean = name.split('?').first;
+    final dot = clean.lastIndexOf('.');
+    if (dot < 0 || dot == clean.length - 1) return 'FILE';
+    return clean.substring(dot + 1).toUpperCase();
+  }
+
+  Future<void> _downloadFile(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    await launchUrl(uri, webOnlyWindowName: '_blank');
+  }
+
+  Widget _oneChatFile(BuildContext context, String name, String url,
+      [String thumb = '']) {
+    final fullUrl = url.isNotEmpty ? url : thumb;
+    final isImage = _isChatImage(name, fullUrl);
+    if (isImage && fullUrl.isNotEmpty) {
       return GestureDetector(
         onTap: () => showDialog(
           context: context,
@@ -1350,7 +1403,11 @@ class ServicesView extends StatelessWidget {
             child: Stack(
               children: [
                 InteractiveViewer(
-                  child: Image.network(url, fit: BoxFit.contain),
+                  child: SizedBox(
+                    width: MediaQuery.of(context).size.width * 0.8,
+                    height: MediaQuery.of(context).size.height * 0.7,
+                    child: WebNetworkImage(url: fullUrl, fit: BoxFit.contain),
+                  ),
                 ),
                 Positioned(
                   top: 4,
@@ -1366,33 +1423,16 @@ class ServicesView extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(10),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 240, maxHeight: 240),
-            child: Image.network(
-              url,
-              fit: BoxFit.cover,
-              loadingBuilder: (c, child, progress) => progress == null
-                  ? child
-                  : const SizedBox(
-                width: 240,
-                height: 160,
-                child: Center(
-                    child: CircularProgressIndicator(strokeWidth: 2)),
-              ),
-              errorBuilder: (_, __, ___) => const SizedBox(
-                width: 240,
-                height: 120,
-                child: Center(
-                  child: Icon(Icons.broken_image_outlined,
-                      color: Color(0xFF9E9E9E), size: 32),
-                ),
-              ),
-            ),
+          child: SizedBox(
+            width: 220,
+            height: 180,
+            child: WebNetworkImage(url: fullUrl, fit: BoxFit.cover),
           ),
         ),
       );
     }
 
+    final label = name.trim().isEmpty ? 'Attachment' : name.trim();
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1400,12 +1440,28 @@ class ServicesView extends StatelessWidget {
             size: 18, color: Color(0xFF5E35B1)),
         const SizedBox(width: 6),
         Flexible(
-          child: Text(
-            name ?? 'Attachment',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF212121)),
-            overflow: TextOverflow.ellipsis,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF212121)),
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                _fileTypeLabel(label),
+                style: const TextStyle(fontSize: 10, color: Color(0xFF757575)),
+              ),
+            ],
           ),
         ),
+        if (url.isNotEmpty)
+          IconButton(
+            tooltip: 'Download',
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.download_rounded, size: 18),
+            onPressed: () => _downloadFile(url),
+          ),
       ],
     );
   }

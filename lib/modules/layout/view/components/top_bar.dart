@@ -22,11 +22,15 @@ class _TopBarState extends State<TopBar> {
   final LayerLink _layerLink = LayerLink();
   final GlobalKey _searchKey = GlobalKey();
   OverlayEntry? _overlayEntry;
+  Worker? _resultsWorker;
+  Worker? _propertyWorker;
+  Worker? _pageWorker;
+  bool _overlaySyncScheduled = false;
   final nav = Get.find<NavigationController>();
   static const double _compactBreakpoint = 600;
 
   void _showOverlay() {
-    _hideOverlay();
+    if (!mounted || _overlayEntry != null) return;
 
     _overlayEntry = OverlayEntry(
       builder: (context) {
@@ -148,7 +152,12 @@ class _TopBarState extends State<TopBar> {
       },
     );
 
-    Overlay.of(context).insert(_overlayEntry!);
+    final overlay = Overlay.maybeOf(context);
+    if (overlay == null) {
+      _overlayEntry = null;
+      return;
+    }
+    overlay.insert(_overlayEntry!);
   }
 
   void _openSearchResults() {
@@ -195,31 +204,40 @@ class _TopBarState extends State<TopBar> {
     final entry = _overlayEntry;
     if (entry == null) return;
     _overlayEntry = null;
-    entry.remove();
+    try {
+      entry.remove();
+    } catch (_) {}
+  }
+
+  void _scheduleOverlaySync() {
+    if (_overlaySyncScheduled) return;
+    _overlaySyncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _overlaySyncScheduled = false;
+      if (!mounted) return;
+      if (nav.searchResults.isEmpty) {
+        _hideOverlay();
+      } else if (_overlayEntry == null) {
+        _showOverlay();
+      }
+    });
   }
 
   @override
   void initState() {
     super.initState();
-    ever(nav.searchResults, (results) {
-      if (results.isNotEmpty && _overlayEntry == null) {
-        _showOverlay();
-      } else if (results.isEmpty && _overlayEntry != null) {
-        _hideOverlay();
-      }
-    });
-    ever(Get.find<PropertyController>().selectedProperty, (_) {
+    _resultsWorker = ever(nav.searchResults, (_) => _scheduleOverlaySync());
+    _propertyWorker = ever(Get.find<PropertyController>().selectedProperty, (_) {
       _hideOverlay();
     });
-    ever(nav.currentIndex, (_) {
-      if (_overlayEntry != null) {
-        _hideOverlay();
-      }
-    });
+    _pageWorker = ever(nav.currentIndex, (_) => _hideOverlay());
   }
 
   @override
   void dispose() {
+    _resultsWorker?.dispose();
+    _propertyWorker?.dispose();
+    _pageWorker?.dispose();
     _hideOverlay();
     super.dispose();
   }

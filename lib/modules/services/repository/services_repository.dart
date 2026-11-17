@@ -81,6 +81,20 @@ class ServicesRepository {
     return ServiceRequestModel.fromJson(json);
   }
 
+  List<dynamic>? _messageList(dynamic data) {
+    if (data is List) return data;
+    if (data is! Map) return null;
+    final result = data['result'] ?? data['messages'];
+    if (result is List) return result;
+    if (result is Map) {
+      final nested = result['messages'] ??
+          result['chatMessages'] ??
+          result['items'];
+      if (nested is List) return nested;
+    }
+    return null;
+  }
+
   Future<void> sendMessage(
       String id,
       String message, {

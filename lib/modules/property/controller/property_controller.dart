@@ -13,6 +13,8 @@ import 'package:agremate_admin/modules/layout/controller/navigation_controller.d
 import 'package:agremate_admin/core/utils/app_logger.dart';
 import 'package:intl/intl.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../network_utils/app_end_points.dart';
+import '../../../network_utils/dio_client.dart';
 import '../model/amenity_model.dart';
 import '../view/components/property_type_dialog.dart';
 
@@ -46,6 +48,84 @@ class PropertyController extends GetxController {
 
   final scrollController = ScrollController();
   static const int perPage = 32;
+  final bhkTypes = <Map<String, dynamic>>[].obs;
+  final isBhkLoading = false.obs;
+
+  Future<void> fetchBhkTypes() async {
+    if (bhkTypes.isNotEmpty || isBhkLoading.value) return;
+    try {
+      isBhkLoading.value = true;
+      final res = await DioClient.instance.get(AppEndpoints.bhkTypes);
+      final data = res.data;
+      final raw = data is Map && data['result'] is List ? data['result'] as List : const [];
+      bhkTypes.assignAll([
+        for (final e in raw)
+          if (e is Map && e['code'] != null)
+            {
+              'id': e['id'],
+              'code': e['code'].toString(),
+              'name': (e['name'] ?? e['code']).toString(),
+              'bedrooms': e['bedrooms'],
+            }
+      ]);
+    } catch (e) {
+      AppLogger.e('PropertyController', 'Error fetching BHK types', e);
+    } finally {
+      isBhkLoading.value = false;
+    }
+  }
+
+  /// "2bhk", "2 BHK", "1-rk" -> "2BHK", "1RK"
+  String normalizeBhk(String? t) =>
+      (t ?? '').replaceAll(RegExp(r'[\s\-_]+'), '').toUpperCase();
+
+  String? matchBhkCode(String? stored) {
+    final n = normalizeBhk(stored);
+    if (n.isEmpty) return null;
+    for (final t in bhkTypes) {
+      if (t['code'] == n) return n;
+    }
+    return null;
+  }
+
+  /// Name for display; falls back to the stored text if there is no match.
+  String bhkDisplayName(String? stored) {
+    final n = normalizeBhk(stored);
+    for (final t in bhkTypes) {
+      if (t['code'] == n) return t['name'].toString();
+    }
+    return (stored ?? '').trim();
+  }
+
+  final propertyTypes = <Map<String, dynamic>>[].obs;
+
+  Future<void> fetchPropertyTypes() async {
+    if (propertyTypes.isNotEmpty) return;
+    try {
+      final res = await DioClient.instance.get(AppEndpoints.propertyTypes);
+      final data = res.data;
+      final raw = data is Map && data['result'] is List ? data['result'] as List : const [];
+      propertyTypes.assignAll([
+        for (final e in raw)
+          if (e is Map && e['name'] != null)
+            {'id': e['id'].toString(), 'name': e['name'].toString()}
+      ]);
+    } catch (e) {
+      AppLogger.e('PropertyController', 'Error fetching property types', e);
+    }
+  }
+
+  /// Accepts an id ("1") or a name ("Apartment"). Returns '' if it can't be resolved.
+  String propertyTypeName(dynamic stored) {
+    final s = stored?.toString().trim() ?? '';
+    if (s.isEmpty) return '';
+    for (final t in propertyTypes) {
+      if (t['id'] == s || t['name'].toString().toLowerCase() == s.toLowerCase()) {
+        return t['name'].toString();
+      }
+    }
+    return int.tryParse(s) == null ? s : '';
+  }
 
   Timer? _autoRefreshTimer;
 
@@ -180,6 +260,23 @@ class PropertyController extends GetxController {
     AppToast.success('Property updated');
   }
 
+  Future<void> setCoverImage(PropertyModel property, String documentId) async {
+    if (documentId.isEmpty) {
+      AppToast.error('Selected image not found. Please refresh.');
+      return;
+    }
+    try {
+      await _repository.setCoverImage(property.id, documentId);
+      final detail = await _repository.getPropertyById(property.id);
+      if (property.isDeleted) detail.isDeleted = true;
+      selectedProperty.value = detail;
+      unawaited(refreshProperties());
+      AppToast.success('Cover image updated');
+    } catch (e) {
+      AppToast.error(e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
   Future<void> deleteProperty(String id) async {
     if (Get.isRegistered<AuthController>()) {
       final auth = Get.find<AuthController>();
@@ -191,18 +288,15 @@ class PropertyController extends GetxController {
       }
     }
     try {
-      isLoading.value = true;
       final message = await _repository.deleteProperty(id);
       properties.removeWhere((p) => p.id == id);
       _applyFilters();
-      closePropertyDetails();
       await refreshProperties();
+      closePropertyDetails();
       AppToast.success(message);
     } catch (e) {
       AppToast.error('Failed to delete property: $e');
       rethrow;
-    } finally {
-      isLoading.value = false;
     }
   }
 
@@ -211,6 +305,7 @@ class PropertyController extends GetxController {
     isAddOpen.value = true;
     if (amenities.isEmpty) fetchAmenities();
     if (featureOptions.isEmpty) fetchFeatures();
+    fetchBhkTypes();
   }
 
   Future<void> fetchProperties() async {

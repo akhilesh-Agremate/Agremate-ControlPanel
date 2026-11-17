@@ -85,6 +85,7 @@ class _MapPickerState extends State<_MapPicker> {
   String? _error;
   bool _loading = false;
   late bool _hasPick = widget.initial != null;
+  bool _showMobileMap = false;
 
   @override
   void initState() {
@@ -454,6 +455,19 @@ class _MapPickerState extends State<_MapPicker> {
   }
 
   Widget _mapArea() {
+    final mobile = Responsive.isMobile(context);
+    if (mobile && !_showMobileMap) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _showMobileMap = true);
+      });
+      return const Padding(
+        padding: EdgeInsets.only(top: 14),
+        child: ColoredBox(
+          color: Color(0xFFE8EEF8),
+          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.only(top: 14),
       child: ClipRRect(

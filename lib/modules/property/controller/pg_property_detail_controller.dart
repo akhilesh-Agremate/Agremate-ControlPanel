@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:agremate_admin/network_utils/dio_client.dart';
 import 'package:agremate_admin/network_utils/app_end_points.dart';
 import 'package:agremate_admin/modules/property/model/property_model.dart';
+import 'package:agremate_admin/modules/property/repository/property_repository.dart';
 import 'package:agremate_admin/modules/property/controller/property_controller.dart';
 import 'package:agremate_admin/modules/property/model/pg_property_detail_model.dart';
 import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
@@ -21,6 +22,7 @@ class PgPropertyDetailController extends GetxController {
   final openDocName = Rxn<String>();
   final openDocUrl = Rxn<String>();
   final isEditing = false.obs;
+  final isDeleting = false.obs;
 
   String? _currentPropertyId;
 
@@ -92,6 +94,21 @@ class PgPropertyDetailController extends GetxController {
     final id = _currentPropertyId ?? property.value?.id;
     if (id != null && id.isNotEmpty) {
       await loadById(id);
+    }
+  }
+
+  Future<void> setCover(String documentId) async {
+    final id = property.value?.id ?? _currentPropertyId;
+    if (id == null || id.isEmpty || documentId.isEmpty) {
+      AppToast.error('Selected image not found. Please refresh.');
+      return;
+    }
+    try {
+      await PropertyRepository().setCoverImage(id, documentId);
+      await refreshProperty();
+      AppToast.success('Cover image updated');
+    } catch (e) {
+      AppToast.error(e.toString().replaceFirst('Exception: ', ''));
     }
   }
 
@@ -192,8 +209,13 @@ class PgPropertyDetailController extends GetxController {
           ElevatedButton(
             onPressed: () async {
               Navigator.of(ctx).pop();
-              if (Get.isRegistered<PropertyController>()) {
-                await Get.find<PropertyController>().deleteProperty(propId);
+              isDeleting.value = true;
+              try {
+                if (Get.isRegistered<PropertyController>()) {
+                  await Get.find<PropertyController>().deleteProperty(propId);
+                }
+              } finally {
+                isDeleting.value = false;
               }
             },
             style: ElevatedButton.styleFrom(

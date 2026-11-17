@@ -163,9 +163,10 @@ class NavigationController extends GetxController {
         }
 
         final seenIds = <String>{};
-        searchResults.assignAll(
-          results.where((r) => seenIds.add('${r.type}-${r.id}')).take(15),
-        );
+        searchResults.value = results
+            .where((r) => seenIds.add('${r.type}-${r.id}'))
+            .take(15)
+            .toList();
         return;
       }
 
@@ -257,9 +258,10 @@ class NavigationController extends GetxController {
       } catch (_) {}
 
       final seenIds = <String>{};
-      searchResults.assignAll(
-        results.where((r) => seenIds.add('${r.type}-${r.id}')).take(15),
-      );
+      searchResults.value = results
+          .where((r) => seenIds.add('${r.type}-${r.id}'))
+          .take(15)
+          .toList();
     } catch (e) {
       AppLogger.e('NavigationController', 'Search error', e);
     }

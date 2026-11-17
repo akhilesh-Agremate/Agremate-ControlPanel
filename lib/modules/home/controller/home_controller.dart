@@ -48,6 +48,11 @@ class HomeController extends GetxController {
   final registeredTenants = <RegisteredTenantItem>[].obs;
   final isRegisteredUsersLoading = false.obs;
   final registeredUsersError = ''.obs;
+  final isLoadingMoreTenants = false.obs;
+  int _tenantsLoadToken = 0;
+  static const tenantPageSize = 50;
+  static const _maxPages = 200;
+  static const _zeroGuid = '00000000-0000-0000-0000-000000000000';
   final _rentalRepo = RentalAgreementRepository();
   final rentalAgreements = <RentalAgreementItem>[].obs;
   final isRentalAgreementsLoading = false.obs;
@@ -971,24 +976,56 @@ class HomeController extends GetxController {
   }
 
   void closeRegisteredUsersDetails() {
+    _tenantsLoadToken++;
+    isLoadingMoreTenants.value = false;
     showRegisteredUsersDetails.value = false;
     registeredUsersError.value = '';
   }
 
   Future<void> fetchRegisteredUsers() async {
+    final token = ++_tenantsLoadToken;
+    final all = <RegisteredTenantItem>[];
+    final seen = <String>{};
+    var hasMore = false;
     try {
       isRegisteredUsersLoading.value = true;
+      isLoadingMoreTenants.value = false;
       registeredUsersError.value = '';
-      registeredLandlords.assignAll(
-        await _dashboardRepo.getRegisteredLandlords(),
-      );
-      try {
-        registeredTenants.assignAll(
-          _uniqueTenants(await _dashboardRepo.getRegisteredTenants()),
+      registeredTenants.clear();
+
+      final landlords = <RegisteredLandlordItem>[];
+      final seenLandlords = <String>{};
+      for (var page = 1; page <= _maxPages; page++) {
+        final items = await _dashboardRepo.getRegisteredLandlords(
+          page: page,
+          pageSize: 50,
         );
-      } catch (_) {
-        registeredTenants.clear();
+        var added = 0;
+        for (final l in items) {
+          final key = l.id.isNotEmpty ? l.id : _digits(l.phone);
+          if (seenLandlords.add(key)) {
+            landlords.add(l);
+            added++;
+          }
+        }
+        if (items.length < 50 || added == 0) break;
       }
+      registeredLandlords.assignAll(landlords);
+
+      try {
+        hasMore = await _loadTenantPage(1, all, seen);
+        if (_isLoggedInLandlord) {
+          for (var page = 2; hasMore && page <= _maxPages; page++) {
+            hasMore = await _loadTenantPage(page, all, seen);
+          }
+          hasMore = false;
+        }
+      } catch (_) {
+        all.clear();
+        hasMore = false;
+      }
+
+      registeredTenants.assignAll(all);
       if (registeredTenants.isEmpty) {
         registeredTenants.assignAll(_uniqueTenantsFromLandlords());
       }
@@ -998,8 +1035,53 @@ class HomeController extends GetxController {
       registeredUsersError.value = 'Unable to load registered users.';
       registeredLandlords.clear();
       registeredTenants.clear();
+      hasMore = false;
     } finally {
       isRegisteredUsersLoading.value = false;
+    }
+
+    if (hasMore && token == _tenantsLoadToken) {
+      _loadRemainingTenants(token, all, seen);
+    }
+  }
+
+  Future<bool> _loadTenantPage(
+      int page,
+      List<RegisteredTenantItem> all,
+      Set<String> seen,
+      ) async {
+    final items = await _dashboardRepo.getRegisteredTenants(
+      page: page,
+      pageSize: tenantPageSize,
+    );
+    var added = 0;
+    for (final t in items) {
+      if (seen.add(_tenantKey(t))) {
+        all.add(t);
+        added++;
+      }
+    }
+    return items.length >= tenantPageSize && added > 0;
+  }
+
+  Future<void> _loadRemainingTenants(
+      int token,
+      List<RegisteredTenantItem> all,
+      Set<String> seen,
+      ) async {
+    isLoadingMoreTenants.value = true;
+    try {
+      for (var page = 2; page <= _maxPages; page++) {
+        if (token != _tenantsLoadToken) return;
+        final more = await _loadTenantPage(page, all, seen);
+        if (token != _tenantsLoadToken) return;
+        registeredTenants.assignAll(all);
+        if (!more) break;
+      }
+    } catch (e, st) {
+      AppLogger.e('HomeController', 'Load more tenants failed', e, st);
+    } finally {
+      if (token == _tenantsLoadToken) isLoadingMoreTenants.value = false;
     }
   }
 
@@ -1055,14 +1137,19 @@ class HomeController extends GetxController {
     return _uniqueTenants(nested);
   }
 
+  String _tenantKey(RegisteredTenantItem t) {
+    if (t.userId.isNotEmpty) return 'u:${t.userId}';
+    if (t.id.isNotEmpty && t.id != _zeroGuid) return 't:${t.id}';
+    final phone = _digits(t.phone);
+    if (phone.isNotEmpty) return 'p:$phone';
+    return 'n:${t.name}';
+  }
+
   List<RegisteredTenantItem> _uniqueTenants(List<RegisteredTenantItem> items) {
     final seen = <String>{};
     final unique = <RegisteredTenantItem>[];
     for (final tenant in items) {
-      final key = tenant.id.isNotEmpty
-          ? tenant.id
-          : '${tenant.name}|${tenant.phone}';
-      if (seen.add(key)) unique.add(tenant);
+      if (seen.add(_tenantKey(tenant))) unique.add(tenant);
     }
     return unique;
   }
