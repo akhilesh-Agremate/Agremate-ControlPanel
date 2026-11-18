@@ -128,6 +128,16 @@ class PropertyController extends GetxController {
   }
 
   Timer? _autoRefreshTimer;
+  bool _usersLoading = false;
+  bool _usersLoaded = false;
+  final isLandlordsLoading = false.obs;
+  final isTenantsLoading = false.obs;
+
+  Future<void> loadUsersIfNeeded() async {
+    if (_usersLoaded || _usersLoading) return;
+    _usersLoaded = true;
+    await _loadUsersInBackground();
+  }
 
   int get totalPropertiesCount => properties.length;
   int get pgPropertiesCount => properties.where((p) => p.isPg).length;
@@ -211,9 +221,8 @@ class PropertyController extends GetxController {
       _applyFilters();
       _buildDependentLists();
       await fetchStats();
-      await fetchTenants();
-      await fetchLandlords();
       _refreshKpiStats();
+      if (_usersLoaded) unawaited(_refreshUsersQuick());
       if (currentPage.value > totalPages) currentPage.value = totalPages;
       if (fetched.length > prevCount) {
         AppToast.success(
@@ -317,8 +326,6 @@ class PropertyController extends GetxController {
       _applyFilters();
       _buildDependentLists();
       await fetchStats();
-      await fetchTenants();
-      await fetchLandlords();
       _refreshKpiStats();
     } catch (e) {
       AppToast.error('Failed to fetch properties: $e');
@@ -551,7 +558,126 @@ class PropertyController extends GetxController {
     );
   }
 
+  String _landlordKey(LandlordModel l) =>
+      '${l.id}|${l.phone.replaceAll(RegExp(r'\D'), '')}|${l.name.trim().toLowerCase()}';
+  String _tenantKey(TenantModel t) =>
+      '${t.id}|${t.phone.replaceAll(RegExp(r'\D'), '')}|${t.propertyName}|${t.name}';
+
+  List<LandlordModel> _applyLandlordRules(List<LandlordModel> list) {
+    var out = _repository.filterLandlords(list);
+    if (Get.isRegistered<AuthController>() && Get.find<AuthController>().isTenant) {
+      final names = properties.map((p) => p.landlordName.toLowerCase()).toSet();
+      final ids = properties.map((p) => p.landlordId).toSet();
+      out = out
+          .where((l) => ids.contains(l.id) || names.contains(l.name.toLowerCase()))
+          .toList();
+    }
+    return out;
+  }
+
+  List<TenantModel> _applyTenantRules(List<TenantModel> list) {
+    var out = _repository.filterTenants(list);
+    if (Get.isRegistered<AuthController>() && Get.find<AuthController>().isLandlord) {
+      final names = properties.map((p) => p.name.toLowerCase()).toSet();
+      out = out.where((t) => names.contains(t.propertyName.toLowerCase())).toList();
+    }
+    return out;
+  }
+
+  Future<void> _loadUsersInBackground() async {
+    if (_usersLoading) return;
+    _usersLoading = true;
+    try {
+      await Future.wait([_loadLandlordsProgressive(), _loadTenantsProgressive()]);
+      _refreshKpiStats();
+    } finally {
+      _usersLoading = false;
+    }
+  }
+
+  Future<void> _loadLandlordsProgressive() async {
+    isLandlordsLoading.value = true;
+    final all = <LandlordModel>[];
+    final seen = <String>{};
+    try {
+      for (var page = 1; page <= 1000; page++) {
+        final items = await _repository.getLandlordsPage(page: page);
+        var added = 0;
+        for (final l in items) {
+          if (seen.add(_landlordKey(l))) {
+            all.add(l);
+            added++;
+          }
+        }
+        if (page == 1 || page % 3 == 0) {
+          landlords.assignAll(_applyLandlordRules(all));
+        }
+        await Future.delayed(const Duration(milliseconds: 60));
+        AppLogger.i('PropertyController',
+            'landlords page=$page got=${items.length} added=$added total=${all.length}');
+        if (items.isEmpty || added == 0) break;
+      }
+    } catch (e) {
+      AppLogger.e('PropertyController', 'Error fetching landlords', e);
+    } finally {
+      landlords.assignAll(_applyLandlordRules(all));
+      isLandlordsLoading.value = false;
+    }
+  }
+
+  Future<void> _loadTenantsProgressive() async {
+    isTenantsLoading.value = true;
+    final all = <TenantModel>[];
+    final seen = <String>{};
+    try {
+      for (var page = 1; page <= 1000; page++) {
+        final items = await _repository.getTenantsPage(page: page);
+        var added = 0;
+        for (final t in items) {
+          if (seen.add(_tenantKey(t))) {
+            all.add(t);
+            added++;
+          }
+        }
+        if (page == 1 || page % 3 == 0) {
+          tenants.assignAll(_applyTenantRules(all));
+        }
+        await Future.delayed(const Duration(milliseconds: 60));
+        AppLogger.i('PropertyController',
+            'tenants page=$page got=${items.length} added=$added total=${all.length}');
+        if (items.isEmpty || added == 0) break;
+      }
+    } catch (e) {
+      AppLogger.e('PropertyController', 'Error fetching tenants', e);
+    } finally {
+      tenants.assignAll(_applyTenantRules(all));
+      isTenantsLoading.value = false;
+    }
+  }
+
+  Future<void> _refreshUsersQuick() async {
+    if (_usersLoading) return;
+    if (landlords.isEmpty && tenants.isEmpty) {
+      await _loadUsersInBackground();
+      return;
+    }
+    try {
+      final knownL = landlords.map(_landlordKey).toSet();
+      final freshL = _applyLandlordRules(await _repository.getLandlordsPage(page: 1))
+          .where((l) => !knownL.contains(_landlordKey(l)))
+          .toList();
+      if (freshL.isNotEmpty) landlords.insertAll(0, freshL);
+
+      final knownT = tenants.map(_tenantKey).toSet();
+      final freshT = _applyTenantRules(await _repository.getTenantsPage(page: 1))
+          .where((t) => !knownT.contains(_tenantKey(t)))
+          .toList();
+      if (freshT.isNotEmpty) tenants.insertAll(0, freshT);
+    } catch (_) {}
+  }
+
   Future<void> fetchTenants() async {
+    isTenantsLoading.value = true;
     try {
       var fetchedTenants = await _repository.getAllTenants();
       if (Get.isRegistered<AuthController>() &&
@@ -564,10 +690,13 @@ class PropertyController extends GetxController {
       tenants.assignAll(fetchedTenants);
     } catch (e) {
       AppLogger.e('PropertyController', 'Error fetching tenants', e);
+    } finally {
+      isTenantsLoading.value = false;
     }
   }
 
   Future<void> fetchLandlords() async {
+    isLandlordsLoading.value = true;
     try {
       var fetchedLandlords = await _repository.getAllLandlords();
       if (Get.isRegistered<AuthController>() &&
@@ -575,15 +704,14 @@ class PropertyController extends GetxController {
         final names = properties.map((p) => p.landlordName.toLowerCase()).toSet();
         final ids = properties.map((p) => p.landlordId).toSet();
         fetchedLandlords = fetchedLandlords
-            .where(
-              (l) =>
-                  ids.contains(l.id) || names.contains(l.name.toLowerCase()),
-            )
+            .where((l) => ids.contains(l.id) || names.contains(l.name.toLowerCase()))
             .toList();
       }
       landlords.assignAll(fetchedLandlords);
     } catch (e) {
       AppLogger.e('PropertyController', 'Error fetching landlords', e);
+    } finally {
+      isLandlordsLoading.value = false;
     }
   }
 

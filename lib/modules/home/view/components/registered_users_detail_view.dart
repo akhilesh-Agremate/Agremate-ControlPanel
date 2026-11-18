@@ -41,7 +41,6 @@ class RegisteredUsersDetailView extends StatelessWidget {
           );
         }
 
-        final tab = controller.registeredUsersTab.value;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -49,34 +48,113 @@ class RegisteredUsersDetailView extends StatelessWidget {
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  return SingleChildScrollView(
-                    padding: EdgeInsets.fromLTRB(
-                      constraints.maxWidth < 600 ? 14 : 28,
-                      0,
-                      constraints.maxWidth < 600 ? 14 : 28,
-                      28,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _countCards(controller, constraints.maxWidth),
-                        if (tab == 1) ...[
-                          const SizedBox(height: 16),
-                          _landlordCards(
-                            controller.registeredLandlords,
-                            constraints.maxWidth,
+                  final w = constraints.maxWidth;
+                  final pad = w < 600 ? 14.0 : 28.0;
+
+                  return Obx(() {
+                    final tab = controller.registeredUsersTab.value;
+                    final switching = controller.isTabSwitching.value;
+                    final moreLoading = tab == 1
+                        ? controller.isLoadingMoreLandlords.value
+                        : controller.isLoadingMoreTenants.value;
+
+                    final landlords = controller.registeredLandlords;
+                    final tenants = controller.registeredTenants;
+                    final count =
+                    tab == 1 ? landlords.length : tab == 2 ? tenants.length : 0;
+                    final columns = _columnsFor(w, maxColumns: tab == 1 ? 5 : 2);
+                    final rowCount = (count / columns).ceil();
+
+                    return CustomScrollView(
+                      slivers: [
+                        SliverPadding(
+                          padding: EdgeInsets.fromLTRB(pad, 0, pad, 16),
+                          sliver: SliverToBoxAdapter(
+                            child: _countCards(controller, w),
                           ),
-                        ],
-                        if (tab == 2) ...[
-                          const SizedBox(height: 16),
-                          _tenantCards(
-                            controller.registeredTenants,
-                            constraints.maxWidth,
+                        ),
+                        if (switching)
+                          const SliverToBoxAdapter(
+                            child: Padding(
+                              padding: EdgeInsets.all(40),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: AppTheme.accentGreen,
+                                ),
+                              ),
+                            ),
+                          )
+                        else if (tab != 0 && count == 0)
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Center(
+                                child: moreLoading
+                                    ? const CircularProgressIndicator(
+                                  color: AppTheme.accentGreen,
+                                )
+                                    : Text(
+                                  tab == 1
+                                      ? 'No landlords found.'
+                                      : 'No tenants found.',
+                                  style: AppTheme.bodyText,
+                                ),
+                              ),
+                            ),
+                          )
+                        else if (tab != 0)
+                            SliverPadding(
+                              padding: EdgeInsets.symmetric(horizontal: pad),
+                              sliver: SliverList(
+                                delegate: SliverChildBuilderDelegate(
+                                      (context, r) {
+                                    final start = r * columns;
+                                    return Padding(
+                                      padding: const EdgeInsets.only(bottom: 12),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                        children: [
+                                          for (var c = 0; c < columns; c++) ...[
+                                            if (c > 0) const SizedBox(width: 12),
+                                            Expanded(
+                                              child: start + c < count
+                                                  ? (tab == 1
+                                                  ? _landlordCard(
+                                                  landlords[start + c])
+                                                  : _tenantCard(
+                                                  tenants[start + c]))
+                                                  : const SizedBox.shrink(),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                  childCount: rowCount,
+                                ),
+                              ),
+                            ),
+                        if (!switching && tab != 0 && moreLoading && count > 0)
+                          const SliverToBoxAdapter(
+                            child: Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: AppTheme.accentGreen,
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
-                        ],
+                        const SliverToBoxAdapter(child: SizedBox(height: 28)),
                       ],
-                    ),
-                  );
+                    );
+                  });
                 },
               ),
             ),
@@ -84,6 +162,13 @@ class RegisteredUsersDetailView extends StatelessWidget {
         );
       }),
     );
+  }
+
+  int _columnsFor(double width, {int maxColumns = 2}) {
+    if (width < 600) return 1;
+    if (width < 800) return maxColumns >= 2 ? 2 : maxColumns;
+    if (width < 1100) return maxColumns >= 3 ? 3 : maxColumns;
+    return maxColumns;
   }
 
   Widget _header(HomeController controller) {
@@ -128,21 +213,21 @@ class RegisteredUsersDetailView extends StatelessWidget {
         value: landlords,
         icon: Icons.groups_outlined,
         selected: tab == 1,
-        onTap: () => controller.registeredUsersTab.value = 1,
+        onTap: () => controller.switchRegisteredUsersTab(1),
       ),
       _countCard(
         title: 'Tenants',
         value: tenants,
         icon: Icons.person_outline,
         selected: tab == 2,
-        onTap: () => controller.registeredUsersTab.value = 2,
+        onTap: () => controller.switchRegisteredUsersTab(2),
       ),
       _countCard(
         title: 'Total Registered Users',
         value: total,
         icon: Icons.pie_chart_outline,
         selected: tab == 0,
-        onTap: () => controller.registeredUsersTab.value = 0,
+        onTap: () => controller.switchRegisteredUsersTab(0),
       ),
     ];
     if (width < 800) {
@@ -193,7 +278,7 @@ class RegisteredUsersDetailView extends StatelessWidget {
                 Text(title, style: AppTheme.bodyText),
                 const SizedBox(height: 4),
                 Text(
-                  '$value',
+                  NumberFormat.decimalPattern('en_IN').format(value),
                   style: AppTheme.kpiValue.copyWith(
                     fontSize: 28,
                     color: AppTheme.landlordText,
@@ -204,73 +289,6 @@ class RegisteredUsersDetailView extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _landlordCards(
-    List<RegisteredLandlordItem> landlords,
-    double width,
-  ) {
-    if (landlords.isEmpty) {
-      return Center(child: Text('No landlords found.', style: AppTheme.bodyText));
-    }
-    final cards = landlords.map(_landlordCard).toList();
-    return _cardGrid(cards, width,maxColumns: 5);
-  }
-
-  Widget _tenantCards(List<RegisteredTenantItem> tenants, double width) {
-    if (tenants.isEmpty) {
-      return Center(child: Text('No tenants found.', style: AppTheme.bodyText));
-    }
-    final cards = tenants.map(_tenantCard).toList();
-    return _cardGrid(cards, width);
-  }
-
-  Widget _cardGrid(List<Widget> cards, double width, {int maxColumns = 2}) {
-    int columns;
-    if (width < 600) {
-      columns = 1;
-    } else if (width < 800) {
-      columns = maxColumns >= 2 ? 2 : maxColumns;
-    } else if (width < 1100) {
-      columns = maxColumns >= 3 ? 3 : maxColumns;
-    } else {
-      columns = maxColumns;
-    }
-
-    if (columns == 1) {
-      return Column(
-        children: [
-          for (var i = 0; i < cards.length; i++) ...[
-            if (i > 0) const SizedBox(height: 12),
-            cards[i],
-          ],
-        ],
-      );
-    }
-
-    final cols = List.generate(columns, (_) => <Widget>[]);
-    for (var i = 0; i < cards.length; i++) {
-      cols[i % columns].add(cards[i]);
-    }
-
-    Widget column(List<Widget> items) => Column(
-      children: [
-        for (var i = 0; i < items.length; i++) ...[
-          if (i > 0) const SizedBox(height: 12),
-          items[i],
-        ],
-      ],
-    );
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < columns; i++) ...[
-          if (i > 0) const SizedBox(width: 12),
-          Expanded(child: column(cols[i])),
-        ],
-      ],
     );
   }
 
@@ -353,23 +371,6 @@ class RegisteredUsersDetailView extends StatelessWidget {
       return p.substring(0, p.length >= 2 ? 2 : 1).toUpperCase();
     }
     return (parts[0][0] + parts[1][0]).toUpperCase();
-  }
-
-  Widget _infoRow(IconData icon, String label, String value) {
-    return Row(
-      children: [
-        Icon(icon, size: 15, color: AppTheme.textSecondary),
-        const SizedBox(width: 6),
-        Expanded(child: Text(label, style: AppTheme.bodyText)),
-        Text(
-          value,
-          style: AppTheme.bodyText.copyWith(
-            color: AppTheme.textPrimary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    );
   }
 
   Widget _tenantCard(RegisteredTenantItem item) {

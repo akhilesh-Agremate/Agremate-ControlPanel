@@ -46,6 +46,8 @@ class _TopBarState extends State<TopBar> {
                 onOutside: () {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     _hideOverlay();
+                    nav.searchQuery.value = '';
+                    nav.searchResults.clear();
                     FocusManager.instance.primaryFocus?.unfocus();
                   });
                 },

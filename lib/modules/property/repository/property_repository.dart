@@ -1152,13 +1152,34 @@ class PropertyRepository {
 
   Future<List<TenantModel>> getAllTenants() async {
     try {
-      final response = await DioClient.instance.get(AppEndpoints.allTenants);
-      final result = _extractList(response.data);
-      final tenants = result
-          .whereType<Map>()
-          .map((json) => TenantModel.fromJson(Map<String, dynamic>.from(json)))
-          .toList();
-      return _filterTenantsForCurrentUser(tenants);
+      const pageSize = 50;
+      const maxPages = 1000;
+      final all = <TenantModel>[];
+      final seen = <String>{};
+
+      for (var page = 1; page <= maxPages; page++) {
+        final response = await DioClient.instance.get(
+          AppEndpoints.allTenants,
+          queryParameters: {'page': page, 'pageSize': pageSize},
+        );
+        final items = _extractList(response.data)
+            .whereType<Map>()
+            .map((json) => TenantModel.fromJson(Map<String, dynamic>.from(json)))
+            .toList();
+
+        var added = 0;
+        for (final t in items) {
+          final key = '${t.id}|${_phoneDigits(t.phone)}|${t.propertyName}|${t.name}';
+          if (seen.add(key)) {
+            all.add(t);
+            added++;
+          }
+        }
+        AppLogger.i('PropertyRepository',
+            'getAllTenants page=$page got=${items.length} added=$added total=${all.length}');
+        if (items.isEmpty || added == 0) break;
+      }
+      return _filterTenantsForCurrentUser(all);
     } catch (e) {
       rethrow;
     }
@@ -1166,19 +1187,66 @@ class PropertyRepository {
 
   Future<List<LandlordModel>> getAllLandlords() async {
     try {
-      final response =
-      await DioClient.instance.get(AppEndpoints.allLandlordDetails);
-      final result = _extractList(response.data);
-      final landlords = result
-          .whereType<Map>()
-          .map((json) =>
-          LandlordModel.fromJson(Map<String, dynamic>.from(json)))
-          .toList();
-      return _filterLandlordsForCurrentUser(landlords);
+      const pageSize = 50;
+      const maxPages = 1000;
+      final all = <LandlordModel>[];
+      final seen = <String>{};
+
+      for (var page = 1; page <= maxPages; page++) {
+        final response = await DioClient.instance.get(
+          AppEndpoints.allLandlordDetails,
+          queryParameters: {'page': page, 'pageSize': pageSize},
+        );
+        final items = _extractList(response.data)
+            .whereType<Map>()
+            .map((json) => LandlordModel.fromJson(Map<String, dynamic>.from(json)))
+            .toList();
+
+        var added = 0;
+        for (final l in items) {
+          final key = '${l.id}|${_phoneDigits(l.phone)}|${l.name.trim().toLowerCase()}';
+          if (seen.add(key)) {
+            all.add(l);
+            added++;
+          }
+        }
+        AppLogger.i('PropertyRepository',
+            'getAllLandlords page=$page got=${items.length} added=$added total=${all.length}');
+
+        if (items.isEmpty || added == 0) break;
+      }
+      return _filterLandlordsForCurrentUser(all);
     } catch (e) {
       rethrow;
     }
   }
+
+  Future<List<LandlordModel>> getLandlordsPage({int page = 1, int pageSize = 50}) async {
+    final response = await DioClient.instance.get(
+      AppEndpoints.allLandlordDetails,
+      queryParameters: {'page': page, 'pageSize': pageSize},
+    );
+    return _extractList(response.data)
+        .whereType<Map>()
+        .map((j) => LandlordModel.fromJson(Map<String, dynamic>.from(j)))
+        .toList();
+  }
+
+  Future<List<TenantModel>> getTenantsPage({int page = 1, int pageSize = 50}) async {
+    final response = await DioClient.instance.get(
+      AppEndpoints.allTenants,
+      queryParameters: {'page': page, 'pageSize': pageSize},
+    );
+    return _extractList(response.data)
+        .whereType<Map>()
+        .map((j) => TenantModel.fromJson(Map<String, dynamic>.from(j)))
+        .toList();
+  }
+
+  List<LandlordModel> filterLandlords(List<LandlordModel> l) =>
+      _filterLandlordsForCurrentUser(l);
+  List<TenantModel> filterTenants(List<TenantModel> t) =>
+      _filterTenantsForCurrentUser(t);
 
   bool _matchesLoggedInUser(
       AuthController auth,

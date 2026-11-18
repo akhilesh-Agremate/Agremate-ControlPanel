@@ -943,14 +943,17 @@ class ServicesView extends StatelessWidget {
                           final msg = messages[idx];
                           final isTenant = msg['sender'] == 'tenant';
                           final isAdmin = msg['sender'] == 'admin';
+                          final attach = _attachmentWidget(ctx, msg);
+                          var text = (msg['message'] as String?) ?? '';
+                          if (attach != null && text.contains('📎')) text = '';
                           return _buildChatBubble(
-                            message: (msg['message'] as String?) ?? '',
+                            message: text,
                             senderName: (msg['senderName'] as String?) ?? '',
                             time: (msg['time'] as String?) ?? '',
                             isTenant: isTenant,
                             isAdmin: isAdmin,
                             isRead: msg['isRead'] as bool? ?? true,
-                            attachment: _attachmentWidget(ctx,msg),
+                            attachment: attach,
                           );
                         },
                       ),
@@ -1338,20 +1341,21 @@ class ServicesView extends StatelessWidget {
     if (raw is List) {
       for (final item in raw) {
         if (item is! Map) continue;
-        final name = item['name']?.toString() ?? '';
-        final url = item['url']?.toString() ?? '';
-        final thumb = item['thumb']?.toString() ?? '';
+        final name = (item['name'] ?? item['fileName'])?.toString() ?? '';
+        final url = (item['url'] ?? item['absolutePath'])?.toString() ?? '';
+        final thumb = (item['thumb'] ?? item['thumbnailUrl'])?.toString() ?? '';
         if (name.isEmpty && url.isEmpty && thumb.isEmpty) continue;
         items.add({'name': name, 'url': url, 'thumb': thumb});
       }
     }
     if (items.isEmpty) {
-      final name = msg['attachmentName']?.toString() ?? '';
+      final name = (msg['attachmentName'] ?? msg['fileName'])?.toString() ?? '';
       final url = (msg['attachmentUrl'] ?? msg['fileUrl'] ?? msg['url'])
           ?.toString() ??
           '';
-      if (name.isEmpty && url.isEmpty) return null;
-      items.add({'name': name, 'url': url});
+      final thumb = msg['thumbnailUrl']?.toString() ?? '';
+      if (name.isEmpty && url.isEmpty && thumb.isEmpty) return null;
+      items.add({'name': name, 'url': url, 'thumb': thumb});
     }
 
     return Column(
@@ -1392,7 +1396,7 @@ class ServicesView extends StatelessWidget {
   Widget _oneChatFile(BuildContext context, String name, String url,
       [String thumb = '']) {
     final fullUrl = url.isNotEmpty ? url : thumb;
-    final isImage = _isChatImage(name, fullUrl);
+    final isImage = _isChatImage(name, fullUrl) || thumb.isNotEmpty;
     if (isImage && fullUrl.isNotEmpty) {
       return GestureDetector(
         onTap: () => showDialog(
@@ -1426,7 +1430,10 @@ class ServicesView extends StatelessWidget {
           child: SizedBox(
             width: 220,
             height: 180,
-            child: WebNetworkImage(url: fullUrl, fit: BoxFit.cover),
+            child: WebNetworkImage(
+              url: thumb.isNotEmpty ? thumb : fullUrl,
+              fit: BoxFit.cover,
+            ),
           ),
         ),
       );

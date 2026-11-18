@@ -49,9 +49,11 @@ class HomeController extends GetxController {
   final isRegisteredUsersLoading = false.obs;
   final registeredUsersError = ''.obs;
   final isLoadingMoreTenants = false.obs;
+  final isLoadingMoreLandlords = false.obs;
   int _tenantsLoadToken = 0;
   static const tenantPageSize = 50;
-  static const _maxPages = 200;
+  static const landlordPageSize = 50;
+  static const _maxPages = 1000;
   static const _zeroGuid = '00000000-0000-0000-0000-000000000000';
   final _rentalRepo = RentalAgreementRepository();
   final rentalAgreements = <RentalAgreementItem>[].obs;
@@ -376,8 +378,8 @@ class HomeController extends GetxController {
               'propertyName': item['planName'] ?? '',
               'landlordName': item['landlordName'] ?? 'N/A',
               'type': 'subscription',
-              'status': item['status'] ?? '',
               'detail': item['planName'] ?? '',
+              'subscriptionDate': _formatDateString(item['subscriptionDate']),
             };
           }).toList(),
         ),
@@ -580,26 +582,23 @@ class HomeController extends GetxController {
   }
 
   final recentSubs = <Map<String, dynamic>>[].obs;
-
   final recentServices = <Map<String, dynamic>>[].obs;
-
   final propertyList = <Map<String, dynamic>>[].obs;
-
   final documentList = <Map<String, dynamic>>[].obs;
-
   final supportList = <Map<String, dynamic>>[].obs;
+  String _fmt(num v) => NumberFormat.decimalPattern('en_IN').format(v);
 
   String getAmount(String label, String period) {
     if (useLandlordKpis.value) {
       switch (label) {
         case AppStrings.registeredUsers:
-          return landlordRegisteredUsers.value.toString();
+          return _fmt(landlordRegisteredUsers.value);
         case AppStrings.activeSupport:
-          return landlordActiveSupport.value.toString();
+          return _fmt(landlordActiveSupport.value);
         case AppStrings.contactOwner:
-          return landlordContactOwner.value.toString();
+          return _fmt(landlordContactOwner.value);
         case AppStrings.rentalAgreement:
-          return landlordRentalAgreements.value.toString();
+          return _fmt(landlordRentalAgreements.value);
         default:
           return '0';
       }
@@ -610,13 +609,13 @@ class HomeController extends GetxController {
 
     switch (label) {
       case AppStrings.registeredUsers:
-        return NumberFormat.decimalPattern('en_IN').format(o.registeredUsersCount);
+        return _fmt(o.registeredUsersCount);
       case AppStrings.activeSupport:
-        return o.activeSupportCount.toString();
+        return _fmt(o.activeSupportCount);
       case AppStrings.contactOwner:
-        return o.contactOwnerCount.toString();
+        return _fmt(o.contactOwnerCount);
       case AppStrings.rentalAgreement:
-        return o.rentalAgreementCount.toString();
+        return _fmt(o.rentalAgreementCount);
       default:
         return '0';
     }
@@ -948,21 +947,23 @@ class HomeController extends GetxController {
 
   int get registeredLandlordCount {
     if (_isLoggedInLandlord) return registeredLandlords.length;
-    return overview.value?.landlordCount ?? registeredLandlords.length;
+    final api = overview.value?.landlordCount ?? 0;
+    return api > registeredLandlords.length ? api : registeredLandlords.length;
   }
 
   int get registeredTenantCount {
     if (_isLoggedInLandlord) return registeredTenants.length;
-    return overview.value?.tenantCount ?? registeredTenants.length;
+    final api = overview.value?.tenantCount ?? 0;
+    return api > registeredTenants.length ? api : registeredTenants.length;
   }
 
   int get registeredUsersTotalCount {
     if (_isLoggedInLandlord) {
       return registeredLandlordCount + registeredTenantCount;
     }
-    final total = overview.value?.registeredUsersCount ?? 0;
-    if (total > 0) return total;
-    return registeredLandlordCount + registeredTenantCount;
+    final api = overview.value?.registeredUsersCount ?? 0;
+    final sum = registeredLandlordCount + registeredTenantCount;
+    return api > sum ? api : sum;
   }
 
   bool get _isLoggedInLandlord =>
@@ -975,8 +976,19 @@ class HomeController extends GetxController {
     await fetchRegisteredUsers();
   }
 
+  final isTabSwitching = false.obs;
+
+  Future<void> switchRegisteredUsersTab(int tab) async {
+    if (registeredUsersTab.value == tab) return;
+    isTabSwitching.value = true;
+    await Future.delayed(const Duration(milliseconds: 150));
+    registeredUsersTab.value = tab;
+    isTabSwitching.value = false;
+  }
+
   void closeRegisteredUsersDetails() {
     _tenantsLoadToken++;
+    isLoadingMoreLandlords.value = false;
     isLoadingMoreTenants.value = false;
     showRegisteredUsersDetails.value = false;
     registeredUsersError.value = '';
@@ -986,31 +998,29 @@ class HomeController extends GetxController {
     final token = ++_tenantsLoadToken;
     final all = <RegisteredTenantItem>[];
     final seen = <String>{};
+    final allLandlords = <RegisteredLandlordItem>[];
+    final seenLandlords = <String>{};
     var hasMore = false;
+    var hasMoreLandlords = false;
     try {
       isRegisteredUsersLoading.value = true;
       isLoadingMoreTenants.value = false;
+      isLoadingMoreLandlords.value = false;
       registeredUsersError.value = '';
       registeredTenants.clear();
 
-      final landlords = <RegisteredLandlordItem>[];
-      final seenLandlords = <String>{};
-      for (var page = 1; page <= _maxPages; page++) {
-        final items = await _dashboardRepo.getRegisteredLandlords(
-          page: page,
-          pageSize: 50,
-        );
-        var added = 0;
-        for (final l in items) {
-          final key = l.id.isNotEmpty ? l.id : _digits(l.phone);
-          if (seenLandlords.add(key)) {
-            landlords.add(l);
-            added++;
-          }
+      hasMoreLandlords = await _loadLandlordPage(1, allLandlords, seenLandlords);
+      if (_isLoggedInLandlord) {
+        for (var page = 2; hasMoreLandlords && page <= _maxPages; page++) {
+          hasMoreLandlords = await _loadLandlordPage(
+            page,
+            allLandlords,
+            seenLandlords,
+          );
         }
-        if (items.length < 50 || added == 0) break;
+        hasMoreLandlords = false;
       }
-      registeredLandlords.assignAll(landlords);
+      registeredLandlords.assignAll(allLandlords);
 
       try {
         hasMore = await _loadTenantPage(1, all, seen);
@@ -1036,12 +1046,61 @@ class HomeController extends GetxController {
       registeredLandlords.clear();
       registeredTenants.clear();
       hasMore = false;
+      hasMoreLandlords = false;
     } finally {
       isRegisteredUsersLoading.value = false;
     }
 
     if (hasMore && token == _tenantsLoadToken) {
       _loadRemainingTenants(token, all, seen);
+    }
+    if (hasMoreLandlords && token == _tenantsLoadToken) {
+      _loadRemainingLandlords(token, allLandlords, seenLandlords);
+    }
+  }
+
+  Future<bool> _loadLandlordPage(
+      int page,
+      List<RegisteredLandlordItem> all,
+      Set<String> seen,
+      ) async {
+    final items = await _dashboardRepo.getRegisteredLandlords(
+      page: page,
+      pageSize: landlordPageSize,
+    );
+    var added = 0;
+    for (final l in items) {
+      final key = '${l.id}|${_digits(l.phone)}|${l.name.trim().toLowerCase()}';
+      if (seen.add(key)) {
+        all.add(l);
+        added++;
+      }
+    }
+    AppLogger.i(
+      'HomeController',
+      'landlords page=$page got=${items.length} added=$added total=${all.length}',
+    );
+    return items.isNotEmpty && added > 0;
+  }
+
+  Future<void> _loadRemainingLandlords(
+      int token,
+      List<RegisteredLandlordItem> all,
+      Set<String> seen,
+      ) async {
+    isLoadingMoreLandlords.value = true;
+    try {
+      for (var page = 2; page <= _maxPages; page++) {
+        if (token != _tenantsLoadToken) return;
+        final more = await _loadLandlordPage(page, all, seen);
+        if (token != _tenantsLoadToken) return;
+        registeredLandlords.assignAll(all);
+        if (!more) break;
+      }
+    } catch (e, st) {
+      AppLogger.e('HomeController', 'Load more landlords failed', e, st);
+    } finally {
+      if (token == _tenantsLoadToken) isLoadingMoreLandlords.value = false;
     }
   }
 
@@ -1056,12 +1115,16 @@ class HomeController extends GetxController {
     );
     var added = 0;
     for (final t in items) {
-      if (seen.add(_tenantKey(t))) {
+      if (seen.add(_tenantListKey(t))) {
         all.add(t);
         added++;
       }
     }
-    return items.length >= tenantPageSize && added > 0;
+    AppLogger.i(
+      'HomeController',
+      'tenants page=$page got=${items.length} added=$added total=${all.length}',
+    );
+    return items.isNotEmpty && added > 0;
   }
 
   Future<void> _loadRemainingTenants(
@@ -1144,6 +1207,9 @@ class HomeController extends GetxController {
     if (phone.isNotEmpty) return 'p:$phone';
     return 'n:${t.name}';
   }
+  String _tenantListKey(RegisteredTenantItem t) =>
+      '${t.id}|${t.userId}|${_digits(t.phone)}|'
+          '${t.propertyName.trim().toLowerCase()}|${t.name.trim().toLowerCase()}';
 
   List<RegisteredTenantItem> _uniqueTenants(List<RegisteredTenantItem> items) {
     final seen = <String>{};

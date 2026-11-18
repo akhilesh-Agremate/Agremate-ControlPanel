@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:lottie/lottie.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../auth/controller/auth_controller.dart';
 import '../../controller/property_controller.dart';
@@ -53,10 +54,6 @@ class AddPropertyPanel extends StatefulWidget {
 }
 
 class _AddPropertyPanelState extends State<AddPropertyPanel> {
-  static const _blue = Color(0xFF2F6BFF);
-  static const _lightBlue = Color(0xFFEAF1FF);
-  static const _line = Color(0xFFE2E8F0);
-  static const _muted = Color(0xFF64748B);
 
   final _formKey = GlobalKey<FormState>();
   final nameC = TextEditingController();
@@ -562,7 +559,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
           child: Column(
             children: [
               _header(),
-              const Divider(height: 1, color: _line),
+              const Divider(height: 1, color: AppColors.inputBorder),
               Expanded(
                 child: SingleChildScrollView(
                   padding: EdgeInsets.all(
@@ -631,7 +628,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
     final submitBtn = ElevatedButton(
       onPressed: _submitting || _reading ? null : _submit,
       style: ElevatedButton.styleFrom(
-        backgroundColor: _blue,
+        backgroundColor: AppColors.primaryBlue,
         foregroundColor: Colors.white,
         elevation: 0,
         shape: const StadiumBorder(),
@@ -976,7 +973,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
                       icon: const Icon(
                         Icons.location_on_outlined,
                         size: 26,
-                        color: _blue,
+                        color: AppColors.primaryBlue,
                       ),
                     )
                     : null,
@@ -1009,7 +1006,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
               ),
             )
           else if (widget.featureOptions.isEmpty)
-            const Text('No features available', style: TextStyle(color: _muted))
+            const Text('No features available', style: TextStyle(color: AppColors.textGrey))
           else
             Wrap(
               spacing: 10,
@@ -1110,7 +1107,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
           else if (widget.amenityOptions.isEmpty)
             const Text(
               'No amenities available',
-              style: TextStyle(color: _muted),
+              style: TextStyle(color: AppColors.textGrey),
             )
           else
             Wrap(
@@ -1207,7 +1204,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
       trailing: Switch(
         value: hasTenant,
         activeColor: Colors.white,
-        activeTrackColor: _blue,
+        activeTrackColor: AppColors.primaryBlue,
         onChanged: (v) => setState(() => hasTenant = v),
       ),
       hideBody: !hasTenant,
@@ -1257,7 +1254,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
             suffix: const Icon(
               Icons.calendar_today_outlined,
               size: 20,
-              color: _muted,
+              color: AppColors.textGrey,
             ),
             onTap: _pickDate,
           ),
@@ -1424,7 +1421,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
                   suffix: const Icon(
                     Icons.access_time,
                     size: 20,
-                    color: _muted,
+                    color: AppColors.textGrey,
                   ),
                   onTap: () => _pickTime(from, '$name Timing From'),
                   validator: (v) => _required(v, '$name Timing From'),
@@ -1440,7 +1437,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
                   suffix: const Icon(
                     Icons.access_time,
                     size: 20,
-                    color: _muted,
+                    color: AppColors.textGrey,
                   ),
                   onTap: () => _pickTime(to, '$name Timing To'),
                   validator: (v) => _required(v, '$name Timing To'),
@@ -1492,10 +1489,10 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: _lightBlue,
+                    color: AppColors.lightBlue,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(icon, color: _blue, size: 20),
+                  child: Icon(icon, color: AppColors.primaryBlue, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1564,19 +1561,19 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
           prefixStyle: const TextStyle(color: Colors.black, fontSize: 14),
           suffixIcon: suffix,
           suffixText: suffixText,
-          suffixStyle: const TextStyle(color: _muted, fontSize: 13),
+          suffixStyle: const TextStyle(color: AppColors.textGrey, fontSize: 13),
           isDense: true,
           filled: false,
           fillColor: Colors.transparent,
           contentPadding: const EdgeInsets.symmetric(vertical: 10),
           border: const UnderlineInputBorder(
-            borderSide: BorderSide(color: _line),
+            borderSide: BorderSide(color: AppColors.inputBorder),
           ),
           enabledBorder: const UnderlineInputBorder(
-            borderSide: BorderSide(color: _line),
+            borderSide: BorderSide(color: AppColors.inputBorder),
           ),
           focusedBorder: const UnderlineInputBorder(
-            borderSide: BorderSide(color: _blue),
+            borderSide: BorderSide(color: AppColors.primaryBlue),
           ),
           errorBorder: const UnderlineInputBorder(
             borderSide: BorderSide(color: Colors.red),
@@ -1654,14 +1651,14 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
       selected: selected,
       showCheckmark: false,
       backgroundColor: Colors.white,
-      selectedColor: _lightBlue,
+      selectedColor: AppColors.lightBlue,
       labelStyle: TextStyle(
         fontSize: 13,
-        color: selected ? _blue : const Color(0xFF334155),
+        color: selected ? AppColors.primaryBlue: const Color(0xFF334155),
         fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
       ),
       shape: StadiumBorder(
-        side: BorderSide(color: selected ? _blue : const Color(0xFF94A3B8)),
+        side: BorderSide(color: selected ? AppColors.primaryBlue: const Color(0xFF94A3B8)),
       ),
       onSelected: onSelected,
     );
@@ -1678,7 +1675,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline, size: 18, color: _blue),
+          const Icon(Icons.info_outline, size: 18, color: AppColors.primaryBlue),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -1739,7 +1736,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
             padding: const EdgeInsets.only(top: 2),
             child: Text(
               helper,
-              style: const TextStyle(fontSize: 13, color: _muted),
+              style: const TextStyle(fontSize: 13, color: AppColors.textGrey),
             ),
           ),
         const SizedBox(height: 12),
@@ -1774,9 +1771,9 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
                 width: 110,
                 height: 140,
                 decoration: BoxDecoration(
-                  color: _lightBlue,
+                  color: AppColors.lightBlue,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _blue.withValues(alpha: 0.7)),
+                  border: Border.all(color: AppColors.primaryBlue.withValues(alpha: 0.7)),
                 ),
                 child: Center(
                   child: Container(
@@ -1837,7 +1834,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isCover ? const Color(0xFF2083D5) : _line,
+                color: isCover ? const Color(0xFF2083D5) : AppColors.inputBorder,
                 width: isCover ? 2 : 1,
               ),
             ),
@@ -1852,7 +1849,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
                           const Icon(
                             Icons.insert_drive_file_outlined,
                             size: 32,
-                            color: _blue,
+                            color: AppColors.primaryBlue,
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -1907,7 +1904,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isCover ? const Color(0xFF2083D5) : _line,
+                color: isCover ? const Color(0xFF2083D5) : AppColors.inputBorder,
                 width: isCover ? 2 : 1,
               ),
             ),
@@ -1920,7 +1917,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
                         Icon(
                           Icons.insert_drive_file_outlined,
                           size: 32,
-                          color: _blue,
+                          color: AppColors.primaryBlue,
                         ),
                         SizedBox(height: 8),
                         Text('Document', style: TextStyle(fontSize: 11)),

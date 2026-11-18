@@ -274,7 +274,9 @@ class ServiceRequestModel {
           (raw['fileUrl'] != null ||
               raw['attachmentUrl'] != null ||
               raw['imageUrl'] != null ||
-              raw['absolutePath'] != null)) {
+              raw['absolutePath'] != null ||
+              raw['url'] != null ||
+              raw['thumbnailUrl'] != null)) {
         out.add(direct);
       }
     }
@@ -286,7 +288,11 @@ class ServiceRequestModel {
       final s = item?.toString().trim() ?? '';
       if (s.isEmpty || s == 'null') return null;
       if (!s.startsWith('http') && !s.contains('.')) return null;
-      return {'name': s.split('?').first.split('/').last, 'url': _fileUrl(s)};
+      return {
+        'name': s.split('?').first.split('/').last,
+        'url': _fileUrl(s),
+        'thumb': '',
+      };
     }
     final name = _pick(item, [
           'fileName',
@@ -296,28 +302,27 @@ class ServiceRequestModel {
         ]) ??
         '';
     final url = _fileUrl(_pick(item, [
-          'absolutePath',
-          'fileUrl',
-          'url',
-          'fileURL',
-          'thumbnailUrl',
-          'thumbnailPath',
-          'attachmentUrl',
-          'signedUrl',
-          'presignedUrl',
-          'imageUrl',
-          'mediaUrl',
-          'filePath',
-          'path',
-          'relativePath',
-          'location',
-        ]) ??
+      'absolutePath',
+      'fileUrl',
+      'url',
+      'fileURL',
+      'attachmentUrl',
+      'signedUrl',
+      'presignedUrl',
+      'imageUrl',
+      'mediaUrl',
+      'filePath',
+      'path',
+      'relativePath',
+      'location',
+    ]) ??
         '');
-    if (name.isEmpty && url.isEmpty) return null;
+    final thumb = _fileUrl(_pick(item, ['thumbnailUrl', 'thumbnailPath']) ?? '');
+    if (name.isEmpty && url.isEmpty && thumb.isEmpty) return null;
     final shown = name.isNotEmpty
         ? name
-        : url.split('?').first.split('/').last;
-    return {'name': shown, 'url': url};
+        : (url.isNotEmpty ? url : thumb).split('?').first.split('/').last;
+    return {'name': shown, 'url': url.isNotEmpty ? url : thumb, 'thumb': thumb};
   }
 
   static String _fileUrl(String path) {

@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:agremate_admin/core/widgets/app_toast.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../model/amenity_model.dart';
 import '../../model/pg_property_detail_model.dart';
@@ -31,11 +32,6 @@ class EditPgPropertyPanel extends StatefulWidget {
 }
 
 class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
-  static const _blue = Color(0xFF2F6BFF);
-  static const _line = Color(0xFFE2E8F0);
-  static const _muted = Color(0xFF64748B);
-  static const _surface = Color(0xFFF8FAFD);
-
   final _formKey = GlobalKey<FormState>();
   bool _submitting = false;
   bool _reading = false;
@@ -357,11 +353,11 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
     return Stack(
       children: [
         ColoredBox(
-      color: _surface,
+      color: AppColors.scaffoldLight,
       child: Column(
         children: [
           _buildHeader(),
-          const Divider(height: 1, color: _line),
+          const Divider(height: 1, color: AppColors.inputBorder),
           Expanded(
             child: SingleChildScrollView(
               padding: EdgeInsets.all(Responsive.isMobile(context) ? 14 : 28),
@@ -412,7 +408,7 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
             onPressed: widget.onBack,
             icon: const Icon(Icons.arrow_back_rounded, size: 22),
             tooltip: 'Back',
-            style: IconButton.styleFrom(foregroundColor: _muted),
+            style: IconButton.styleFrom(foregroundColor: AppColors.textGrey),
           ),
           SizedBox(width: mobile ? 0 : 8),
           Expanded(
@@ -429,8 +425,8 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
           OutlinedButton(
             onPressed: _submitting || _reading ? null : widget.onBack,
             style: OutlinedButton.styleFrom(
-              foregroundColor: _muted,
-              side: const BorderSide(color: _line),
+              foregroundColor: AppColors.textGrey,
+              side: const BorderSide(color: AppColors.inputBorder),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(22)),
               padding: EdgeInsets.symmetric(
@@ -442,7 +438,7 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
           ElevatedButton(
             onPressed: _submitting || _reading ? null : _submit,
             style: ElevatedButton.styleFrom(
-              backgroundColor: _blue,
+              backgroundColor: AppColors.primaryBlue,
               foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -490,7 +486,7 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Add Photos',
-                style: TextStyle(fontSize: 13, color: _muted)),
+                style: TextStyle(fontSize: 13, color: AppColors.textGrey)),
             const SizedBox(height: 12),
             Wrap(
               spacing: 10,
@@ -598,13 +594,13 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: active ? _blue : Colors.transparent,
+                    color: active ? AppColors.primaryBlue : Colors.transparent,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: active ? _blue : _line),
+                    border: Border.all(color: active ? AppColors.primaryBlue : AppColors.inputBorder),
                   ),
                   child: Text(tab,
                       style: TextStyle(
-                          color: active ? Colors.white : _muted,
+                          color: active ? Colors.white : AppColors.textGrey,
                           fontWeight: active
                               ? FontWeight.w700
                               : FontWeight.w500,
@@ -693,13 +689,13 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
                           : Colors.white,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: selected ? _blue : const Color(0xFFD6E8FA),
+                        color: selected ? AppColors.primaryBlue : const Color(0xFFD6E8FA),
                         width: selected ? 1.5 : 1,
                       ),
                     ),
                     child: Text(a.name,
                         style: TextStyle(
-                            color: selected ? _blue : _muted,
+                            color: selected ? AppColors.primaryBlue : AppColors.textGrey,
                             fontWeight: selected
                                 ? FontWeight.w600
                                 : FontWeight.w400,
@@ -733,8 +729,8 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
           icon: const Icon(Icons.map_outlined, size: 16),
           label: const Text('Pick on Map'),
           style: OutlinedButton.styleFrom(
-            foregroundColor: _blue,
-            side: const BorderSide(color: _blue),
+            foregroundColor: AppColors.primaryBlue,
+            side: const BorderSide(color: AppColors.primaryBlue),
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20)),
           ),
@@ -742,7 +738,7 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
         if (_lat != null && _lng != null) ...[
           const SizedBox(height: 8),
           Text('$_lat, $_lng',
-              style: const TextStyle(fontSize: 12, color: _muted)),
+              style: const TextStyle(fontSize: 12, color: AppColors.textGrey)),
         ],
       ]),
     );
@@ -758,7 +754,7 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _line),
+        border: Border.all(color: AppColors.inputBorder),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
@@ -770,7 +766,7 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            Icon(icon, size: 18, color: _blue),
+            Icon(icon, size: 18, color: AppColors.primaryBlue),
             const SizedBox(width: 8),
             Text(title,
                 style: const TextStyle(
@@ -779,7 +775,7 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
                     color: Color(0xFF1A2340))),
           ]),
           const SizedBox(height: 16),
-          const Divider(color: _line, height: 1),
+          const Divider(color: AppColors.inputBorder, height: 1),
           const SizedBox(height: 16),
           child,
         ],
@@ -789,14 +785,14 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
 
   Widget _label(String text) => Text(text,
       style: const TextStyle(
-          fontSize: 13, color: _muted, fontWeight: FontWeight.w500));
+          fontSize: 13, color: AppColors.textGrey, fontWeight: FontWeight.w500));
 
   Widget _readOnlyField(String value, {String hint = ''}) {
     return TextFormField(
       initialValue: value,
       readOnly: true,
       decoration: _inputDecoration(hint),
-      style: const TextStyle(color: _muted, fontSize: 14),
+      style: const TextStyle(color: AppColors.textGrey, fontSize: 14),
     );
   }
 
@@ -836,13 +832,13 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
           const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: _line)),
+          borderSide: const BorderSide(color: AppColors.inputBorder)),
       enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: _line)),
+          borderSide: const BorderSide(color: AppColors.inputBorder)),
       focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: _blue, width: 1.5)),
+          borderSide: const BorderSide(color: AppColors.primaryBlue, width: 1.5)),
     );
   }
 
@@ -932,13 +928,13 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
         width: 90,
         height: 90,
         decoration: BoxDecoration(
-          border: Border.all(color: _line, width: 1.5),
+          border: Border.all(color: AppColors.inputBorder, width: 1.5),
           borderRadius: BorderRadius.circular(10),
           color: const Color(0xFFF8FAFD),
         ),
         child: const Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: [Icon(Icons.add_rounded, color: _muted, size: 28)],
+          children: [Icon(Icons.add_rounded, color: AppColors.textGrey, size: 28)],
         ),
       ),
     );
