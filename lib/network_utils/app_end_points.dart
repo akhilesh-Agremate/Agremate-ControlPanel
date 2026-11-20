@@ -13,6 +13,7 @@ class AppEndpoints {
   static const createTenantProperty = "/Property/create-tennat-property";
   static const getUserProfile = "/User/";
   static const createOwnerProperty = "/Property";
+  static const propertyTypes = "/Property/types";
   static const updateOwnerProperty = "/Property/";
   static const String adminDashboardOverview = "/AdminDashboard/overview";
   static const String adminDashboardRentCollections =
@@ -80,5 +81,6 @@ class AppEndpoints {
   static String supportTicketStatus(String id) => '/support-tickets/$id/status';
   static String supportTicketReopen(String id) => '/support-tickets/$id/reopen';
   static String supportTicketRating(String id) => '/support-tickets/$id/rating';
+  static const String bhkTypes = "/Property/bhk-types";
 }
 

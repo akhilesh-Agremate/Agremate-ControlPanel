@@ -22,11 +22,15 @@ class _TopBarState extends State<TopBar> {
   final LayerLink _layerLink = LayerLink();
   final GlobalKey _searchKey = GlobalKey();
   OverlayEntry? _overlayEntry;
+  Worker? _resultsWorker;
+  Worker? _propertyWorker;
+  Worker? _pageWorker;
+  bool _overlaySyncScheduled = false;
   final nav = Get.find<NavigationController>();
   static const double _compactBreakpoint = 600;
 
   void _showOverlay() {
-    _hideOverlay();
+    if (!mounted || _overlayEntry != null) return;
 
     _overlayEntry = OverlayEntry(
       builder: (context) {
@@ -34,26 +38,40 @@ class _TopBarState extends State<TopBar> {
         final double overlayWidth =
         screenW < _compactBreakpoint ? screenW - 32 : 320;
 
+        final box = _searchKey.currentContext?.findRenderObject() as RenderBox?;
+        var left = 16.0;
+        var top = 56.0;
+        var width = overlayWidth;
+        var passBelow = 64.0;
+        if (box != null && box.hasSize) {
+          final origin = box.localToGlobal(Offset.zero);
+          left = origin.dx;
+          top = origin.dy + box.size.height + 6;
+          width = box.size.width;
+          passBelow = origin.dy + box.size.height;
+        }
+
         return Stack(
           children: [
             Positioned.fill(
               child: _OutsideTap(
                 passThrough: _tapInsideSearch,
+                passBelow: passBelow,
                 onOutside: () {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     _hideOverlay();
+                    nav.searchQuery.value = '';
+                    nav.searchResults.clear();
                     FocusManager.instance.primaryFocus?.unfocus();
                   });
                 },
               ),
             ),
             Positioned(
-          width: overlayWidth,
-          child: CompositedTransformFollower(
-            link: _layerLink,
-            showWhenUnlinked: false,
-            offset: const Offset(0, 48),
-            child: Material(
+          left: left,
+          top: top,
+          width: width,
+          child: Material(
               elevation: 8,
               borderRadius: BorderRadius.circular(12),
               color: AppTheme.bgDark,
@@ -142,13 +160,17 @@ class _TopBarState extends State<TopBar> {
               ),
             ),
           ),
-        ),
           ],
         );
       },
     );
 
-    Overlay.of(context).insert(_overlayEntry!);
+    final overlay = Overlay.maybeOf(context);
+    if (overlay == null) {
+      _overlayEntry = null;
+      return;
+    }
+    overlay.insert(_overlayEntry!);
   }
 
   void _openSearchResults() {
@@ -195,31 +217,40 @@ class _TopBarState extends State<TopBar> {
     final entry = _overlayEntry;
     if (entry == null) return;
     _overlayEntry = null;
-    entry.remove();
+    try {
+      entry.remove();
+    } catch (_) {}
+  }
+
+  void _scheduleOverlaySync() {
+    if (_overlaySyncScheduled) return;
+    _overlaySyncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _overlaySyncScheduled = false;
+      if (!mounted) return;
+      if (nav.searchResults.isEmpty) {
+        _hideOverlay();
+      } else if (_overlayEntry == null) {
+        _showOverlay();
+      }
+    });
   }
 
   @override
   void initState() {
     super.initState();
-    ever(nav.searchResults, (results) {
-      if (results.isNotEmpty && _overlayEntry == null) {
-        _showOverlay();
-      } else if (results.isEmpty && _overlayEntry != null) {
-        _hideOverlay();
-      }
-    });
-    ever(Get.find<PropertyController>().selectedProperty, (_) {
+    _resultsWorker = ever(nav.searchResults, (_) => _scheduleOverlaySync());
+    _propertyWorker = ever(Get.find<PropertyController>().selectedProperty, (_) {
       _hideOverlay();
     });
-    ever(nav.currentIndex, (_) {
-      if (_overlayEntry != null) {
-        _hideOverlay();
-      }
-    });
+    _pageWorker = ever(nav.currentIndex, (_) => _hideOverlay());
   }
 
   @override
   void dispose() {
+    _resultsWorker?.dispose();
+    _propertyWorker?.dispose();
+    _pageWorker?.dispose();
     _hideOverlay();
     super.dispose();
   }
@@ -372,35 +403,40 @@ class _TopBarState extends State<TopBar> {
 
 class _OutsideTap extends SingleChildRenderObjectWidget {
   final bool Function(Offset global) passThrough;
+  final double passBelow;
   final VoidCallback onOutside;
 
   const _OutsideTap({
     required this.passThrough,
+    required this.passBelow,
     required this.onOutside,
   }) : super(child: const SizedBox.expand());
 
   @override
   RenderObject createRenderObject(BuildContext context) {
-    return _RenderOutsideTap(passThrough, onOutside);
+    return _RenderOutsideTap(passThrough, passBelow, onOutside);
   }
 
   @override
   void updateRenderObject(BuildContext context, _RenderOutsideTap renderObject) {
     renderObject
       ..passThrough = passThrough
+      ..passBelow = passBelow
       ..onOutside = onOutside;
   }
 }
 
 class _RenderOutsideTap extends RenderProxyBox {
   bool Function(Offset global) passThrough;
+  double passBelow;
   VoidCallback onOutside;
 
-  _RenderOutsideTap(this.passThrough, this.onOutside);
+  _RenderOutsideTap(this.passThrough, this.passBelow, this.onOutside);
 
   @override
   bool hitTest(BoxHitTestResult result, {required Offset position}) {
-    if (passThrough(localToGlobal(position))) return false;
+    final global = localToGlobal(position);
+    if (passThrough(global) || global.dy > passBelow) return false;
     result.add(BoxHitTestEntry(this, position));
     return true;
   }

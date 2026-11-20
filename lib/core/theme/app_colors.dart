@@ -52,4 +52,7 @@ class AppColors {
   static const Color sky = Color(0xFF2A9BFF);
   static const Color borderBlue = Color(0xFFBFD3F5);
   static const Color bgBlue = Color(0xFFEAF2FF);
+  static const Color lightBlue = Color(0xFFEAF1FF);
+  static const Color blueMuted = Color(0xFF6B7FB5);
+  static const Color navyDeep = Color(0xFF0B1F5C);
 }

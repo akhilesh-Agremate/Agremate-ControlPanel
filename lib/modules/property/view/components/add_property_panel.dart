@@ -1,22 +1,31 @@
+import 'dart:html' as html;
 import 'dart:typed_data';
+import 'dart:ui_web' as ui_web;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show PlatformViewHitTestBehavior;
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import 'package:lottie/lottie.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../auth/controller/auth_controller.dart';
+import '../../controller/property_controller.dart';
 import '../../model/amenity_model.dart';
 import '../../model/property_model.dart';
 import 'map_picker_dialog.dart';
+import 'property_upload.dart';
+import 'package:agremate_admin/modules/property/repository/property_repository.dart';
 import 'package:agremate_admin/core/widgets/app_toast.dart';
-import 'package:agremate_admin/core/widgets/web_network_image.dart';
 
 class PickedFile {
   final String name;
   final String? extension;
   final Uint8List bytes;
-  const PickedFile({
+  bool uploading = false;
+  Map<String, dynamic>? uploaded;
+  PickedFile({
     required this.name,
     required this.extension,
     required this.bytes,
@@ -47,21 +56,23 @@ class AddPropertyPanel extends StatefulWidget {
 }
 
 class _AddPropertyPanelState extends State<AddPropertyPanel> {
-  static const _blue = Color(0xFF2F6BFF);
-  static const _lightBlue = Color(0xFFEAF1FF);
-  static const _line = Color(0xFFE2E8F0);
-  static const _muted = Color(0xFF64748B);
 
   final _formKey = GlobalKey<FormState>();
   final nameC = TextEditingController();
   final descC = TextEditingController();
   final doorC = TextEditingController();
   final floorC = TextEditingController();
+  final carpetC = TextEditingController();
+  final builtUpC = TextEditingController();
   final addressC = TextEditingController();
   double? latitude, longitude;
 
-  String? propertyType;
-  static const propertyTypes = ['Residential', 'PG'];
+  late final PropertyController _pc = Get.find<PropertyController>();
+  String? _bhkCode;
+  bool _bhkTouched = false;
+  dynamic _savedBhk;
+  String? get _bhkSelected =>
+      _bhkTouched ? _bhkCode : _pc.matchBhkCode(_savedBhk?.toString());
 
   final advanceC = TextEditingController();
   final rentC = TextEditingController();
@@ -89,19 +100,23 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
   static const int _maxDocs = 5;
 
   bool _submitting = false;
+  bool _reading = false;
 
   bool get _isEdit => widget.initial != null;
   final List<String> existingPhotoUrls = [];
+  final List<String> existingPhotoIds = [];
+  int coverIndex = 0;
   final List<Map<String, dynamic>> existingDocs = [];
   bool get _showLandlordSection {
     final auth =
-    Get.isRegistered<AuthController>() ? Get.find<AuthController>() : null;
+        Get.isRegistered<AuthController>() ? Get.find<AuthController>() : null;
     return auth != null && auth.isSuperAdmin;
   }
 
   @override
   void initState() {
     super.initState();
+    _pc.fetchBhkTypes();
     if (widget.initial != null) {
       _prefill(widget.initial!);
       _prefillAmenities();
@@ -127,144 +142,206 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
     return d.length > 10 ? d.substring(d.length - 10) : d;
   }
 
+  num? _numOrNull(dynamic v) {
+    if (v == null) return null;
+    if (v is num) return v;
+    return num.tryParse(v.toString());
+  }
+
+  String _fmtArea(num? v) {
+    if (v == null || v <= 0) return '';
+    return v == v.roundToDouble() ? v.toInt().toString() : v.toString();
+  }
+
+  double? _area(String s) {
+    final v = double.tryParse(s.trim());
+    if (v == null || v <= 0) return null;
+    return double.parse(v.toStringAsFixed(2));
+  }
+
+  String? _optionalAreaValidator(String? v) {
+    if (v == null || v.trim().isEmpty) return null;
+    final n = double.tryParse(v.trim());
+    return (n == null || n <= 0) ? 'Enter a valid area' : null;
+  }
+
   String _fmtAmount(num v) =>
       v <= 0 ? '' : NumberFormat.decimalPattern('en_IN').format(v.round());
 
   void _prefill(PropertyModel p) {
     final raw = p.rawJson;
-    final place = raw['placeDetails'] is Map
-        ? Map<String, dynamic>.from(raw['placeDetails'])
-        : <String, dynamic>{};
+    final place =
+        raw['placeDetails'] is Map
+            ? Map<String, dynamic>.from(raw['placeDetails'])
+            : <String, dynamic>{};
 
     nameC.text = p.name;
     descC.text = p.description ?? raw['description']?.toString() ?? '';
-    addressC.text = p.address.address.isNotEmpty
-        ? p.address.address
-        : (place['address'] ?? raw['address'] ?? '').toString();
+    addressC.text =
+        p.address.address.isNotEmpty
+            ? p.address.address
+            : (place['address'] ?? raw['address'] ?? '').toString();
     if (p.address.latitude != 0) {
       latitude = p.address.latitude;
     } else {
-      latitude = (place['latitude'] as num?)?.toDouble() ??
+      latitude =
+          (place['latitude'] as num?)?.toDouble() ??
           (raw['latitude'] as num?)?.toDouble();
     }
     if (p.address.longitude != 0) {
       longitude = p.address.longitude;
     } else {
-      longitude = (place['longitude'] as num?)?.toDouble() ??
+      longitude =
+          (place['longitude'] as num?)?.toDouble() ??
           (raw['longitude'] as num?)?.toDouble();
     }
     doorC.text = (place['doorNumber'] ?? raw['doorNumber'] ?? '').toString();
-    floorC.text = (place['floor'] ?? raw['floor'] ?? raw['floorNumber'] ?? '').toString();
+    floorC.text =
+        (place['floor'] ?? raw['floor'] ?? raw['floorNumber'] ?? '').toString();
+    _savedBhk = raw['bhkType'];
 
-    final t = (raw['propertyType'] ?? p.propertyType).toString().trim().toLowerCase();
-    final idx = int.tryParse(t) ??
-        propertyTypes.indexWhere((e) => e.toLowerCase() == t);
-    if (idx >= 0 && idx < propertyTypes.length) {
-      propertyType = propertyTypes[idx];
-    } else if (t == '7' || t == 'pg') {
-      propertyType = 'PG';
-    } else {
-      propertyType = 'Individual';
-    }
-
-    final landlordObj = raw['landlord'] is Map
-        ? Map<String, dynamic>.from(raw['landlord'])
-        : <String, dynamic>{};
-    final lName = (p.landlordName.isNotEmpty && p.landlordName != 'N/A')
-        ? p.landlordName
-        : (landlordObj['name'] ?? raw['landlordName'] ?? raw['ownerName'] ?? '').toString();
+    final landlordObj =
+        raw['landlord'] is Map
+            ? Map<String, dynamic>.from(raw['landlord'])
+            : <String, dynamic>{};
+    final lName =
+        (p.landlordName.isNotEmpty && p.landlordName != 'N/A')
+            ? p.landlordName
+            : (landlordObj['name'] ??
+                    raw['landlordName'] ??
+                    raw['ownerName'] ??
+                    '')
+                .toString();
     landlordNameC.text = lName;
 
-    final lPhone = (p.landlordPhone != null && p.landlordPhone!.isNotEmpty)
-        ? p.landlordPhone
-        : (landlordObj['phoneNumber'] ??
-            landlordObj['phone'] ??
-            landlordObj['mobile'] ??
-            landlordObj['contactNumber'] ??
-            raw['landlordPhoneNumber'] ??
-            raw['landlordPhone'] ??
-            raw['landlordContactNumber'] ??
-            raw['phone'] ??
-            raw['phoneNumber'])?.toString();
+    final lPhone =
+        (p.landlordPhone != null && p.landlordPhone!.isNotEmpty)
+            ? p.landlordPhone
+            : (landlordObj['phoneNumber'] ??
+                    landlordObj['phone'] ??
+                    landlordObj['mobile'] ??
+                    landlordObj['contactNumber'] ??
+                    raw['landlordPhoneNumber'] ??
+                    raw['landlordPhone'] ??
+                    raw['landlordContactNumber'] ??
+                    raw['phone'] ??
+                    raw['phoneNumber'])
+                ?.toString();
     landlordPhoneC.text = _tenDigits(lPhone);
 
-    final lEmail = (p.landlordEmail != null && p.landlordEmail!.isNotEmpty)
-        ? p.landlordEmail
-        : (landlordObj['email'] ??
-            raw['landlordEmail'] ??
-            raw['ownerEmail'] ??
-            raw['email'])?.toString();
+    final lEmail =
+        (p.landlordEmail != null && p.landlordEmail!.isNotEmpty)
+            ? p.landlordEmail
+            : (landlordObj['email'] ??
+                    raw['landlordEmail'] ??
+                    raw['ownerEmail'] ??
+                    raw['email'])
+                ?.toString();
     landlordEmailC.text = (lEmail ?? '').trim();
 
-    final featuresMap = raw['features'] is Map
-        ? Map<String, dynamic>.from(raw['features'])
-        : <String, dynamic>{};
-    final bedCount = p.bedrooms > 0
-        ? p.bedrooms
-        : ((raw['bedrooms'] ?? featuresMap['bedrooms']) as num?)?.toInt() ?? 0;
+    final featuresMap =
+        raw['features'] is Map
+            ? Map<String, dynamic>.from(raw['features'])
+            : <String, dynamic>{};
+    carpetC.text = _fmtArea(
+      _numOrNull(featuresMap['carpetArea'] ?? raw['carpetArea']),
+    );
+    builtUpC.text = _fmtArea(
+      _numOrNull(featuresMap['squareFeetArea'] ?? raw['squareFeetArea']),
+    );
+    final bedCount =
+        p.bedrooms > 0
+            ? p.bedrooms
+            : ((raw['bedrooms'] ?? featuresMap['bedrooms']) as num?)?.toInt() ??
+                0;
     if (bedCount > 0) {
       selectedFeatures.add('Bedrooms');
       bedrooms = bedCount;
     }
-    final bathCount = p.bathrooms > 0
-        ? p.bathrooms
-        : ((raw['bathrooms'] ?? featuresMap['bathrooms']) as num?)?.toInt() ?? 0;
+    final bathCount =
+        p.bathrooms > 0
+            ? p.bathrooms
+            : ((raw['bathrooms'] ?? featuresMap['bathrooms']) as num?)
+                    ?.toInt() ??
+                0;
     if (bathCount > 0) {
       selectedFeatures.add('Bathrooms');
       bathrooms = bathCount;
     }
-    final kCount = p.kitchen > 0
-        ? p.kitchen
-        : ((raw['kitchen'] ?? raw['kitchens'] ?? featuresMap['kitchens']) as num?)?.toInt() ?? 0;
+    final kCount =
+        p.kitchen > 0
+            ? p.kitchen
+            : ((raw['kitchen'] ?? raw['kitchens'] ?? featuresMap['kitchens'])
+                        as num?)
+                    ?.toInt() ??
+                0;
     if (kCount > 0) {
       selectedFeatures.add('Kitchen');
       kitchens = kCount;
     }
-    final bYear = p.builtYear > 0
-        ? p.builtYear
-        : ((raw['builtYear'] ?? raw['builtInYear'] ?? featuresMap['builtYear']) as num?)?.toInt() ?? 0;
+    final bYear =
+        p.builtYear > 0
+            ? p.builtYear
+            : ((raw['builtYear'] ??
+                            raw['builtInYear'] ??
+                            featuresMap['builtYear'])
+                        as num?)
+                    ?.toInt() ??
+                0;
     if (bYear > 0) {
       selectedFeatures.add('Built Year');
       builtYear = bYear;
     }
 
-    final advVal = p.advanceAmount > 0
-        ? p.advanceAmount
-        : (raw['advance'] as num?)?.toDouble() ?? 0.0;
+    final advVal =
+        p.advanceAmount > 0
+            ? p.advanceAmount
+            : (raw['advance'] as num?)?.toDouble() ?? 0.0;
     advanceC.text = _fmtAmount(advVal);
 
-    final rentVal = p.rentAmount > 0
-        ? p.rentAmount
-        : (raw['rent'] as num?)?.toDouble() ?? 0.0;
+    final rentVal =
+        p.rentAmount > 0
+            ? p.rentAmount
+            : (raw['rent'] as num?)?.toDouble() ?? 0.0;
     rentC.text = _fmtAmount(rentVal);
 
     final d = (raw['rentPaymentDate'] as num?)?.toInt();
     if (d != null && d >= 1 && d <= 30) paymentDate = d;
 
-    final tenantObj = raw['tenant'] is Map
-        ? Map<String, dynamic>.from(raw['tenant'])
-        : <String, dynamic>{};
-    final tName = (p.primaryTenantName != null && p.primaryTenantName!.isNotEmpty)
-        ? p.primaryTenantName!
-        : (tenantObj['name'] ?? raw['tenantName'] ?? raw['primaryTenantName'] ?? '').toString();
+    final tenantObj =
+        raw['tenant'] is Map
+            ? Map<String, dynamic>.from(raw['tenant'])
+            : <String, dynamic>{};
+    final tName =
+        (p.primaryTenantName != null && p.primaryTenantName!.isNotEmpty)
+            ? p.primaryTenantName!
+            : (tenantObj['name'] ??
+                    raw['tenantName'] ??
+                    raw['primaryTenantName'] ??
+                    '')
+                .toString();
     hasTenant = tName.isNotEmpty;
     tenantNameC.text = tName;
 
-    final tPhone = (p.primaryTenantPhone != null && p.primaryTenantPhone!.isNotEmpty)
-        ? p.primaryTenantPhone
-        : (tenantObj['phoneNumber'] ??
-            tenantObj['phone'] ??
-            tenantObj['mobile'] ??
-            raw['tenantPhoneNumber'] ??
-            raw['primaryTenantPhone'] ??
-            raw['tenantPhone'])?.toString();
+    final tPhone =
+        (p.primaryTenantPhone != null && p.primaryTenantPhone!.isNotEmpty)
+            ? p.primaryTenantPhone
+            : (tenantObj['phoneNumber'] ??
+                    tenantObj['phone'] ??
+                    tenantObj['mobile'] ??
+                    raw['tenantPhoneNumber'] ??
+                    raw['primaryTenantPhone'] ??
+                    raw['tenantPhone'])
+                ?.toString();
     tenantPhoneC.text = _tenDigits(tPhone);
 
-    final tEmail = (p.primaryTenantEmail != null && p.primaryTenantEmail!.isNotEmpty)
-        ? p.primaryTenantEmail
-        : (tenantObj['email'] ??
-            raw['tenantEmail'] ??
-            raw['primaryTenantEmail'])?.toString();
+    final tEmail =
+        (p.primaryTenantEmail != null && p.primaryTenantEmail!.isNotEmpty)
+            ? p.primaryTenantEmail
+            : (tenantObj['email'] ??
+                    raw['tenantEmail'] ??
+                    raw['primaryTenantEmail'])
+                ?.toString();
     tenantEmailC.text = (tEmail ?? '').trim();
 
     DateTime? tStartDate = p.tenancyStartDate;
@@ -276,34 +353,57 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
     }
     if (tStartDate != null) {
       _startDate = tStartDate;
-      startDateC.text = DateFormat('dd/MMM/yyyy').format(_startDate!).toUpperCase();
+      startDateC.text =
+          DateFormat('dd/MMM/yyyy').format(_startDate!).toUpperCase();
     }
 
     existingPhotoUrls.clear();
-    for (final img in p.images) {
+    existingPhotoIds.clear();
+    for (var i = 0; i < p.images.length; i++) {
+      final img = p.images[i];
       if (img.isNotEmpty && !existingPhotoUrls.contains(img)) {
         existingPhotoUrls.add(img);
+        existingPhotoIds.add(i < p.imageIds.length ? p.imageIds[i] : '');
       }
     }
     if (existingPhotoUrls.isEmpty && raw['images'] is List) {
       for (final e in raw['images']) {
         if (e is Map) {
-          final u = (e['absolutePath'] ?? e['fileUrl'] ?? e['url'] ?? e['relativePath'] ?? '').toString();
-          if (u.isNotEmpty && !existingPhotoUrls.contains(u)) existingPhotoUrls.add(u);
+          final u =
+              (e['absolutePath'] ??
+                      e['fileUrl'] ??
+                      e['url'] ??
+                      e['relativePath'] ??
+                      '')
+                  .toString();
+          if (u.isNotEmpty && !existingPhotoUrls.contains(u)) {
+            existingPhotoUrls.add(u);
+            existingPhotoIds.add(e['id']?.toString() ?? '');
+          }
         } else if (e != null && e.toString().trim().isNotEmpty) {
           final u = e.toString().trim();
-          if (!existingPhotoUrls.contains(u)) existingPhotoUrls.add(u);
+          if (!existingPhotoUrls.contains(u)) {
+            existingPhotoUrls.add(u);
+            existingPhotoIds.add('');
+          }
         }
       }
     }
-    if (p.imageUrl != null && p.imageUrl!.isNotEmpty && !existingPhotoUrls.contains(p.imageUrl)) {
+    if (p.imageUrl != null &&
+        p.imageUrl!.isNotEmpty &&
+        !existingPhotoUrls.contains(p.imageUrl)) {
       existingPhotoUrls.insert(0, p.imageUrl!);
+      existingPhotoIds.insert(
+        0,
+        p.imageIds.isNotEmpty ? p.imageIds.first : '',
+      );
     }
 
     existingDocs.clear();
-    final rawDocs = p.documents.isNotEmpty
-        ? p.documents
-        : (raw['documents'] as List? ?? []);
+    final rawDocs =
+        p.documents.isNotEmpty
+            ? p.documents
+            : (raw['documents'] as List? ?? []);
     for (final doc in rawDocs) {
       if (doc is Map) {
         existingDocs.add(Map<String, dynamic>.from(doc));
@@ -335,17 +435,25 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
       for (final item in raw['amenities']) {
         if (item is Map) {
           final id = (item['id'] ?? item['amenityId'] ?? '').toString().trim();
-          final name = (item['name'] ?? item['amenityName'] ?? '').toString().trim().toLowerCase();
-          final matches = widget.amenityOptions.where((a) =>
-              (id.isNotEmpty && a.id == id) ||
-              (name.isNotEmpty && a.name.trim().toLowerCase() == name));
+          final name =
+              (item['name'] ?? item['amenityName'] ?? '')
+                  .toString()
+                  .trim()
+                  .toLowerCase();
+          final matches = widget.amenityOptions.where(
+            (a) =>
+                (id.isNotEmpty && a.id == id) ||
+                (name.isNotEmpty && a.name.trim().toLowerCase() == name),
+          );
           for (final m in matches) {
             selectedAmenityIds.add(m.id);
           }
         } else if (item != null) {
           final str = item.toString().trim();
-          final matches = widget.amenityOptions.where((a) =>
-              a.id == str || a.name.trim().toLowerCase() == str.toLowerCase());
+          final matches = widget.amenityOptions.where(
+            (a) =>
+                a.id == str || a.name.trim().toLowerCase() == str.toLowerCase(),
+          );
           for (final m in matches) {
             selectedAmenityIds.add(m.id);
           }
@@ -356,12 +464,16 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
     for (final item in p.amenitiesList) {
       final id = (item['id'] ?? '').toString().trim();
       final name = (item['name'] ?? '').trim().toLowerCase();
-      final matches = widget.amenityOptions.where((a) =>
-          (id.isNotEmpty && a.id == id) ||
-          (name.isNotEmpty && a.name.trim().toLowerCase() == name));
+      final matches = widget.amenityOptions.where(
+        (a) =>
+            (id.isNotEmpty && a.id == id) ||
+            (name.isNotEmpty && a.name.trim().toLowerCase() == name),
+      );
       for (final a in matches) {
         selectedAmenityIds.add(a.id);
-        final m = RegExp(r'^(.*?) - (.*?)(?:\. (.*))?$').firstMatch(item['details'] ?? '');
+        final m = RegExp(
+          r'^(.*?) - (.*?)(?:\. (.*))?$',
+        ).firstMatch(item['details'] ?? '');
         if (m != null) {
           if (a.isPool) {
             poolFromC.text = m.group(1)!.trim();
@@ -381,9 +493,12 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
         if (ad is Map) {
           final id = ad['id']?.toString() ?? '';
           final details = ad['details']?.toString() ?? '';
-          final a = widget.amenityOptions.where((opt) => opt.id == id).firstOrNull;
+          final a =
+              widget.amenityOptions.where((opt) => opt.id == id).firstOrNull;
           if (a != null && details.isNotEmpty) {
-            final m = RegExp(r'^(.*?) - (.*?)(?:\. (.*))?$').firstMatch(details);
+            final m = RegExp(
+              r'^(.*?) - (.*?)(?:\. (.*))?$',
+            ).firstMatch(details);
             if (m != null) {
               if (a.isPool) {
                 poolFromC.text = m.group(1)!.trim();
@@ -401,9 +516,10 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
     }
   }
 
-  List<AmenityModel> get _selectedAmenities => widget.amenityOptions
-      .where((a) => selectedAmenityIds.contains(a.id))
-      .toList();
+  List<AmenityModel> get _selectedAmenities =>
+      widget.amenityOptions
+          .where((a) => selectedAmenityIds.contains(a.id))
+          .toList();
   bool get _poolOn => _selectedAmenities.any((a) => a.isPool);
   bool get _gymOn => _selectedAmenities.any((a) => a.isGym);
 
@@ -414,6 +530,8 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
       descC,
       doorC,
       floorC,
+      carpetC,
+      builtUpC,
       addressC,
       advanceC,
       rentC,
@@ -449,39 +567,61 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: const Color(0xFFF8FAFD),
-      child: Column(
-        children: [
-          _header(),
-          const Divider(height: 1, color: _line),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.all(Responsive.isMobile(context) ? 14 : 28),
-              child: Form(
-                key: _formKey,
-                child: LayoutBuilder(
-                  builder: (context, c) {
-                    final left = _leftColumn();
-                    final right = _rightColumn();
-                    if (c.maxWidth < 900) {
-                      return Column(children: [...left, ...right]);
-                    }
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: Column(children: left)),
-                        const SizedBox(width: 24),
-                        Expanded(child: Column(children: right)),
-                      ],
-                    );
-                  },
+    return Stack(
+      children: [
+        ColoredBox(
+          color: const Color(0xFFF8FAFD),
+          child: Column(
+            children: [
+              _header(),
+              const Divider(height: 1, color: AppColors.inputBorder),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.all(
+                    Responsive.isMobile(context) ? 14 : 28,
+                  ),
+                  child: Form(
+                    key: _formKey,
+                    child: LayoutBuilder(
+                      builder: (context, c) {
+                        final left = _leftColumn();
+                        final right = _rightColumn();
+                        if (c.maxWidth < 900) {
+                          return Column(children: [...left, ...right]);
+                        }
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: Column(children: left)),
+                            const SizedBox(width: 24),
+                            Expanded(child: Column(children: right)),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if ((_reading || _submitting) &&
+            !photos.any((f) => f.uploading) &&
+            !documents.any((f) => f.uploading))
+          Positioned.fill(
+            child: ColoredBox(
+              color: Colors.black.withValues(alpha: 0.25),
+              child: Center(
+                child: Lottie.asset(
+                  'assets/lottie/ripple_loader.json',
+                  width: 160,
+                  height: 160,
+                  repeat: true,
                 ),
               ),
             ),
           ),
-        ],
-      ),
+      ],
     );
   }
 
@@ -489,83 +629,102 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
     final mobile = Responsive.isMobile(context);
 
     final cancelBtn = OutlinedButton(
-      onPressed: _submitting ? null : widget.onBack,
+      onPressed: _submitting || _reading ? null : widget.onBack,
       style: OutlinedButton.styleFrom(
         shape: const StadiumBorder(),
         padding: EdgeInsets.symmetric(
-            horizontal: mobile ? 18 : 22, vertical: mobile ? 12 : 14),
+          horizontal: mobile ? 18 : 22,
+          vertical: mobile ? 12 : 14,
+        ),
       ),
       child: const Text('Cancel'),
     );
 
     final submitBtn = ElevatedButton(
-      onPressed: _submitting ? null : _submit,
+      onPressed: _submitting || _reading ? null : _submit,
       style: ElevatedButton.styleFrom(
-        backgroundColor: _blue,
+        backgroundColor: AppColors.primaryBlue,
         foregroundColor: Colors.white,
         elevation: 0,
         shape: const StadiumBorder(),
         padding: EdgeInsets.symmetric(
-            horizontal: mobile ? 22 : 32, vertical: mobile ? 12 : 14),
-      ),
-      child: _submitting
-          ? const SizedBox(
-        width: 18,
-        height: 18,
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          color: Colors.white,
+          horizontal: mobile ? 22 : 32,
+          vertical: mobile ? 12 : 14,
         ),
-      )
-          : Text(_isEdit ? 'Update' : 'Create'),
+      ),
+      child:
+          _submitting
+              ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+              : Text(_isEdit ? 'Update' : 'Create'),
     );
 
     final title = Text(
       _isEdit ? 'Update Property' : 'Create Property',
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: TextStyle(
-          fontSize: mobile ? 17 : 20, fontWeight: FontWeight.w600),
+      style: TextStyle(fontSize: mobile ? 17 : 20, fontWeight: FontWeight.w600),
     );
 
     return Container(
       color: Colors.white,
       padding: EdgeInsets.symmetric(
-          horizontal: mobile ? 8 : 20, vertical: mobile ? 10 : 14),
-      child: mobile
-          ? Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(children: [
-            IconButton(
-              onPressed: widget.onBack,
-              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-            ),
-            Expanded(child: title),
-          ]),
-          const SizedBox(height: 6),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [cancelBtn, const SizedBox(width: 10), submitBtn],
-            ),
-          ),
-        ],
-      )
-          : Row(
-        children: [
-          IconButton(
-            onPressed: widget.onBack,
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-          ),
-          const SizedBox(width: 8),
-          Expanded(child: title),
-          cancelBtn,
-          const SizedBox(width: 12),
-          submitBtn,
-        ],
+        horizontal: mobile ? 8 : 20,
+        vertical: mobile ? 10 : 14,
       ),
+      child:
+          mobile
+              ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: widget.onBack,
+                        icon: const Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 20,
+                        ),
+                      ),
+                      Expanded(child: title),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        cancelBtn,
+                        const SizedBox(width: 10),
+                        submitBtn,
+                      ],
+                    ),
+                  ),
+                ],
+              )
+              : Row(
+                children: [
+                  IconButton(
+                    onPressed: widget.onBack,
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(child: title),
+                  cancelBtn,
+                  const SizedBox(width: 12),
+                  submitBtn,
+                ],
+              ),
     );
   }
 
@@ -574,6 +733,15 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
       AppToast.error('Please fix the highlighted fields.');
       return;
     }
+    if (photos.isEmpty && existingPhotoUrls.isEmpty) {
+      AppToast.error('Please upload at least one property image.');
+      return;
+    }
+    if (_bhkSelected == null) {
+      AppToast.error('BHK type is required.');
+      return;
+    }
+
     final data = <String, dynamic>{
       'name': nameC.text.trim(),
       'description': descC.text.trim(),
@@ -582,22 +750,22 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
         'phone': landlordPhoneC.text.trim(),
         'email': landlordEmailC.text.trim(),
       },
-      'propertyType':
-          propertyType == null ? 0 : propertyTypes.indexOf(propertyType!),
+      'bhkType': _bhkSelected,
       'doorNumber': doorC.text.trim(),
       'floorNumber': floorC.text.trim(),
       'address': addressC.text.trim(),
       'latitude': latitude ?? 0,
       'longitude': longitude ?? 0,
+      if (_area(carpetC.text) != null) 'carpetArea': _area(carpetC.text),
+      if (_area(builtUpC.text) != null) 'squareFeetArea': _area(builtUpC.text),
       'features': {
         if (selectedFeatures.contains('Bedrooms')) 'bedrooms': bedrooms,
         if (selectedFeatures.contains('Bathrooms')) 'bathrooms': bathrooms,
         if (selectedFeatures.contains('Kitchen')) 'kitchens': kitchens,
         if (selectedFeatures.contains('Built Year')) 'builtYear': builtYear,
       },
-      'amenities': _selectedAmenities
-          .map((a) => {'id': a.id, 'name': a.name})
-          .toList(),
+      'amenities':
+          _selectedAmenities.map((a) => {'id': a.id, 'name': a.name}).toList(),
       if (_poolOn)
         'pool': {
           'from': poolFromC.text,
@@ -625,11 +793,17 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
         },
       'photos': photos,
       'documents': documents,
+      'coverIndex': coverIndex,
       'existingImages': List<String>.from(existingPhotoUrls),
+      'existingImageIds': List<String>.from(existingPhotoIds),
       'existingDocuments': existingDocs,
     };
 
     setState(() => _submitting = true);
+    PropertyUpload.listen(data, () => mounted, context);
+    data['onUploadUi'] = () {
+      if (mounted) setState(() {});
+    };
     try {
       await widget.onSubmit(data);
       widget.onBack();
@@ -642,48 +816,50 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
 
   List<Widget> _leftColumn() => [
     if (_showLandlordSection)
-    _card(
-      icon: Icons.person_pin_outlined,
-      title: 'Landlord Details',
-      child: Column(
-        children: [
-          _field(
-            'Name',
-            'Name',
-            landlordNameC,
-            validator: (v) => _required(v, 'Landlord Name'),
-          ),
-          const SizedBox(height: 12),
-          _field(
-            'Phone Number',
-            'Phone Number',
-            landlordPhoneC,
-            prefix: '+91 ',
-            keyboard: TextInputType.number,
-            formatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(10),
-            ],
-            validator: (v) {
-              final r = _required(v, 'Phone Number');
-              if (r != null) return r;
-              return v!.length == 10 ? null : 'Enter a 10-digit number';
-            },
-          ),
-          const SizedBox(height: 12),
-          _field(
-            'Email',
-            'Email',
-            landlordEmailC,
-            keyboard: TextInputType.emailAddress,
-            validator: (v) {
-              if (v == null || v.trim().isEmpty) return null;
-              return GetUtils.isEmail(v.trim()) ? null : 'Enter a valid email';
-            },
-          ),
-        ],
+      _card(
+        icon: Icons.person_pin_outlined,
+        title: 'Landlord Details',
+        child: Column(
+          children: [
+            _field(
+              'Name',
+              'Name',
+              landlordNameC,
+              validator: (v) => _required(v, 'Landlord Name'),
+            ),
+            const SizedBox(height: 12),
+            _field(
+              'Phone Number',
+              'Phone Number',
+              landlordPhoneC,
+              prefix: '+91 ',
+              keyboard: TextInputType.number,
+              formatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(10),
+              ],
+              validator: (v) {
+                final r = _required(v, 'Phone Number');
+                if (r != null) return r;
+                return v!.length == 10 ? null : 'Enter a 10-digit number';
+              },
+            ),
+            const SizedBox(height: 12),
+            _field(
+              'Email',
+              'Email',
+              landlordEmailC,
+              keyboard: TextInputType.emailAddress,
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return null;
+                return GetUtils.isEmail(v.trim())
+                    ? null
+                    : 'Enter a valid email';
+              },
+            ),
+          ],
+        ),
       ),
-    ),
     _card(
       icon: Icons.photo_library_outlined,
       title: 'Property Photos',
@@ -691,10 +867,12 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
         label: 'Add Photos',
         files: photos,
         onAdd: _pickPhotos,
-        onRemove: (i) => setState(() => photos.removeAt(i)),
+        onRemove: _removeNewPhoto,
         isImage: true,
         existingUrls: existingPhotoUrls,
-        onRemoveExisting: (i) => setState(() => existingPhotoUrls.removeAt(i)),
+        onRemoveExisting: _removeExistingPhoto,
+        coverIndex: coverIndex,
+        onSetCover: (i) => setState(() => coverIndex = i),
       ),
     ),
     _card(
@@ -715,7 +893,73 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
             descC,
             validator: (v) => _required(v, 'Property Description'),
           ),
-        ],
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Obx(() {
+                  final list = _pc.bhkTypes.toList();
+                  final names = list.map((e) => e['name'].toString()).toList();
+                  final code = _bhkSelected;
+                  final selName = list
+                      .where((e) => e['code'] == code)
+                      .map((e) => e['name'].toString())
+                      .firstOrNull;
+                  return _dropdownBox<String>(
+                    'BHK type',
+                    selName,
+                    names,
+                        (v) => setState(() {
+                      _bhkTouched = true;
+                      _bhkCode = list
+                          .where((e) => e['name'] == v)
+                          .map((e) => e['code'].toString())
+                          .firstOrNull;
+                    }),
+                    hint: _pc.isBhkLoading.value ? 'Loading...' : 'Select',
+                    height: 40,
+                  );
+                }),
+              ),
+              SizedBox(width: Responsive.isMobile(context) ? 12 : 20),
+              const Expanded(child: SizedBox()),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _field(
+                  'Carpet Area',
+                  'e.g. 850',
+                  carpetC,
+                  suffixText: 'sq ft',
+                  keyboard: const TextInputType.numberWithOptions(decimal: true),
+                  formatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                  ],
+                  validator: _optionalAreaValidator,
+                ),
+              ),
+              SizedBox(width: Responsive.isMobile(context) ? 12 : 20),
+              Expanded(
+                child: _field(
+                  'Built-up Area',
+                  'e.g. 1100',
+                  builtUpC,
+                  suffixText: 'sq ft',
+                  keyboard: const TextInputType.numberWithOptions(decimal: true),
+                  formatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                  ],
+                  validator: _optionalAreaValidator,
+                ),
+              ),
+            ],
+          ),
+          ],
       ),
     ),
     _card(
@@ -745,7 +989,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
                       icon: const Icon(
                         Icons.location_on_outlined,
                         size: 26,
-                        color: _blue,
+                        color: AppColors.primaryBlue,
                       ),
                     )
                     : null,
@@ -778,22 +1022,25 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
               ),
             )
           else if (widget.featureOptions.isEmpty)
-            const Text('No features available',
-                style: TextStyle(color: _muted))
+            const Text('No features available', style: TextStyle(color: AppColors.textGrey))
           else
             Wrap(
               spacing: 10,
               runSpacing: 10,
-              children: widget.featureOptions
-                  .where((f) => f.featureKey != null)
-                  .map((f) {
-                final key = f.featureKey!;
-                return _chip(f.name, selectedFeatures.contains(key), (v) {
-                  setState(() => v
-                      ? selectedFeatures.add(key)
-                      : selectedFeatures.remove(key));
-                });
-              }).toList(),
+              children:
+                  widget.featureOptions.where((f) => f.featureKey != null).map((
+                    f,
+                  ) {
+                    final key = f.featureKey!;
+                    return _chip(f.name, selectedFeatures.contains(key), (v) {
+                      setState(
+                        () =>
+                            v
+                                ? selectedFeatures.add(key)
+                                : selectedFeatures.remove(key),
+                      );
+                    });
+                  }).toList(),
             ),
           if (selectedFeatures.contains('Bedrooms') ||
               selectedFeatures.contains('Bathrooms')) ...[
@@ -874,23 +1121,32 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
               ),
             )
           else if (widget.amenityOptions.isEmpty)
-            const Text('No amenities available',
-                style: TextStyle(color: _muted))
+            const Text(
+              'No amenities available',
+              style: TextStyle(color: AppColors.textGrey),
+            )
           else
             Wrap(
               spacing: 10,
               runSpacing: 10,
-              children: widget.amenityOptions.map((a) {
-                final chip = _chip(a.name, selectedAmenityIds.contains(a.id),
-                        (v) {
-                      setState(() => v
-                          ? selectedAmenityIds.add(a.id)
-                          : selectedAmenityIds.remove(a.id));
-                    });
-                return a.description.isEmpty
-                    ? chip
-                    : Tooltip(message: a.description, child: chip);
-              }).toList(),
+              children:
+                  widget.amenityOptions.map((a) {
+                    final chip = _chip(
+                      a.name,
+                      selectedAmenityIds.contains(a.id),
+                      (v) {
+                        setState(
+                          () =>
+                              v
+                                  ? selectedAmenityIds.add(a.id)
+                                  : selectedAmenityIds.remove(a.id),
+                        );
+                      },
+                    );
+                    return a.description.isEmpty
+                        ? chip
+                        : Tooltip(message: a.description, child: chip);
+                  }).toList(),
             ),
           if (_poolOn)
             _timingBlock(
@@ -964,7 +1220,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
       trailing: Switch(
         value: hasTenant,
         activeColor: Colors.white,
-        activeTrackColor: _blue,
+        activeTrackColor: AppColors.primaryBlue,
         onChanged: (v) => setState(() => hasTenant = v),
       ),
       hideBody: !hasTenant,
@@ -1014,7 +1270,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
             suffix: const Icon(
               Icons.calendar_today_outlined,
               size: 20,
-              color: _muted,
+              color: AppColors.textGrey,
             ),
             onTap: _pickDate,
           ),
@@ -1030,16 +1286,20 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
         onAdd: _pickDocuments,
         onRemove: (i) => setState(() => documents.removeAt(i)),
         isImage: false,
-        existingUrls: existingDocs
-            .map((d) => (d['absolutePath'] ??
-                    d['fileUrl'] ??
-                    d['url'] ??
-                    d['documentUrl'] ??
-                    d['relativePath'] ??
-                    '')
-                .toString())
-            .where((u) => u.isNotEmpty)
-            .toList(),
+        existingUrls:
+            existingDocs
+                .map(
+                  (d) =>
+                      (d['absolutePath'] ??
+                              d['fileUrl'] ??
+                              d['url'] ??
+                              d['documentUrl'] ??
+                              d['relativePath'] ??
+                              '')
+                          .toString(),
+                )
+                .where((u) => u.isNotEmpty)
+                .toList(),
         onRemoveExisting: (i) => setState(() => existingDocs.removeAt(i)),
       ),
     ),
@@ -1060,36 +1320,66 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
   }
 
   Future<void> _pickPhotos() async {
+    final added = <PickedFile>[];
     try {
       final res = await FilePicker.pickFiles(type: FileType.image);
       if (res.isEmpty) return;
-      final picked = await _readAll(res);
       if (!mounted) return;
-      setState(() => photos.addAll(picked));
+      setState(() => _reading = true);
+      final ok = PropertyUpload.withinLimit(await _readAll(res));
+      if (ok.isEmpty) return;
+      added.addAll(ok);
+      setState(() => photos.addAll(ok));
     } catch (e, st) {
       debugPrint('Pick photos failed: $e\n$st');
       AppToast.error('$e');
+    } finally {
+      if (mounted) setState(() => _reading = false);
+    }
+
+    if (added.isNotEmpty && mounted) {
+      await PropertyUpload.uploadNow(
+        added,
+        PropertyRepository().uploadPropertyFile,
+            () => mounted,
+        setState,
+        context,
+      );
     }
   }
 
   Future<void> _pickDocuments() async {
-    final remaining = _maxDocs - documents.length;
-    if (remaining <= 0) {
+    final addedDocs = <PickedFile>[];
+    if (_maxDocs - documents.length <= 0) {
       AppToast.error('You can add up to $_maxDocs documents.');
       return;
     }
     try {
-      final res = await FilePicker.pickFiles(
+      final file = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'],
       );
-      if (res.isEmpty) return;
-      final picked = await _readAll(res.take(remaining).toList());
+      if (file == null) return;
+      setState(() => _reading = true);
+      final picked = PropertyUpload.withinLimit(await _readAll([file]));
       if (!mounted) return;
       setState(() => documents.addAll(picked));
+      addedDocs.addAll(picked);
     } catch (e, st) {
       debugPrint('Pick documents failed: $e\n$st');
       AppToast.error('$e');
+    } finally {
+      if (mounted) setState(() => _reading = false);
+    }
+
+    if (addedDocs.isNotEmpty && mounted) {
+      await PropertyUpload.uploadNow(
+        addedDocs,
+        PropertyRepository().uploadPropertyFile,
+            () => mounted,
+        setState,
+        context,
+      );
     }
   }
 
@@ -1103,8 +1393,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
     );
     if (d != null) {
       _startDate = d;
-      startDateC.text =
-          DateFormat('dd/MMM/yyyy').format(d).toUpperCase();
+      startDateC.text = DateFormat('dd/MMM/yyyy').format(d).toUpperCase();
     }
   }
 
@@ -1148,7 +1437,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
                   suffix: const Icon(
                     Icons.access_time,
                     size: 20,
-                    color: _muted,
+                    color: AppColors.textGrey,
                   ),
                   onTap: () => _pickTime(from, '$name Timing From'),
                   validator: (v) => _required(v, '$name Timing From'),
@@ -1164,7 +1453,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
                   suffix: const Icon(
                     Icons.access_time,
                     size: 20,
-                    color: _muted,
+                    color: AppColors.textGrey,
                   ),
                   onTap: () => _pickTime(to, '$name Timing To'),
                   validator: (v) => _required(v, '$name Timing To'),
@@ -1216,10 +1505,10 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: _lightBlue,
+                    color: AppColors.lightBlue,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(icon, color: _blue, size: 20),
+                  child: Icon(icon, color: AppColors.primaryBlue, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1268,7 +1557,8 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
     TextInputType? keyboard,
     List<TextInputFormatter>? formatters,
     String? Function(String?)? validator,
-  }) {
+        String? suffixText,
+      }) {
     return _labeled(
       label,
       TextFormField(
@@ -1282,22 +1572,24 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
         style: const TextStyle(fontSize: 14),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(color: Color(0xFF94A3B8),fontSize: 14),
+          hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
           prefixText: prefix,
           prefixStyle: const TextStyle(color: Colors.black, fontSize: 14),
           suffixIcon: suffix,
+          suffixText: suffixText,
+          suffixStyle: const TextStyle(color: AppColors.textGrey, fontSize: 13),
           isDense: true,
           filled: false,
           fillColor: Colors.transparent,
           contentPadding: const EdgeInsets.symmetric(vertical: 10),
           border: const UnderlineInputBorder(
-            borderSide: BorderSide(color: _line),
+            borderSide: BorderSide(color: AppColors.inputBorder),
           ),
           enabledBorder: const UnderlineInputBorder(
-            borderSide: BorderSide(color: _line),
+            borderSide: BorderSide(color: AppColors.inputBorder),
           ),
           focusedBorder: const UnderlineInputBorder(
-            borderSide: BorderSide(color: _blue),
+            borderSide: BorderSide(color: AppColors.primaryBlue),
           ),
           errorBorder: const UnderlineInputBorder(
             borderSide: BorderSide(color: Colors.red),
@@ -1311,14 +1603,15 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
   }
 
   Widget _dropdownBox<T>(
-      String label,
-      T? value,
-      List<T> items,
-      ValueChanged<T?> onChanged, {
-        String hint = 'Select',
-        double? height,
-      }) {
-    final list = (value != null && !items.contains(value)) ? [...items, value] : items;
+    String label,
+    T? value,
+    List<T> items,
+    ValueChanged<T?> onChanged, {
+    String hint = 'Select',
+    double? height,
+  }) {
+    final list =
+        (value != null && !items.contains(value)) ? [...items, value] : items;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1348,9 +1641,16 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
               isExpanded: true,
               isDense: height != null,
               menuMaxHeight: 220,
-              items:list
+              items:
+                  list
                       .map(
-                        (e) => DropdownMenuItem<T>(value: e, child: Text('$e', style: const TextStyle(fontSize: 14))),
+                        (e) => DropdownMenuItem<T>(
+                          value: e,
+                          child: Text(
+                            '$e',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ),
                       )
                       .toList(),
               onChanged: onChanged,
@@ -1367,14 +1667,14 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
       selected: selected,
       showCheckmark: false,
       backgroundColor: Colors.white,
-      selectedColor: _lightBlue,
+      selectedColor: AppColors.lightBlue,
       labelStyle: TextStyle(
         fontSize: 13,
-        color: selected ? _blue : const Color(0xFF334155),
+        color: selected ? AppColors.primaryBlue: const Color(0xFF334155),
         fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
       ),
       shape: StadiumBorder(
-        side: BorderSide(color: selected ? _blue : const Color(0xFF94A3B8)),
+        side: BorderSide(color: selected ? AppColors.primaryBlue: const Color(0xFF94A3B8)),
       ),
       onSelected: onSelected,
     );
@@ -1391,7 +1691,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline, size: 18, color: _blue),
+          const Icon(Icons.info_outline, size: 18, color: AppColors.primaryBlue),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -1408,6 +1708,30 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
     );
   }
 
+  void _removeExistingPhoto(int i) {
+    setState(() {
+      existingPhotoUrls.removeAt(i);
+      if (i < existingPhotoIds.length) existingPhotoIds.removeAt(i);
+      if (coverIndex == i) {
+        coverIndex = 0;
+      } else if (coverIndex > i) {
+        coverIndex--;
+      }
+    });
+  }
+
+  void _removeNewPhoto(int i) {
+    final index = existingPhotoUrls.length + i;
+    setState(() {
+      photos.removeAt(i);
+      if (coverIndex == index) {
+        coverIndex = 0;
+      } else if (coverIndex > index) {
+        coverIndex--;
+      }
+    });
+  }
+
   Widget _fileGrid({
     required String label,
     required List<PickedFile> files,
@@ -1417,6 +1741,8 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
     List<String> existingUrls = const [],
     void Function(int)? onRemoveExisting,
     String? helper,
+    int? coverIndex,
+    void Function(int index)? onSetCover,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1427,7 +1753,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
             padding: const EdgeInsets.only(top: 2),
             child: Text(
               helper,
-              style: const TextStyle(fontSize: 13, color: _muted),
+              style: const TextStyle(fontSize: 13, color: AppColors.textGrey),
             ),
           ),
         const SizedBox(height: 12),
@@ -1437,9 +1763,24 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
           children: [
             if (existingUrls.isNotEmpty)
               for (var i = 0; i < existingUrls.length; i++)
-                _existingFileTile(existingUrls[i], isImage, () => onRemoveExisting?.call(i)),
+                _existingFileTile(
+                  existingUrls[i],
+                  isImage,
+                  () => onRemoveExisting?.call(i),
+                  isCover: coverIndex == i,
+                  onSetCover: onSetCover == null ? null : () => onSetCover(i),
+                ),
             for (var i = 0; i < files.length; i++)
-              _fileTile(files[i], isImage, () => onRemove(i)),
+              _fileTile(
+                files[i],
+                isImage,
+                () => onRemove(i),
+                isCover: coverIndex == existingUrls.length + i,
+                onSetCover:
+                    onSetCover == null
+                        ? null
+                        : () => onSetCover(existingUrls.length + i),
+              ),
             InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: onAdd,
@@ -1447,9 +1788,9 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
                 width: 110,
                 height: 140,
                 decoration: BoxDecoration(
-                  color: _lightBlue,
+                  color: AppColors.lightBlue,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _blue.withValues(alpha: 0.7)),
+                  border: Border.all(color: AppColors.primaryBlue.withValues(alpha: 0.7)),
                 ),
                 child: Center(
                   child: Container(
@@ -1470,46 +1811,120 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
     );
   }
 
-  Widget _fileTile(PickedFile f, bool isImage, VoidCallback onRemove) {
+  Widget _editablePhoto(String url, bool isCover) {
+    final viewId = 'edit-photo-${url.hashCode}-$isCover';
+    try {
+      ui_web.platformViewRegistry.registerViewFactory(viewId, (int _) {
+        final box = html.DivElement()
+          ..style.width = '100%'
+          ..style.height = '100%'
+          ..style.position = 'relative'
+          ..style.pointerEvents = 'none';
+        box.append(
+          html.ImageElement()
+            ..src = url
+            ..style.width = '100%'
+            ..style.height = '100%'
+            ..style.objectFit = 'cover'
+            ..style.pointerEvents = 'none',
+        );
+        if (isCover) {
+          box.append(
+            html.DivElement()
+              ..text = 'Cover'
+              ..style.position = 'absolute'
+              ..style.left = '6px'
+              ..style.bottom = '6px'
+              ..style.padding = '2px 6px'
+              ..style.borderRadius = '8px'
+              ..style.backgroundColor = '#2083D5'
+              ..style.color = 'white'
+              ..style.fontSize = '10px'
+              ..style.fontWeight = '700'
+              ..style.pointerEvents = 'none',
+          );
+        }
+        return box;
+      });
+    } catch (_) {}
+    return HtmlElementView(
+      viewType: viewId,
+      hitTestBehavior: PlatformViewHitTestBehavior.transparent,
+    );
+  }
+
+  Widget _coverBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2083D5),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Text(
+        'Cover',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  Widget _fileTile(
+    PickedFile f,
+    bool isImage,
+    VoidCallback onRemove, {
+    bool isCover = false,
+    VoidCallback? onSetCover,
+  }) {
     final canPreview =
         isImage ||
         ['jpg', 'jpeg', 'png'].contains((f.extension ?? '').toLowerCase());
     return Stack(
       children: [
-        Container(
-          width: 110,
-          height: 140,
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _line),
-          ),
-          child:
-              canPreview
-                  ? Image.memory(f.bytes, fit: BoxFit.cover)
-                  : Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.insert_drive_file_outlined,
-                          size: 32,
-                          color: _blue,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          f.name,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                      ],
+        GestureDetector(
+          onTap: onSetCover,
+          child: Container(
+            width: 110,
+            height: 140,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isCover ? const Color(0xFF2083D5) : AppColors.inputBorder,
+                width: isCover ? 2 : 1,
+              ),
+            ),
+            child:
+                canPreview
+                    ? Image.memory(f.bytes, fit: BoxFit.cover)
+                    : Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.insert_drive_file_outlined,
+                            size: 32,
+                            color: AppColors.primaryBlue,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            f.name,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+          ),
         ),
+        if (isCover) Positioned(left: 6, bottom: 6, child: _coverBadge()),
+        PropertyUpload.tileLoader(f.uploading),
         Positioned(
           top: 4,
           right: 4,
@@ -1529,37 +1944,47 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
     );
   }
 
-  Widget _existingFileTile(String url, bool isImage, VoidCallback onRemove) {
+  Widget _existingFileTile(
+    String url,
+    bool isImage,
+    VoidCallback onRemove, {
+    bool isCover = false,
+    VoidCallback? onSetCover,
+  }) {
     return Stack(
       children: [
-        Container(
-          width: 110,
-          height: 140,
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _line),
-          ),
-          child:
-              isImage
-                  ? WebNetworkImage(url: url, fit: BoxFit.cover)
-                  : const Column(
+        GestureDetector(
+          onTap: onSetCover,
+          child: Container(
+            width: 110,
+            height: 140,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isCover ? const Color(0xFF2083D5) : AppColors.inputBorder,
+                width: isCover ? 2 : 1,
+              ),
+            ),
+            child:
+                isImage
+                    ? _editablePhoto(url, isCover)
+                    : const Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
                           Icons.insert_drive_file_outlined,
                           size: 32,
-                          color: _blue,
+                          color: AppColors.primaryBlue,
                         ),
                         SizedBox(height: 8),
-                        Text(
-                          'Document',
-                          style: TextStyle(fontSize: 11),
-                        ),
+                        Text('Document', style: TextStyle(fontSize: 11)),
                       ],
                     ),
+          ),
         ),
+        if (isCover) Positioned(left: 6, bottom: 6, child: _coverBadge()),
         Positioned(
           top: 4,
           right: 4,

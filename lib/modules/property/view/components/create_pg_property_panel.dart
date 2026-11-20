@@ -10,6 +10,8 @@ import '../../../auth/controller/auth_controller.dart';
 import '../../model/amenity_model.dart';
 import '../../model/pg_property_detail_model.dart';
 import 'add_property_panel.dart' show PickedFile;
+import 'property_upload.dart';
+import 'package:agremate_admin/modules/property/repository/property_repository.dart';
 import 'map_picker_dialog.dart';
 
 class CreatePgPropertyPanel extends StatefulWidget {
@@ -150,6 +152,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
   final maintenanceFeesC = TextEditingController();
   final rentIncrementC = TextEditingController();
   final List<PickedFile> photos = [];
+  int coverIndex = 0;
   final List<PickedFile> documents = [];
   final List<String> existingImageUrls = [];
   final List<Map<String, dynamic>> existingDocs = [];
@@ -174,6 +177,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
   ];
 
   bool _submitting = false;
+  bool _reading = false;
   bool get _showLandlordSection {
     final auth =
     Get.isRegistered<AuthController>() ? Get.find<AuthController>() : null;
@@ -644,18 +648,34 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
   }
 
   Future<void> _pickPhotos() async {
+    final added = <PickedFile>[];
     try {
       final res = await FilePicker.pickFiles(type: FileType.image);
       if (res.isEmpty) return;
-      final picked = await _readAll(res);
+      setState(() => _reading = true);
       if (!mounted) return;
-      setState(() => photos.addAll(picked));
+      final ok = PropertyUpload.withinLimit(await _readAll(res));
+      if (ok.isEmpty) return;
+      added.addAll(ok);
+      setState(() => photos.addAll(ok));
     } catch (e) {
       AppToast.error('$e');
+    } finally {
+      if (mounted) setState(() => _reading = false);
+    }
+    if (added.isNotEmpty && mounted) {
+      await PropertyUpload.uploadNow(
+        added,
+        PropertyRepository().uploadPropertyFile,
+        () => mounted,
+        setState,
+        context,
+      );
     }
   }
 
   Future<void> _pickDocuments() async {
+    final addedDocs = <PickedFile>[];
     final remaining = _maxDocs - documents.length;
     if (remaining <= 0) {
       AppToast.error('You can add up to $_maxDocs documents.');
@@ -667,11 +687,28 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
         allowedExtensions: ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'],
       );
       if (res.isEmpty) return;
-      final picked = await _readAll(res.take(remaining).toList());
+      setState(() => _reading = true);
+      final picked = PropertyUpload.withinLimit(await _readAll(res));
       if (!mounted) return;
-      setState(() => documents.addAll(picked));
+      final limited = picked.take(remaining).toList();
+      if (picked.length > remaining) {
+        AppToast.error('You can add up to $_maxDocs documents.');
+      }
+      setState(() => documents.addAll(limited));
+      addedDocs.addAll(limited);
     } catch (e) {
       AppToast.error('$e');
+    } finally {
+      if (mounted) setState(() => _reading = false);
+    }
+    if (addedDocs.isNotEmpty && mounted) {
+      await PropertyUpload.uploadNow(
+        addedDocs,
+        PropertyRepository().uploadPropertyFile,
+        () => mounted,
+        setState,
+        context,
+      );
     }
   }
 
@@ -945,11 +982,15 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                       onRemoveExisting: (i) => setD(() => room.existingPhotoUrls.removeAt(i)),
                       onAdd: () async {
                         try {
-                          final picked =
-                          await FilePicker.pickFiles(type: FileType.image);
-                          if (picked.isEmpty) return;
-                          final files = await _readAll(picked);
-                          setD(() => room.photos.addAll(files));
+                          final res = await FilePicker.pickFiles(
+                            type: FileType.image,
+                          );
+                          if (res.isEmpty) return;
+                          final ok = PropertyUpload.withinLimit(
+                            await _readAll(res),
+                          );
+                          if (ok.isEmpty) return;
+                          setD(() => room.photos.addAll(ok));
                         } catch (e) {
                           AppToast.error('$e');
                         }
@@ -1537,6 +1578,10 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
       AppToast.error('Please fix the highlighted fields.');
       return;
     }
+    if (photos.isEmpty && existingImageUrls.isEmpty) {
+      AppToast.error('Please upload at least one property image.');
+      return;
+    }
 
     if (floors.isEmpty || floors.any((f) => f.rooms.isEmpty)) {
       AppToast.error('Every floor needs at least one room.');
@@ -1632,6 +1677,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
       'amenityIds': amenityIds,
       'floors': floorsJson,
       'photos': photos,
+      'coverIndex': coverIndex,
       'documents': documents,
       'rent': rentVal,
       'advance': advanceVal,
@@ -1655,6 +1701,10 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
     };
 
     setState(() => _submitting = true);
+    PropertyUpload.listen(data, () => mounted, context);
+    data['onUploadUi'] = () {
+      if (mounted) setState(() {});
+    };
     try {
       await widget.onSubmit(data);
       widget.onBack();
@@ -1669,7 +1719,9 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
+    return Stack(
+      children: [
+        ColoredBox(
       color: const Color(0xFFF8FAFD),
       child: Column(
         children: [
@@ -1704,6 +1756,13 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
           ),
         ],
       ),
+        ),
+        PropertyUpload.overlay(
+          visible: (_reading || _submitting) &&
+              !photos.any((f) => f.uploading) &&
+              !documents.any((f) => f.uploading),
+        ),
+      ],
     );
   }
 
@@ -1711,7 +1770,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
     final mobile = Responsive.isMobile(context);
 
     final cancelBtn = OutlinedButton(
-            onPressed: _submitting ? null : widget.onBack,
+            onPressed: _submitting || _reading ? null : widget.onBack,
             style: OutlinedButton.styleFrom(
               shape: const StadiumBorder(),
         padding: EdgeInsets.symmetric(
@@ -1721,7 +1780,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
     );
 
     final submitBtn = ElevatedButton(
-              onPressed: _submitting ? null : _submit,
+              onPressed: _submitting || _reading ? null : _submit,
               style: ElevatedButton.styleFrom(
                 backgroundColor: _blue,
                 foregroundColor: Colors.white,
@@ -1846,11 +1905,27 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
           _fileGrid(
             files: photos,
             onAdd: _pickPhotos,
-            onRemove: (i) => setState(() => photos.removeAt(i)),
+            onRemove: (i) => setState(() {
+              final index = existingImageUrls.length + i;
+              photos.removeAt(i);
+              if (coverIndex == index) {
+                coverIndex = 0;
+              } else if (coverIndex > index) {
+                coverIndex--;
+              }
+            }),
             isImage: true,
             existingUrls: existingImageUrls,
-            onRemoveExisting: (i) =>
-                setState(() => existingImageUrls.removeAt(i)),
+            onRemoveExisting: (i) => setState(() {
+              existingImageUrls.removeAt(i);
+              if (coverIndex == i) {
+                coverIndex = 0;
+              } else if (coverIndex > i) {
+                coverIndex--;
+              }
+            }),
+            coverIndex: coverIndex,
+            onSetCover: (i) => setState(() => coverIndex = i),
           ),
           const SizedBox(height: 12),
           const Text(
@@ -2940,6 +3015,8 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
     ValueChanged<int>? onRemoveExisting,
     double? tileWidth,
     double? tileHeight,
+    int? coverIndex,
+    ValueChanged<int>? onSetCover,
   }) {
     final double w = tileWidth ?? 130;
     final double h = tileHeight ?? (isImage ? 170 : 130);
@@ -2973,14 +3050,20 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
         ...existingUrls.asMap().entries.map((entry) {
           final idx = entry.key;
           final url = entry.value;
+          final isCover = onSetCover != null && coverIndex == idx;
           return Stack(
             children: [
-              Container(
+              GestureDetector(
+                onTap: onSetCover == null ? null : () => onSetCover(idx),
+                child: Container(
                 width: w,
                 height: h,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _line),
+                  border: Border.all(
+                    color: isCover ? _blue : _line,
+                    width: isCover ? 2 : 1,
+                  ),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: isImage
@@ -2991,6 +3074,17 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                     : const Icon(Icons.insert_drive_file_outlined,
                         size: 30, color: _blue),
               ),
+              ),
+              if (isCover)
+                const Positioned(
+                  left: 6,
+                  bottom: 6,
+                  child: Text('Cover',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700)),
+                ),
               if (onRemoveExisting != null)
                 Positioned(
                   top: 4,
@@ -3012,14 +3106,21 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
         ...files.asMap().entries.map((entry) {
           final idx = entry.key;
           final f = entry.value;
+          final combined = existingUrls.length + idx;
+          final isCover = onSetCover != null && coverIndex == combined;
           return Stack(
             children: [
-              Container(
+              GestureDetector(
+                onTap: onSetCover == null ? null : () => onSetCover(combined),
+                child: Container(
                 width: w,
                 height: h,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _line),
+                  border: Border.all(
+                    color: isCover ? _blue : _line,
+                    width: isCover ? 2 : 1,
+                  ),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: isImage
@@ -3044,6 +3145,18 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                   ],
                 ),
               ),
+              ),
+              if (isCover)
+                const Positioned(
+                  left: 6,
+                  bottom: 6,
+                  child: Text('Cover',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700)),
+                ),
+              PropertyUpload.tileLoader(f.uploading),
               Positioned(
                 top: 4,
                 right: 4,

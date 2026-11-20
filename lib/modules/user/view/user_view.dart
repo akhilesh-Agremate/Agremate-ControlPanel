@@ -22,6 +22,18 @@ class _UserViewState extends State<UserView> {
   final _landlordSearch = TextEditingController();
   final _tenantSearch = TextEditingController();
 
+  static const _pageSize = 50;
+  int _landlordPage = 1;
+  int _tenantPage = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Get.find<PropertyController>().loadUsersIfNeeded();
+    });
+  }
+
   @override
   void dispose() {
     _landlordSearch.dispose();
@@ -57,18 +69,28 @@ class _UserViewState extends State<UserView> {
           (t.property?.name.toLowerCase().contains(tq) ?? false))
           .toList();
 
+      final lPages =
+      landlords.isEmpty ? 1 : (landlords.length / _pageSize).ceil();
+      final tPages = tenants.isEmpty ? 1 : (tenants.length / _pageSize).ceil();
+      final lPage = _landlordPage > lPages ? lPages : _landlordPage;
+      final tPage = _tenantPage > tPages ? tPages : _tenantPage;
+      final pagedLandlords =
+      landlords.skip((lPage - 1) * _pageSize).take(_pageSize).toList();
+      final pagedTenants =
+      tenants.skip((tPage - 1) * _pageSize).take(_pageSize).toList();
+
       return ColoredBox(
         color: const Color(0xFFF8FAFD),
         child: SingleChildScrollView(
           padding: EdgeInsets.all(mobile ? 14 : 28),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Flex(
                 direction: mobile ? Axis.vertical : Axis.horizontal,
                 crossAxisAlignment:
                 mobile ? CrossAxisAlignment.stretch : CrossAxisAlignment.start,
-              children: [
+                children: [
                   _pane(
                     stacked: mobile,
                     child: _UserListCard(
@@ -79,27 +101,47 @@ class _UserViewState extends State<UserView> {
                       fill: AppTheme.landlordFill,
                       searchHint: 'Search landlords...',
                       searchController: _landlordSearch,
-                      onSearch: (_) => setState(() {}),
+                      onSearch: (_) => setState(() => _landlordPage = 1),
                       emptyText: 'No landlords to display.',
                       isEmpty: landlords.isEmpty,
-                      child: ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                        itemCount: landlords.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 10),
-                          itemBuilder: (context, index) {
-                          final landlord = landlords[index];
-                          return _UserTile(
-                            name: landlord.name,
-                            subtitle:
-                            '${landlord.totalProperties} ${landlord.totalProperties == 1 ? 'property' : 'properties'}',
-                            color: AppTheme.landlordFill,
-                            imageUrl: landlord.profilePictureUrl,
-                            onTap: () =>
-                                _showLandlordDetailDialog(context, landlord),
-                            );
-                          },
-                        ),
+                      loading: pc.isLandlordsLoading.value,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            height: MediaQuery.of(context).size.height -
+                                (mobile ? 420 : 390),
+                            child: ListView.separated(
+                              key: ValueKey('l$lPage'),
+                              itemCount: pagedLandlords.length,
+                              separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
+                              itemBuilder: (context, index) {
+                                final landlord = pagedLandlords[index];
+                                return _UserTile(
+                                  name: landlord.name,
+                                  subtitle:
+                                  '${landlord.totalProperties} ${landlord.totalProperties == 1 ? 'property' : 'properties'}',
+                                  color: AppTheme.landlordFill,
+                                  imageUrl: landlord.profilePictureUrl,
+                                  onTap: () => _showLandlordDetailDialog(
+                                      context, landlord),
+                                );
+                              },
+                            ),
+                          ),
+                          _PaginationBar(
+                            page: lPage,
+                            totalPages: lPages,
+                            totalItems: landlords.length,
+                            pageSize: _pageSize,
+                            onPrev: () =>
+                                setState(() => _landlordPage = lPage - 1),
+                            onNext: () =>
+                                setState(() => _landlordPage = lPage + 1),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   SizedBox(width: mobile ? 0 : 24, height: mobile ? 24 : 0),
@@ -113,33 +155,53 @@ class _UserViewState extends State<UserView> {
                       fill: AppTheme.tenantFill,
                       searchHint: 'Search tenants...',
                       searchController: _tenantSearch,
-                      onSearch: (_) => setState(() {}),
+                      onSearch: (_) => setState(() => _tenantPage = 1),
                       emptyText: 'No tenants to display.',
                       isEmpty: tenants.isEmpty,
-                      child: ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                        itemCount: tenants.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 10),
-                          itemBuilder: (context, index) {
-                          final tenant = tenants[index];
-                          return _UserTile(
-                            name: tenant.name,
-                            subtitle: tenant.property != null
-                                ? tenant.property!.name
-                                : 'No property',
-                            color: AppTheme.tenantFill,
-                            imageUrl: tenant.profilePictureUrl,
-                            onTap: () =>
-                                _showTenantDetailDialog(context, tenant),
-                          );
-                        },
+                      loading: pc.isTenantsLoading.value,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            height: MediaQuery.of(context).size.height -
+                                (mobile ? 420 : 390),
+                            child: ListView.separated(
+                              key: ValueKey('t$tPage'),
+                              itemCount: pagedTenants.length,
+                              separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
+                              itemBuilder: (context, index) {
+                                final tenant = pagedTenants[index];
+                                return _UserTile(
+                                  name: tenant.name,
+                                  subtitle: tenant.property != null
+                                      ? tenant.property!.name
+                                      : 'No property',
+                                  color: AppTheme.tenantFill,
+                                  imageUrl: tenant.profilePictureUrl,
+                                  onTap: () =>
+                                      _showTenantDetailDialog(context, tenant),
+                                );
+                              },
+                            ),
+                          ),
+                          _PaginationBar(
+                            page: tPage,
+                            totalPages: tPages,
+                            totalItems: tenants.length,
+                            pageSize: _pageSize,
+                            onPrev: () =>
+                                setState(() => _tenantPage = tPage - 1),
+                            onNext: () =>
+                                setState(() => _tenantPage = tPage + 1),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
           ),
         ),
       );
@@ -162,9 +224,9 @@ class _UserViewState extends State<UserView> {
         ? auth.userPhone.value
         : auth.phoneNumber.value);
     final propertyIds =
-        pc.properties.map((p) => p.landlordId.toLowerCase()).toSet();
+    pc.properties.map((p) => p.landlordId.toLowerCase()).toSet();
     final propertyNames =
-        pc.properties.map((p) => p.landlordName.trim().toLowerCase()).toSet();
+    pc.properties.map((p) => p.landlordName.trim().toLowerCase()).toSet();
 
     final mine = pc.landlords.where((l) {
       final id = l.id.toLowerCase();
@@ -179,9 +241,9 @@ class _UserViewState extends State<UserView> {
   }
 
   List<TenantModel> _tenantsForLogin(
-    PropertyController pc,
-    List<LandlordModel> landlords,
-  ) {
+      PropertyController pc,
+      List<LandlordModel> landlords,
+      ) {
     final auth = Get.isRegistered<AuthController>()
         ? Get.find<AuthController>()
         : null;
@@ -189,7 +251,7 @@ class _UserViewState extends State<UserView> {
 
     final propertyIds = pc.properties.map((p) => p.id.toLowerCase()).toSet();
     final propertyNames =
-        pc.properties.map((p) => p.name.trim().toLowerCase()).toSet();
+    pc.properties.map((p) => p.name.trim().toLowerCase()).toSet();
     for (final landlord in landlords) {
       for (final property in landlord.properties) {
         if (property.id.isNotEmpty) {
@@ -215,17 +277,16 @@ class _UserViewState extends State<UserView> {
   bool _samePhone(String? value, String phone) {
     final other = _digits(value ?? '');
     if (other.isEmpty || phone.isEmpty) return false;
-    return other == phone ||
-        other.endsWith(phone) ||
-        phone.endsWith(other);
+    return other == phone || other.endsWith(phone) || phone.endsWith(other);
   }
 
-  void _openLinkedProperty(BuildContext ctx, String? propertyId, String? propertyName) {
+  void _openLinkedProperty(
+      BuildContext ctx, String? propertyId, String? propertyName) {
     final pc = Get.find<PropertyController>();
     final nav = Get.find<NavigationController>();
     final fullProperty = pc.properties.firstWhereOrNull(
-      (p) =>
-          (propertyId != null && propertyId.isNotEmpty && p.id == propertyId) ||
+          (p) =>
+      (propertyId != null && propertyId.isNotEmpty && p.id == propertyId) ||
           (propertyName != null &&
               propertyName.isNotEmpty &&
               p.name.toLowerCase() == propertyName.toLowerCase()),
@@ -245,9 +306,9 @@ class _UserViewState extends State<UserView> {
     final linked = pc.properties
         .where(
           (p) =>
-              (landlord.id.isNotEmpty && p.landlordId == landlord.id) ||
-              p.landlordName.toLowerCase() == landlord.name.toLowerCase(),
-        )
+      (landlord.id.isNotEmpty && p.landlordId == landlord.id) ||
+          p.landlordName.toLowerCase() == landlord.name.toLowerCase(),
+    )
         .toList();
 
     showDialog(
@@ -265,12 +326,12 @@ class _UserViewState extends State<UserView> {
           ),
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
                     UserAvatar(
                       name: landlord.name.isNotEmpty ? landlord.name : 'L',
                       imageUrl: landlord.profilePictureUrl,
@@ -280,8 +341,8 @@ class _UserViewState extends State<UserView> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(landlord.name, style: AppTheme.heading2),
                           Text(
                             'Landlord',
@@ -291,19 +352,19 @@ class _UserViewState extends State<UserView> {
                           ),
                         ],
                       ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(ctx),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(ctx),
                       icon: const Icon(
                         Icons.close_rounded,
                         color: AppTheme.textMuted,
                       ),
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 16),
                 _infoCard(
-                children: [
+                  children: [
                     _iconInfoRow(
                       Icons.phone_rounded,
                       landlord.phone.isNotEmpty ? landlord.phone : 'N/A',
@@ -332,9 +393,9 @@ class _UserViewState extends State<UserView> {
                         '${landlord.occupiedCount}',
                         'Active',
                       ),
-                                          ),
-                                        ],
-                                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 20),
                 _sectionLabel('Linked properties'),
                 const SizedBox(height: 10),
@@ -352,16 +413,15 @@ class _UserViewState extends State<UserView> {
                     final tenantName = (prop.primaryTenantName ?? '').trim();
                     final hasTenant = tenantName.isNotEmpty;
                     final matchingTenant = pc.tenants.firstWhereOrNull(
-                      (t) =>
-                          t.name.toLowerCase() == tenantName.toLowerCase() ||
+                          (t) =>
+                      t.name.toLowerCase() == tenantName.toLowerCase() ||
                           (t.property?.name.toLowerCase() ==
                               prop.name.toLowerCase()),
                     );
                     final tenantPhone =
-                        (prop.primaryTenantPhone ?? matchingTenant?.phone ?? '')
-                            .trim();
-                    final startDate =
-                        prop.tenancyStartDate ??
+                    (prop.primaryTenantPhone ?? matchingTenant?.phone ?? '')
+                        .trim();
+                    final startDate = prop.tenancyStartDate ??
                         DateTime.tryParse(
                           matchingTenant?.tenancyStartDate ?? '',
                         );
@@ -388,9 +448,9 @@ class _UserViewState extends State<UserView> {
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
-                                      child: Text(
+                                    child: Text(
                                       prop.name,
-                                        style: const TextStyle(
+                                      style: const TextStyle(
                                         fontWeight: FontWeight.w700,
                                         color: AppTheme.textPrimary,
                                       ),
@@ -403,11 +463,14 @@ class _UserViewState extends State<UserView> {
                                 _inlineRow(
                                   ctx,
                                   [
-                                    _inlineInfo(Icons.person_rounded, tenantName),
+                                    _inlineInfo(
+                                        Icons.person_rounded, tenantName),
                                     if (tenantPhone.isNotEmpty)
-                                      _inlineInfo(Icons.phone_rounded, tenantPhone),
+                                      _inlineInfo(
+                                          Icons.phone_rounded, tenantPhone),
                                     if (startLabel.isNotEmpty)
-                                      _inlineInfo(Icons.event_rounded, startLabel),
+                                      _inlineInfo(
+                                          Icons.event_rounded, startLabel),
                                   ],
                                   [3, 5, 5],
                                 ),
@@ -456,20 +519,20 @@ class _UserViewState extends State<UserView> {
         ? DateFormat('dd MMM yyyy').format(startDate)
         : (tenant.tenancyStartDate.isNotEmpty ? tenant.tenancyStartDate : '');
     final linkedProp = pc.properties.firstWhereOrNull(
-      (p) =>
-          (tenant.propertyId.isNotEmpty && p.id == tenant.propertyId) ||
+          (p) =>
+      (tenant.propertyId.isNotEmpty && p.id == tenant.propertyId) ||
           (tenant.property != null &&
               tenant.property!.name.isNotEmpty &&
               p.name.toLowerCase() == tenant.property!.name.toLowerCase()),
     );
     final landlordName = (linkedProp?.landlordName ?? '').trim();
     final matchingLandlord = pc.landlords.firstWhereOrNull(
-      (l) =>
-          landlordName.isNotEmpty &&
+          (l) =>
+      landlordName.isNotEmpty &&
           l.name.toLowerCase() == landlordName.toLowerCase(),
     );
     final landlordPhone =
-        (linkedProp?.landlordPhone ?? matchingLandlord?.phone ?? '').trim();
+    (linkedProp?.landlordPhone ?? matchingLandlord?.phone ?? '').trim();
 
     showDialog(
       context: context,
@@ -486,14 +549,15 @@ class _UserViewState extends State<UserView> {
           ),
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
                     UserAvatar(
-                      name: tenant.name.isNotEmpty && !tenant.name.startsWith('+')
+                      name: tenant.name.isNotEmpty &&
+                          !tenant.name.startsWith('+')
                           ? tenant.name
                           : 'T',
                       imageUrl: tenant.profilePictureUrl,
@@ -503,8 +567,8 @@ class _UserViewState extends State<UserView> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(tenant.name, style: AppTheme.heading2),
                           Text(
                             'Tenant',
@@ -514,19 +578,19 @@ class _UserViewState extends State<UserView> {
                           ),
                         ],
                       ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(ctx),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(ctx),
                       icon: const Icon(
                         Icons.close_rounded,
                         color: AppTheme.textMuted,
                       ),
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 16),
                 _infoCard(
-                children: [
+                  children: [
                     _inlineRow(
                       ctx,
                       [
@@ -544,7 +608,7 @@ class _UserViewState extends State<UserView> {
                   ],
                 ),
                 if (landlordName.isNotEmpty) ...[
-              const SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   _sectionLabel('Landlord'),
                   const SizedBox(height: 10),
                   _infoCard(
@@ -566,49 +630,49 @@ class _UserViewState extends State<UserView> {
                 const SizedBox(height: 10),
                 tenant.property == null
                     ? _infoCard(
-                        children: const [
-                          Text(
-                          'No property registered for this tenant.',
-                          style: TextStyle(color: AppTheme.textMuted),
-                        ),
-                        ],
-                    )
-                  : Material(
-                        color: Colors.transparent,
-                      child: InkWell(
-                          borderRadius: BorderRadius.circular(16),
-                          onTap: () => _openLinkedProperty(
-                            ctx,
-                            tenant.property!.id,
-                            tenant.property!.name,
-                          ),
-                          child: _infoCard(
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.home_rounded,
-                                    size: 18,
-                                    color: AppTheme.tenantFill,
-                                  ),
-                                  const SizedBox(width: 8),
-                              Expanded(
-                                    child: Text(
-                                      tenant.property!.name,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        color: AppTheme.textPrimary,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-              ],
+                  children: const [
+                    Text(
+                      'No property registered for this tenant.',
+                      style: TextStyle(color: AppTheme.textMuted),
                     ),
+                  ],
+                )
+                    : Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => _openLinkedProperty(
+                      ctx,
+                      tenant.property!.id,
+                      tenant.property!.name,
+                    ),
+                    child: _infoCard(
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.home_rounded,
+                              size: 18,
+                              color: AppTheme.tenantFill,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                tenant.property!.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -635,7 +699,7 @@ class _UserViewState extends State<UserView> {
         border: Border.all(color: AppTheme.border),
       ),
       child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: children,
       ),
     );
@@ -723,6 +787,7 @@ class _UserListCard extends StatelessWidget {
     required this.onSearch,
     required this.emptyText,
     required this.isEmpty,
+    this.loading = false,
     required this.child,
   });
 
@@ -736,6 +801,7 @@ class _UserListCard extends StatelessWidget {
   final ValueChanged<String> onSearch;
   final String emptyText;
   final bool isEmpty;
+  final bool loading;
   final Widget child;
 
   @override
@@ -785,7 +851,8 @@ class _UserListCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: AppTheme.caption.copyWith(color: AppTheme.textMuted),
+                      style:
+                      AppTheme.caption.copyWith(color: AppTheme.textMuted),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -793,7 +860,8 @@ class _UserListCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: const Color(0xFFE8F1FD),
                   borderRadius: BorderRadius.circular(20),
@@ -818,8 +886,10 @@ class _UserListCard extends StatelessWidget {
               style: const TextStyle(fontSize: 14),
               decoration: InputDecoration(
                 hintText: searchHint,
-                hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
-                prefixIcon: const Icon(Icons.search, size: 20, color: Color(0xFF64748B)),
+                hintStyle:
+                const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
+                prefixIcon: const Icon(Icons.search,
+                    size: 20, color: Color(0xFF64748B)),
                 filled: true,
                 fillColor: Colors.white,
                 focusColor: Colors.transparent,
@@ -837,7 +907,17 @@ class _UserListCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          if (isEmpty)
+          if (isEmpty && loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Color(0xFF2083D5),
+                ),
+              ),
+            )
+          else if (isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: Text(
@@ -845,8 +925,22 @@ class _UserListCard extends StatelessWidget {
                 style: AppTheme.caption.copyWith(color: AppTheme.textMuted),
               ),
             )
-          else
-            child,
+          else ...[
+              child,
+              if (loading) ...[
+                const SizedBox(height: 12),
+                const Center(
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Color(0xFF2083D5),
+                    ),
+                  ),
+                ),
+              ],
+            ],
         ],
       ),
     );
@@ -926,7 +1020,8 @@ class _UserTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, color: Color(0xFF64748B)),
+              const Icon(Icons.chevron_right_rounded,
+                  color: Color(0xFF64748B)),
             ],
           ),
         ),
@@ -935,3 +1030,63 @@ class _UserTile extends StatelessWidget {
   }
 }
 
+class _PaginationBar extends StatelessWidget {
+  const _PaginationBar({
+    required this.page,
+    required this.totalPages,
+    required this.totalItems,
+    required this.pageSize,
+    required this.onPrev,
+    required this.onNext,
+  });
+
+  final int page;
+  final int totalPages;
+  final int totalItems;
+  final int pageSize;
+  final VoidCallback onPrev;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    final start = totalItems == 0 ? 0 : (page - 1) * pageSize + 1;
+    final end = (page * pageSize) > totalItems ? totalItems : page * pageSize;
+    return Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Showing $start-$end of $totalItems',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTheme.caption.copyWith(color: AppTheme.textMuted),
+            ),
+          ),
+          OutlinedButton.icon(
+            onPressed: page > 1 ? onPrev : null,
+            icon: const Icon(Icons.chevron_left_rounded, size: 18),
+            label: const Text('Prev'),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Text(
+              '$page / $totalPages',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+          OutlinedButton(
+            onPressed: page < totalPages ? onNext : null,
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Next'),
+                Icon(Icons.chevron_right_rounded, size: 18),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

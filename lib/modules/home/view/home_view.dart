@@ -2601,10 +2601,8 @@ class _ActivityItemCardState extends State<_ActivityItemCard> {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  'Joined: ${item['joinedDate'] ?? 'Jan 2024'}',
-                                  style: AppTheme.caption.copyWith(
-                                    fontSize: 11,
-                                  ),
+                                  'Subscribed: ${item['subscriptionDate'] ?? ''}',
+                                  style: AppTheme.caption.copyWith(fontSize: 11),
                                 ),
                               ],
                             ),

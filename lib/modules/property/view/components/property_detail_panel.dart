@@ -1,6 +1,7 @@
 import 'package:agremate_admin/modules/property/view/components/property_location_map.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:lottie/lottie.dart';
 import 'package:intl/intl.dart';
 import 'package:agremate_admin/core/theme/theme.dart';
 import 'package:agremate_admin/core/widgets/web_network_image.dart';
@@ -28,6 +29,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
   String? _openDocName;
   String? _openDocUrl;
   bool _galleryOpen = false;
+  bool _deleting = false;
 
   bool _isEditing = false;
 
@@ -65,7 +67,12 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           ElevatedButton(
             onPressed: () async {
               Navigator.of(ctx).pop();
-              await pc.deleteProperty(widget.property.id);
+              if (mounted) setState(() => _deleting = true);
+              try {
+                await pc.deleteProperty(widget.property.id);
+              } finally {
+                if (mounted) setState(() => _deleting = false);
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.accentRed,
@@ -95,6 +102,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
   void initState() {
     super.initState();
     _currentImageUrl = widget.property.imageUrl;
+    Get.find<PropertyController>().fetchBhkTypes();
   }
 
   @override
@@ -200,10 +208,12 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
         children: [
           Padding(
             padding: EdgeInsets.symmetric(
-              horizontal: MediaQuery.sizeOf(context).width < 600 ? 10 : 20,
-              vertical: 10,
+              horizontal: MediaQuery.sizeOf(context).width < 600 ? 12 : 20,
+              vertical: MediaQuery.sizeOf(context).width < 600 ? 8 : 10,
             ),
-            child: _AdaptiveHeader(
+            child: MediaQuery.sizeOf(context).width < 600
+                ? _mobileDetailHeader(pc, nav, statusBadge)
+                : _AdaptiveHeader(
               children: [
                 IconButton(
                   onPressed: () {
@@ -311,8 +321,137 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
         ],
       ),
     );
-    if (!widget.property.isDeleted) return page;
-    return GreyScale(child: page);
+    final shown = _deleting ? _deleteLoader(page) : page;
+    if (!widget.property.isDeleted) return shown;
+    return GreyScale(child: shown);
+  }
+
+  void _goBack(PropertyController pc, NavigationController nav) {
+    if (_openDocName != null) {
+      setState(() {
+        _openDocName = null;
+        _openDocUrl = null;
+      });
+      return;
+    }
+    if (pc.returnTabIndex.value != null) {
+      nav.currentIndex.value = pc.returnTabIndex.value!;
+      pc.returnTabIndex.value = null;
+    }
+    pc.search('');
+    pc.closePropertyDetails();
+  }
+
+  Widget _mobileDetailHeader(
+    PropertyController pc,
+    NavigationController nav,
+    Widget statusBadge,
+  ) {
+    final buttonShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(20),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            IconButton(
+              onPressed: () => _goBack(pc, nav),
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              icon: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: Colors.black,
+                size: 18,
+              ),
+              tooltip: 'Back',
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                _openDocName ?? 'Property Detail',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTheme.heading2.copyWith(
+                  color: Colors.black,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (_openDocName == null) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (_canEdit)
+                OutlinedButton.icon(
+                  onPressed: _startEdit,
+                  icon: const Icon(Icons.edit_rounded, size: 15),
+                  label: const Text('Edit', style: TextStyle(fontSize: 13)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF2083D5),
+                    side: const BorderSide(color: Color(0xFF2083D5)),
+                    backgroundColor: const Color(0xFFF3F8FF),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    minimumSize: const Size(0, 36),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: buttonShape,
+                  ),
+                ),
+              if (_canDelete)
+                OutlinedButton.icon(
+                  onPressed: () => _confirmDelete(context, pc),
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    size: 15,
+                    color: AppTheme.accentRed,
+                  ),
+                  label: const Text(
+                    'Delete',
+                    style: TextStyle(color: AppTheme.accentRed, fontSize: 13),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFFF5F5),
+                    side: const BorderSide(color: AppTheme.accentRed),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    minimumSize: const Size(0, 36),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: buttonShape,
+                  ),
+                ),
+              statusBadge,
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _deleteLoader(Widget child) {
+    return Stack(
+      children: [
+        child,
+        Positioned.fill(
+          child: ColoredBox(
+            color: Colors.black.withValues(alpha: 0.25),
+            child: Center(
+              child: Lottie.asset(
+                'assets/lottie/ripple_loader.json',
+                width: 160,
+                height: 160,
+                repeat: true,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildDetailsAndContacts({
@@ -329,6 +468,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           _buildAboutCard(),
           const SizedBox(height: 16),
         ],
+        _buildTypeCard(),
         _buildSectionHeader('Features & Facilities'),
         const SizedBox(height: 8),
         _buildFeaturesWrap(),
@@ -538,27 +678,60 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                   itemBuilder: (context, index) {
                     final imgUrl = widget.property.images[index];
                     final isSelected = _currentImageUrl == imgUrl;
+                    final isCover = index == 0;
+                    final ids = widget.property.imageIds;
+                    final imageId = index < ids.length ? ids[index] : '';
                     return GestureDetector(
                       onTap: () {
                         setState(() => _currentImageUrl = imgUrl);
                         _showImageGallery(context, index);
                       },
-                      child: Container(
-                        width: 48,
-                        margin: const EdgeInsets.only(right: 8),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: isSelected
-                                ? AppTheme.accentBlue
-                                : Colors.black12,
-                            width: isSelected ? 2 : 1,
+                      child: Stack(
+                        children: [
+                          Container(
+                            width: 48,
+                            margin: const EdgeInsets.only(right: 8),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isSelected
+                                    ? AppTheme.accentBlue
+                                    : Colors.black12,
+                                width: isSelected ? 2 : 1,
+                              ),
+                              image: DecorationImage(
+                                image: NetworkImage(imgUrl),
+                                fit: BoxFit.cover,
+                              ),
+                            ),
                           ),
-                          image: DecorationImage(
-                            image: NetworkImage(imgUrl),
-                            fit: BoxFit.cover,
-                          ),
-                        ),
+                          if (isCover)
+                            Positioned(
+                              left: 2,
+                              bottom: 2,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 3, vertical: 1),
+                                color: const Color(0xFF2083D5),
+                                child: const Text(
+                                  'Cover',
+                                  style: TextStyle(
+                                      color: Colors.white, fontSize: 8),
+                                ),
+                              ),
+                            ),
+                          if (!isCover && _canEdit && imageId.isNotEmpty)
+                            Positioned(
+                              right: 10,
+                              top: 2,
+                              child: GestureDetector(
+                                onTap: () => Get.find<PropertyController>()
+                                    .setCoverImage(widget.property, imageId),
+                                child: const Icon(Icons.star_border,
+                                    size: 14, color: Colors.white),
+                              ),
+                            ),
+                        ],
                       ),
                     );
                   },
@@ -701,8 +874,12 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
     );
   }
 
+  String _sqft(double v) =>
+      '${v == v.roundToDouble() ? v.toInt() : v} sq ft';
+
   Widget _buildFeaturesWrap() {
     final features = <Map<String, dynamic>>[];
+
     if (widget.property.bedrooms > 0) {
       features.add({
         'icon': Icons.bed_rounded,
@@ -750,6 +927,92 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           )
           .toList(),
     );
+  }
+
+  Widget _buildTypeCard() {
+    final pc = Get.find<PropertyController>();
+    return Obx(() {
+      pc.bhkTypes.length;
+      final room =
+      pc.bhkDisplayName(widget.property.rawJson['bhkType']?.toString());
+
+      final carpet = widget.property.carpetArea;
+      final builtUp = widget.property.squareFeetArea;
+      final carpetText = (carpet != null && carpet > 0) ? _sqft(carpet) : '';
+      final builtUpText = (builtUp != null && builtUp > 0) ? _sqft(builtUp) : '';
+
+      final hasTypeRow = room.isNotEmpty;
+      final hasAreaRow = carpetText.isNotEmpty || builtUpText.isNotEmpty;
+      if (!hasTypeRow && !hasAreaRow) return const SizedBox.shrink();
+
+      Widget cell(IconData icon, String label, String value) {
+        if (value.isEmpty) return const SizedBox.shrink();
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 18, color: AppTheme.accentBlue),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '$label: ',
+                      style: AppTheme.bodyText
+                          .copyWith(fontSize: 14, color: Colors.black54),
+                    ),
+                    TextSpan(
+                      text: value,
+                      style: AppTheme.bodyText.copyWith(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      }
+
+      Widget pair(Widget left, Widget right) => Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: left),
+          const SizedBox(width: 12),
+          Expanded(child: right),
+        ],
+      );
+
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (hasTypeRow)
+              pair(
+                cell(Icons.home_work_outlined, 'Room Type', room),
+                const SizedBox.shrink(),
+              ),
+            if (hasTypeRow && hasAreaRow) const SizedBox(height: 12),
+            if (hasAreaRow)
+              pair(
+                cell(Icons.square_foot_rounded, 'Carpet Area', carpetText),
+                cell(Icons.aspect_ratio_rounded, 'Built-up Area', builtUpText),
+              ),
+          ],
+        ),
+      );
+    });
   }
 
   Widget _buildAboutCard() {

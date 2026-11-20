@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:lottie/lottie.dart';
 import 'package:intl/intl.dart';
 import 'package:agremate_admin/core/theme/theme.dart';
 import 'package:agremate_admin/core/widgets/status_badge.dart';
@@ -51,6 +52,7 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
     return Obx(() {
       final pg = _controller.property.value;
       final isLoading = _controller.isLoading.value;
+      final isDeleting = _controller.isDeleting.value;
 
       if (_controller.isEditing.value) {
         if (isLoading) {
@@ -92,7 +94,9 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
         statusBadge = StatusBadge.available();
       }
 
-      return Container(
+      return Stack(
+        children: [
+          Container(
         width: double.infinity,
         height: double.infinity,
         color: const Color(0xFFF8FAFD),
@@ -236,6 +240,22 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
             ),
           ],
         ),
+      ),
+          if (isDeleting)
+            Positioned.fill(
+              child: ColoredBox(
+                color: Colors.black.withValues(alpha: 0.25),
+                child: Center(
+                  child: Lottie.asset(
+                    'assets/lottie/ripple_loader.json',
+                    width: 160,
+                    height: 160,
+                    repeat: true,
+                  ),
+                ),
+              ),
+            ),
+        ],
       );
     });
   }
@@ -349,22 +369,54 @@ class _PgPropertyDetailViewState extends State<PgPropertyDetailView> {
                   itemBuilder: (context, index) {
                     return Obx(() {
                       final isSelected = _controller.selectedImageIndex.value == index;
+                      final isCover = index == 0;
+                      final raw = pg.rawJson['images'];
+                      final imageId = raw is List &&
+                              index < pg.images.length &&
+                              index < raw.length &&
+                              raw[index] is Map
+                          ? (raw[index] as Map)['id']?.toString() ?? ''
+                          : '';
                       return GestureDetector(
                         onTap: () => _controller.selectImage(index),
-                        child: Container(
-                          width: 52,
-                          margin: const EdgeInsets.only(right: 8),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: isSelected ? AppTheme.accentBlue : Colors.black12,
-                              width: isSelected ? 2 : 1,
+                        child: Stack(
+                          children: [
+                            Container(
+                              width: 52,
+                              margin: const EdgeInsets.only(right: 8),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: isSelected ? AppTheme.accentBlue : Colors.black12,
+                                  width: isSelected ? 2 : 1,
+                                ),
+                                image: DecorationImage(
+                                  image: NetworkImage(photoPaths[index]),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
                             ),
-                            image: DecorationImage(
-                              image: NetworkImage(photoPaths[index]),
-                              fit: BoxFit.cover,
-                            ),
-                          ),
+                            if (isCover)
+                              Positioned(
+                                left: 2,
+                                bottom: 2,
+                                child: Container(
+                                  color: const Color(0xFF2083D5),
+                                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                                  child: const Text('Cover',
+                                      style: TextStyle(color: Colors.white, fontSize: 8)),
+                                ),
+                              ),
+                            if (!isCover && _controller.canEdit && imageId.isNotEmpty)
+                              Positioned(
+                                right: 10,
+                                top: 2,
+                                child: GestureDetector(
+                                  onTap: () => _controller.setCover(imageId),
+                                  child: const Icon(Icons.star_border, size: 14, color: Colors.white),
+                                ),
+                              ),
+                          ],
                         ),
                       );
                     });

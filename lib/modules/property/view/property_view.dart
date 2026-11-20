@@ -80,47 +80,47 @@ class PropertyView extends StatelessWidget {
 
       final mobile = Responsive.isMobile(context);
       final kpiRow = Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: KpiCard(
-              title: 'Total Properties',
+          crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                    child: KpiCard(
+                      title: 'Total Properties',
               value: '${k.totalProperties}',
-              icon: Icons.apartment_rounded,
-              accentColor: AppTheme.accentGreen,
+                      icon: Icons.apartment_rounded,
+                      accentColor: AppTheme.accentGreen,
               subtitle: '${k.rentedCount} rented',
               sparkData: spark(k.propertiesSparkline),
               sparkLabels: labels,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: KpiCard(
-              title: 'Total Landlords',
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                    child: KpiCard(
+                      title: 'Total Landlords',
               value: '${k.totalLandlords}',
-              icon: Icons.person_rounded,
-              accentColor: AppTheme.landlordFill,
+                      icon: Icons.person_rounded,
+                      accentColor: AppTheme.landlordFill,
               subtitle: '${k.activeLandlordCount} active',
               sparkData: spark(k.landlordsSparkline),
               sparkLabels: labels,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: KpiCard(
-              title: 'Total Tenants',
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                    child: KpiCard(
+                      title: 'Total Tenants',
               value: '${k.totalTenants}',
-              icon: Icons.groups_rounded,
-              accentColor: AppTheme.tenantFill,
+                      icon: Icons.groups_rounded,
+                      accentColor: AppTheme.tenantFill,
               subtitle: 'across ${k.tenantsAcrossProperties} properties',
               sparkData: spark(k.tenantsSparkline),
               sparkLabels: labels,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: KpiCard(
-              title: 'Total Revenue',
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                    child: KpiCard(
+                      title: 'Total Revenue',
               value: fmt.format(k.totalRevenue),
               icon: Icons.trending_up_rounded,
               accentColor: AppTheme.accentPurple,
@@ -176,8 +176,8 @@ class PropertyView extends StatelessWidget {
                         KpiCard(
                           title: 'Total Revenue',
                           value: fmt.format(k.totalRevenue),
-                          icon: Icons.trending_up_rounded,
-                          accentColor: AppTheme.accentPurple,
+                      icon: Icons.trending_up_rounded,
+                      accentColor: AppTheme.accentPurple,
                           sparkData: spark(k.revenueSparkline),
                           sparkLabels: labels,
                         ),
@@ -214,10 +214,10 @@ class PropertyView extends StatelessWidget {
                                     color: const Color(0xFF2F6BFF),
                                     fontWeight: FontWeight.w700,
                                   ),
-                                ),
-                              ),
-                            ],
-                          ),
+                  ),
+                ),
+              ],
+            ),
                           const SizedBox(height: 12),
                           if (auth != null && auth.isSuperAdmin) ...[
                             _CategoryFilterSelector(pc: pc),
@@ -254,9 +254,9 @@ class PropertyView extends StatelessWidget {
                         ],
                       )
                     : Row(
-                        children: [
-                          Text('Properties', style: AppTheme.heading2),
-                          const SizedBox(width: 8),
+              children: [
+                Text('Properties', style: AppTheme.heading2),
+                const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 3),
@@ -272,13 +272,13 @@ class PropertyView extends StatelessWidget {
                               ),
                             ),
                           ),
-                          const Spacer(),
+                const Spacer(),
                           if (auth != null && auth.isSuperAdmin) ...[
                             _CategoryFilterSelector(pc: pc),
                             const SizedBox(width: 16),
                           ],
                           if (canAddProperty)
-                            ElevatedButton.icon(
+                ElevatedButton.icon(
                               onPressed: () async {
                                 final type =
                                     await showPropertyTypeDialog(context);
@@ -290,74 +290,74 @@ class PropertyView extends StatelessWidget {
                                   pc.openAddProperty(type: PropertyAddType.pg);
                                 }
                               },
-                              icon: const Icon(Icons.add, size: 18),
-                              label: const Text('Add Property'),
-                              style: ElevatedButton.styleFrom(
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add Property'),
+                  style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF2F6BFF),
                                 foregroundColor: Colors.white,
                                 elevation: 0,
-                                shape: RoundedRectangleBorder(
+                    shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(24),
-                                ),
-                                padding: const EdgeInsets.symmetric(
+                    ),
+                    padding: const EdgeInsets.symmetric(
                                   horizontal: 18,
                                   vertical: 12,
-                                ),
-                              ),
-                            ),
-                        ],
+                    ),
+                  ),
+                ),
+              ],
                       ),
-              ),
-              const SizedBox(height: 16),
-              LayoutBuilder(
-                builder: (context, constraints) {
+            ),
+            const SizedBox(height: 16),
+            LayoutBuilder(
+              builder: (context, constraints) {
                   const cardGap = 16.0;
                   int crossAxisCount = 4;
                   if (constraints.maxWidth < 850) {
                     crossAxisCount = 2;
                   }
-                  final cardWidth =
+                final cardWidth =
                       (constraints.maxWidth - cardGap * (crossAxisCount - 1)) /
-                          crossAxisCount;
+                    crossAxisCount;
                   final isMobile = constraints.maxWidth < 600;
 
-                  if (isLoading) {
-                    return const SizedBox(
-                      height: 400,
-                      child: Center(child: CircularProgressIndicator()),
-                    );
-                  }
+                if (isLoading) {
+                  return const SizedBox(
+                    height: 400,
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
 
-                  if (pageItems.isEmpty) {
-                    return _EmptyState(
-                      page: page,
-                      onRefresh: pc.refreshProperties,
-                    );
-                  }
+                if (pageItems.isEmpty) {
+                  return _EmptyState(
+                    page: page,
+                    onRefresh: pc.refreshProperties,
+                  );
+                }
 
-                  return Wrap(
+                return Wrap(
                     key: ValueKey('page_$page'),
                     spacing: cardGap,
                     runSpacing: isMobile ? 14 : 24,
                     children: pageItems
-                        .map(
-                          (prop) => _PropertyCard(
-                        prop: prop,
-                        pc: pc,
-                        width: cardWidth,
-                        isSelected:
-                        pc.selectedProperty.value?.id == prop.id,
-                      ),
-                    )
-                        .toList(),
-                  );
-                },
-              ),
-              const SizedBox(height: 32),
-              _Pagination(pc: pc),
-            ],
-          ),
+                          .map(
+                            (prop) => _PropertyCard(
+                              prop: prop,
+                              pc: pc,
+                              width: cardWidth,
+                              isSelected:
+                                  pc.selectedProperty.value?.id == prop.id,
+                            ),
+                          )
+                          .toList(),
+                );
+              },
+            ),
+            const SizedBox(height: 32),
+            _Pagination(pc: pc),
+          ],
         ),
+          ),
       );
     });
   }
@@ -463,106 +463,106 @@ class _PropertyCard extends StatelessWidget {
     }
 
     return SizedBox(
-      width: width,
-      child: Container(
-        decoration: BoxDecoration(
+        width: width,
+        child: Container(
+          decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(isMobile ? 18 : 24),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF2563EB).withValues(alpha: 0.12),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF2563EB).withValues(alpha: 0.12),
               blurRadius: isMobile ? 16 : 28,
               offset: Offset(0, isMobile ? 6 : 12),
-            ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Material(
-          color: Colors.white,
-          clipBehavior: Clip.antiAlias,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(isMobile ? 18 : 24),
-            side: isSelected
-                ? const BorderSide(color: AppTheme.accentGreen, width: 2)
-                : const BorderSide(color: Color(0xFFD6E8FA), width: 1.5),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          child: InkWell(
+          child: Material(
+            color: Colors.white,
+            clipBehavior: Clip.antiAlias,
+            shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(isMobile ? 18 : 24),
+              side: isSelected
+                  ? const BorderSide(color: AppTheme.accentGreen, width: 2)
+                  : const BorderSide(color: Color(0xFFD6E8FA), width: 1.5),
+            ),
+            child: InkWell(
             onTap: () => pc.openPropertyDetails(prop),
-            child: SizedBox(
+              child: SizedBox(
               height: cardHeight,
-              width: double.infinity,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  if (hasImage)
+            width: double.infinity,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (hasImage)
                     _greyPhoto(
-                      Image.network(
-                        prop.imageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (c, e, s) => _placeholder(),
+                  Image.network(
+                    prop.imageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (c, e, s) => _placeholder(),
                       ),
-                    )
-                  else
+                  )
+                else
                     _greyPhoto(_placeholder()),
-                  Positioned(
+                Positioned(
                     top: isMobile ? 8 : 12,
                     left: isMobile ? 8 : 12,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                        child: Container(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                      child: Container(
                           padding: EdgeInsets.symmetric(
                               horizontal: isMobile ? 8 : 14,
                               vertical: isMobile ? 4 : 7),
-                          decoration: BoxDecoration(
+                        decoration: BoxDecoration(
                             color: const Color(0xFFBDBDBD)
                                 .withValues(alpha: 0.35),
-                            borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                                 color: Colors.white.withValues(alpha: 0.6)),
-                          ),
-                          child: Text(
+                        ),
+                        child: Text(
                             priceLabel,
                             style: TextStyle(
-                              color: Colors.white,
+                            color: Colors.white,
                               fontSize: isMobile ? 11 : 13,
-                              fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w600,
                               shadows: const [
-                                Shadow(
-                                  color: Colors.black26,
-                                  blurRadius: 3,
-                                  offset: Offset(0, 1),
-                                ),
-                              ],
-                            ),
+                              Shadow(
+                                color: Colors.black26,
+                                blurRadius: 3,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
                   ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
                     height: isMobile ? 100 : 150,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
                             Colors.black.withValues(alpha: 0.8),
-                          ],
-                        ),
+                        ],
                       ),
                     ),
                   ),
-                  Positioned(
+                ),
+                Positioned(
                     top: isMobile ? 8 : 12,
                     right: isMobile ? 8 : 12,
                     child: prop.isDeleted
@@ -608,70 +608,70 @@ class _PropertyCard extends StatelessWidget {
                     left: isMobile ? 10 : 16,
                     right: isMobile ? 10 : 16,
                     bottom: isMobile ? 8 : 14,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          prop.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        prop.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: Colors.white,
+                          color: Colors.white,
                             fontSize: isMobile ? 14 : 18,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          fontWeight: FontWeight.bold,
                         ),
+                      ),
                         SizedBox(height: isMobile ? 2 : 4),
-                        Row(
-                          children: [
+                      Row(
+                        children: [
                             Icon(Icons.location_on_rounded,
                                 color: Colors.white, size: isMobile ? 12 : 14),
                             const SizedBox(width: 3),
-                            Expanded(
-                              child: Text(
-                                prop.address.address,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                          Expanded(
+                            child: Text(
+                              prop.address.address,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  color: Colors.white,
+                                color: Colors.white,
                                   fontSize: isMobile ? 10.5 : 12,
-                                ),
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
+                      ),
                         SizedBox(height: isMobile ? 3 : 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _personLabel(
-                                icon: Icons.person_rounded,
-                                text: 'Landlord: ${prop.landlordName}',
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _personLabel(
+                              icon: Icons.person_rounded,
+                              text: 'Landlord: ${prop.landlordName}',
                                 isMobile: isMobile,
-                              ),
                             ),
+                          ),
                             if (!prop.isPg) ...[
                               SizedBox(width: isMobile ? 4 : 8),
-                              Expanded(
-                                child: _personLabel(
+                            Expanded(
+                              child: _personLabel(
                                   icon: Icons.groups_outlined,
                                   text: 'Tenant: $tenantName',
                                   isMobile: isMobile,
-                                ),
                               ),
-                            ],
+                            ),
                           ],
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
       ),
+        ),
     );
   }
 

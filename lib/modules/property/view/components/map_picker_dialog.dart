@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:agremate_admin/core/services/config_service.dart';
 import 'package:agremate_admin/core/utils/responsive.dart';
+import '../../../../core/theme/app_colors.dart';
 
 class PickedLocation {
   final String address;
@@ -69,10 +70,6 @@ class _MapPicker extends StatefulWidget {
 
 class _MapPickerState extends State<_MapPicker> {
   _GeoIssue? _geoIssue;
-  static const _blue = Color(0xFF2F6BFF);
-  static const _navy = Color(0xFF0B1F5C);
-  static const _blueMuted = Color(0xFF6B7FB5);
-  static const _green = Color(0xFF43A047);
   static const _defaultCenter = LatLng(12.9716, 77.5946);
 
   final _dio = Dio();
@@ -85,6 +82,7 @@ class _MapPickerState extends State<_MapPicker> {
   String? _error;
   bool _loading = false;
   late bool _hasPick = widget.initial != null;
+  bool _showMobileMap = false;
 
   @override
   void initState() {
@@ -323,7 +321,7 @@ class _MapPickerState extends State<_MapPicker> {
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: _navy,
+                    color: AppColors.navy,
                   ),
                 ),
               ),
@@ -389,7 +387,7 @@ class _MapPickerState extends State<_MapPicker> {
 
       if (compact) {
         return Container(
-          color: _blue,
+          color: AppColors.primaryBlue,
           padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -423,7 +421,7 @@ class _MapPickerState extends State<_MapPicker> {
       }
 
       return Container(
-        color: _blue,
+        color: AppColors.primaryBlue,
         padding: const EdgeInsets.fromLTRB(22, 10, 10, 10),
         child: Row(children: [
           const Icon(Icons.location_on, color: Colors.white, size: 22),
@@ -454,6 +452,19 @@ class _MapPickerState extends State<_MapPicker> {
   }
 
   Widget _mapArea() {
+    final mobile = Responsive.isMobile(context);
+    if (mobile && !_showMobileMap) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _showMobileMap = true);
+      });
+      return const Padding(
+        padding: EdgeInsets.only(top: 14),
+        child: ColoredBox(
+          color: Color(0xFFE8EEF8),
+          child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.only(top: 14),
       child: ClipRRect(
@@ -496,7 +507,7 @@ class _MapPickerState extends State<_MapPicker> {
                 onTap: _useCurrentLocation,
                 child: const Padding(
                   padding: EdgeInsets.all(10),
-                  child: Icon(Icons.my_location, size: 22, color: _blue),
+                  child: Icon(Icons.my_location, size: 22, color: AppColors.primaryBlue),
                 ),
               ),
             ),
@@ -523,7 +534,7 @@ class _MapPickerState extends State<_MapPicker> {
           isDense: true,
           filled: false,
           contentPadding: const EdgeInsets.symmetric(vertical:8),
-          prefixIcon: const Icon(Icons.search, size: 20, color: _blueMuted),
+          prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.blueMuted),
           suffixIcon: Padding(
             padding: const EdgeInsets.all(4),
             child: InkWell(
@@ -531,7 +542,7 @@ class _MapPickerState extends State<_MapPicker> {
               borderRadius: BorderRadius.circular(20),
               child: Container(
                 decoration:
-                const BoxDecoration(color: _blue, shape: BoxShape.circle),
+                const BoxDecoration(color: AppColors.primaryBlue, shape: BoxShape.circle),
                 child: const Icon(Icons.arrow_forward,
                     size: 16, color: Colors.white),
               ),
@@ -584,8 +595,8 @@ class _MapPickerState extends State<_MapPicker> {
             color: isError
                 ? Colors.red.shade600
                 : hasAddress
-                ? _green
-                : _blue,
+                ? AppColors.chatGreen
+                : AppColors.primaryBlue,
             size: 18,
           ),
         const SizedBox(width: 10),
@@ -604,7 +615,7 @@ class _MapPickerState extends State<_MapPicker> {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: isError ? Colors.red.shade700 : _navy,
+                  color: isError ? Colors.red.shade700 : AppColors.navy,
                 ),
               ),
             ],
@@ -624,7 +635,7 @@ class _MapPickerState extends State<_MapPicker> {
         child: OutlinedButton(
           onPressed: () => Navigator.pop(context),
           style: OutlinedButton.styleFrom(
-            foregroundColor: _blueMuted,
+            foregroundColor: AppColors.blueMuted,
             side: const BorderSide(color: Color(0xFFC9D6F5)),
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12)),
@@ -645,7 +656,7 @@ class _MapPickerState extends State<_MapPicker> {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
           style: ElevatedButton.styleFrom(
-            backgroundColor: _blue,
+            backgroundColor: AppColors.primaryBlue,
             foregroundColor: Colors.white,
             disabledBackgroundColor: const Color(0xFFCBD5E1),
             disabledForegroundColor: Colors.white,

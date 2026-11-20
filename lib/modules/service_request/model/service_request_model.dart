@@ -140,43 +140,12 @@ class ServiceRequestModel {
         final m = messages[i];
         final raw = rawMaps[i];
 
-        String? attachmentName;
-        String? attachmentUrl;
-        final atts = raw['fileAttachments'] ??
-            raw['attachments'] ??
-            raw['files'] ??
-            raw['media'];
-        if (atts is List && atts.isNotEmpty) {
-          final first = atts.first;
-          if (first is Map) {
-            attachmentUrl = _pick(first, [
-              'url', 'fileUrl', 'fileURL', 'filePath', 'path', 'link',
-              'location', 'attachmentUrl', 'signedUrl', 'presignedUrl',
-              'absolutePath', 'relativePath',
-            ]);
-            attachmentName = _pick(first, ['fileName', 'name', 'originalName', 'originalFileName']);
-          } else {
-            final s = first.toString();
-            if (s.startsWith('http')) attachmentUrl = s;
-            attachmentName = s;
-          }
-          if (attachmentName == null && attachmentUrl != null) {
-            attachmentName = attachmentUrl.split('?').first.split('/').last;
-          }
-        }
-        if (attachmentUrl == null) {
-          final directUrl = _pick(raw, [
-            'fileUrl', 'attachmentUrl', 'imageUrl', 'mediaUrl',
-          ]);
-          if (directUrl != null && directUrl.isNotEmpty) {
-            attachmentUrl = directUrl;
-            attachmentName ??= directUrl.split('?').first.split('/').last;
-          }
+        final attachments = _readAttachments(raw);
+        if (raw['isAttachment'] == true) {
         }
 
-        if (m.message.trim().isEmpty &&
-            attachmentName == null &&
-            attachmentUrl == null) {
+        final isFileMsg = raw['isAttachment'] == true;
+        if (m.message.trim().isEmpty && attachments.isEmpty && !isFileMsg) {
           continue;
         }
 
@@ -204,13 +173,18 @@ class ServiceRequestModel {
         chatMessages.add({
           'sender': sender,
           'senderName': senderName,
-          'message': m.message,
+          'message': (m.message.trim().isEmpty && attachments.isEmpty && isFileMsg)
+              ? '📎 Attachment'
+              : m.message,
           'time': _formatTime(m.sentAt),
           'isRead': m.isSeen,
           'senderUserId': m.senderUserId,
           'sentAt': m.sentAt,
-          if (attachmentName != null) 'attachmentName': attachmentName,
-          if (attachmentUrl != null) 'attachmentUrl': attachmentUrl,
+          if (attachments.isNotEmpty) 'attachments': attachments,
+          if (attachments.isNotEmpty) 'attachmentName': attachments.first['name'],
+          if (attachments.isNotEmpty &&
+              (attachments.first['url'] ?? '').isNotEmpty)
+            'attachmentUrl': attachments.first['url'],
         });
       }
       chatMessages.sort((a, b) {
@@ -280,6 +254,86 @@ class ServiceRequestModel {
       messages: messages,
     );
   }
+  static List<Map<String, String>> _readAttachments(Map raw) {
+    final atts = raw['attachments'] ??
+        raw['fileAttachments'] ??
+        raw['files'] ??
+        raw['documents'] ??
+        raw['media'] ??
+        raw['images'];
+    final out = <Map<String, String>>[];
+    if (atts is List) {
+      for (final item in atts) {
+        final one = _oneAttachment(item);
+        if (one != null) out.add(one);
+      }
+    }
+    if (out.isEmpty) {
+      final direct = _oneAttachment(raw);
+      if (direct != null &&
+          (raw['fileUrl'] != null ||
+              raw['attachmentUrl'] != null ||
+              raw['imageUrl'] != null ||
+              raw['absolutePath'] != null ||
+              raw['url'] != null ||
+              raw['thumbnailUrl'] != null)) {
+        out.add(direct);
+      }
+    }
+    return out;
+  }
+
+  static Map<String, String>? _oneAttachment(dynamic item) {
+    if (item is! Map) {
+      final s = item?.toString().trim() ?? '';
+      if (s.isEmpty || s == 'null') return null;
+      if (!s.startsWith('http') && !s.contains('.')) return null;
+      return {
+        'name': s.split('?').first.split('/').last,
+        'url': _fileUrl(s),
+        'thumb': '',
+      };
+    }
+    final name = _pick(item, [
+          'fileName',
+          'name',
+          'originalName',
+          'originalFileName',
+        ]) ??
+        '';
+    final url = _fileUrl(_pick(item, [
+      'absolutePath',
+      'fileUrl',
+      'url',
+      'fileURL',
+      'attachmentUrl',
+      'signedUrl',
+      'presignedUrl',
+      'imageUrl',
+      'mediaUrl',
+      'filePath',
+      'path',
+      'relativePath',
+      'location',
+    ]) ??
+        '');
+    final thumb = _fileUrl(_pick(item, ['thumbnailUrl', 'thumbnailPath']) ?? '');
+    if (name.isEmpty && url.isEmpty && thumb.isEmpty) return null;
+    final shown = name.isNotEmpty
+        ? name
+        : (url.isNotEmpty ? url : thumb).split('?').first.split('/').last;
+    return {'name': shown, 'url': url.isNotEmpty ? url : thumb, 'thumb': thumb};
+  }
+
+  static String _fileUrl(String path) {
+    final value = path.trim();
+    if (value.isEmpty || value.toLowerCase() == 'null') return '';
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      return value;
+    }
+    return 'https://amplify-agremate-dev-76a83-deployment.s3.ap-south-1.amazonaws.com/${value.startsWith('/') ? value.substring(1) : value}';
+  }
+
   static String? _pick(Map m, List<String> keys) {
     for (final k in keys) {
       final v = m[k];

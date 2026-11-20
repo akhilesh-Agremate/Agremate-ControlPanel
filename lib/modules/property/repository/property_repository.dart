@@ -365,6 +365,7 @@ class PropertyRepository {
   static const int _statusAvailable = 0;
   static const int _statusRented = 1;
   static const int _statusBooked = 2;
+  static const int _statusRequested = 3;
   static const String _uploadCategory = 'TempPropertyUploads';
 
   int _propertyTypeFor(Map<String, dynamic> data) =>
@@ -380,9 +381,95 @@ class PropertyRepository {
     return e.message ?? 'Network error';
   }
 
+  void _report(Map data, String message, double progress) {
+    final cb = data['onUploadProgress'];
+    if (cb != null) cb(message, progress);
+  }
+
+  void _refreshUpload(Map data) {
+    final cb = data['onUploadUi'];
+    if (cb != null) cb();
+  }
+
+  Future<Map<String, dynamic>> uploadPropertyFile(PickedFile f) async {
+    try {
+      return await _uploadFile(f);
+    } on dio.DioException catch (e) {
+      throw Exception(_errorText(e));
+    }
+  }
+
+  Future<bool> _askRetry(Map data, String name, String error) async {
+    final cb = data['onUploadRetry'];
+    if (cb == null) return false;
+    final result = await cb(name, error);
+    return result == true;
+  }
+
+  Future<List<Map<String, dynamic>>> _uploadFiles(
+    List<PickedFile> files,
+    Map data, {
+    required String kind,
+    required int doneBefore,
+    required int total,
+  }) async {
+    final out = <Map<String, dynamic>>[];
+    for (var i = 0; i < files.length; i++) {
+      final file = files[i];
+      final place = doneBefore + i + 1;
+      while (file.uploading && file.uploaded == null) {
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
+      if (file.uploaded != null) {
+        file.uploading = false;
+        _refreshUpload(data);
+        out.add(Map<String, dynamic>.from(file.uploaded!));
+        continue;
+      }
+      while (true) {
+        try {
+          file.uploading = true;
+          _refreshUpload(data);
+          _report(
+            data,
+            'Uploading $kind $place of $total\n${file.name}',
+            total == 0 ? 0 : (doneBefore + i) / total,
+          );
+          final uploaded = await _uploadFile(
+            file,
+            onSend: (fraction) {
+              _report(
+                data,
+                'Uploading $kind $place of $total\n${file.name}',
+                total == 0 ? 0 : (doneBefore + i + fraction) / total,
+              );
+            },
+          );
+          file.uploaded = uploaded;
+          file.uploading = false;
+          _refreshUpload(data);
+          out.add(uploaded);
+          break;
+        } catch (e) {
+          final message = e is dio.DioException
+              ? _errorText(e)
+              : '$e'.replaceFirst('Exception: ', '');
+          final retry = await _askRetry(data, file.name, message);
+          if (!retry) {
+            file.uploading = false;
+            _refreshUpload(data);
+            throw Exception(message);
+          }
+        }
+      }
+    }
+    return out;
+  }
+
   Future<Map<String, dynamic>> _uploadFile(
       PickedFile f, {
         String category = _uploadCategory,
+        void Function(double fraction)? onSend,
       }) async {
     final form = dio.FormData.fromMap({
       'documentCategory': category,
@@ -391,6 +478,10 @@ class PropertyRepository {
     final response = await DioClient.instance.post(
       AppEndpoints.uploadDoc,
       data: form,
+      onSendProgress: (sent, total) {
+        if (onSend == null || total <= 0) return;
+        onSend(sent / total);
+      },
     );
     AppLogger.d('PropertyRepository', '_uploadFile success');
 
@@ -409,7 +500,41 @@ class PropertyRepository {
       'uploadedTime':
       m['uploadedTime'] ?? DateTime.now().toUtc().toIso8601String(),
       'isDeletable': true,
+      'isCover': m['isCover'] == true,
     };
+  }
+
+  String? _applyCover(List<Map<String, dynamic>> images, dynamic coverIndex) {
+    if (images.isEmpty) return null;
+    var index = coverIndex is int ? coverIndex : int.tryParse('$coverIndex') ?? 0;
+    if (index < 0 || index >= images.length) index = 0;
+    for (var i = 0; i < images.length; i++) {
+      images[i]['isCover'] = i == index;
+    }
+    final id = images[index]['id']?.toString() ?? '';
+    return id.isEmpty ? null : id;
+  }
+
+  Future<void> setCoverImage(String propertyId, String documentDetailId) async {
+    try {
+      final response = await DioClient.instance.patch(
+        '/Property/$propertyId/cover-image/$documentDetailId',
+      );
+      final d = response.data;
+      if (d is Map && d['status'] == false) {
+        throw Exception(d['message'] ?? 'Failed to update cover image');
+      }
+    } on dio.DioException catch (e) {
+      if (e.response?.statusCode == 403) {
+        throw Exception(
+          "You don't have permission to modify this property's cover image.",
+        );
+      }
+      if (e.response?.statusCode == 404) {
+        throw Exception('Selected image not found. Please refresh.');
+      }
+      throw Exception(_errorText(e));
+    }
   }
 
   Future<List<AmenityModel>> _fetchAmenityList({int? type}) async {
@@ -441,14 +566,22 @@ class PropertyRepository {
       AppLogger.i('PropertyRepository', 'Create property API started');
       final photos = (data['photos'] as List<PickedFile>? ?? []);
       final docs = (data['documents'] as List<PickedFile>? ?? []);
-      final images = <Map<String, dynamic>>[];
-      final documents = <Map<String, dynamic>>[];
-      for (final p in photos) {
-        images.add(await _uploadFile(p));
-      }
-      for (final d in docs) {
-        documents.add(await _uploadFile(d));
-      }
+      final uploadTotal = photos.length + docs.length;
+      final images = await _uploadFiles(
+        photos,
+        data,
+        kind: 'image',
+        doneBefore: 0,
+        total: uploadTotal,
+      );
+      final documents = await _uploadFiles(
+        docs,
+        data,
+        kind: 'document',
+        doneBefore: photos.length,
+        total: uploadTotal,
+      );
+      _report(data, 'Saving property...', -1);
 
       final selected = (data['amenities'] as List? ?? [])
           .map((e) => Map<String, dynamic>.from(e as Map))
@@ -474,6 +607,7 @@ class PropertyRepository {
       final tenant = data['tenant'] as Map<String, dynamic>?;
       final landlord = data['landlord'] as Map<String, dynamic>?;
 
+      final coverId = _applyCover(images, data['coverIndex']);
       final body = <String, dynamic>{
         'name': data['name'],
         'description': data['description'],
@@ -489,6 +623,7 @@ class PropertyRepository {
         'amenitiesDetails': amenitiesDetails,
         'documents': documents,
         'images': images,
+        if (coverId != null) 'coverImageDocumentDetailId': coverId,
         'isSelfOwned': true,
         if (landlord != null) ...{
           'landlordName': landlord['name'],
@@ -505,6 +640,9 @@ class PropertyRepository {
         'kitchen': features['kitchens'] ?? 0,
         'builtYear': features['builtYear'] ?? 0,
         'propertyType': _propertyTypeFor(data),
+        if (data['bhkType'] != null) 'bhkType': data['bhkType'],
+        if (data['carpetArea'] != null) 'carpetArea': data['carpetArea'],
+        if (data['squareFeetArea'] != null) 'squareFeetArea': data['squareFeetArea'],
         if (tenant != null) ...{
           'tenantName': tenant['name'],
           'tenantPhoneNumber': _withCountryCode(tenant['phone']),
@@ -543,14 +681,22 @@ class PropertyRepository {
       AppLogger.i('PropertyRepository', 'Create PG property API started');
       final photos = (data['photos'] as List<PickedFile>? ?? []);
       final docs = (data['documents'] as List<PickedFile>? ?? []);
-      final images = <Map<String, dynamic>>[];
-      final documents = <Map<String, dynamic>>[];
-      for (final p in photos) {
-        images.add(await _uploadFile(p));
-      }
-      for (final d in docs) {
-        documents.add(await _uploadFile(d));
-      }
+      final uploadTotal = photos.length + docs.length;
+      final images = await _uploadFiles(
+        photos,
+        data,
+        kind: 'image',
+        doneBefore: 0,
+        total: uploadTotal,
+      );
+      final documents = await _uploadFiles(
+        docs,
+        data,
+        kind: 'document',
+        doneBefore: photos.length,
+        total: uploadTotal,
+      );
+      _report(data, 'Saving property...', -1);
 
       final selected = (data['amenities'] as List? ?? [])
           .map((e) => Map<String, dynamic>.from(e as Map))
@@ -593,6 +739,8 @@ class PropertyRepository {
         'amenityIds': amenityIds,
         'floors': data['floors'] ?? <Map<String, dynamic>>[],
         if (images.isNotEmpty) 'images': images,
+        if (_applyCover(images, data['coverIndex']) != null)
+          'coverImageDocumentDetailId': _applyCover(images, data['coverIndex']),
         if (documents.isNotEmpty) 'documents': documents,
       };
 
@@ -635,12 +783,24 @@ class PropertyRepository {
         for (final d in (data['existingDocuments'] as List? ?? []))
           if (d is Map) _documentObject(d),
       ];
-      for (final p in (data['photos'] as List<PickedFile>? ?? [])) {
-        images.add(await _uploadFile(p));
-      }
-      for (final d in (data['documents'] as List<PickedFile>? ?? [])) {
-        documents.add(await _uploadFile(d));
-      }
+      final newPhotos = (data['photos'] as List<PickedFile>? ?? []);
+      final newDocs = (data['documents'] as List<PickedFile>? ?? []);
+      final uploadTotal = newPhotos.length + newDocs.length;
+      images.addAll(await _uploadFiles(
+        newPhotos,
+        data,
+        kind: 'image',
+        doneBefore: 0,
+        total: uploadTotal,
+      ));
+      documents.addAll(await _uploadFiles(
+        newDocs,
+        data,
+        kind: 'document',
+        doneBefore: newPhotos.length,
+        total: uploadTotal,
+      ));
+      _report(data, 'Saving property...', -1);
 
       final selected = (data['amenities'] as List? ?? [])
           .map((e) => Map<String, dynamic>.from(e as Map))
@@ -681,6 +841,8 @@ class PropertyRepository {
         'amenityIds': amenityIds,
         'amenitiesDetails': <Map<String, dynamic>>[],
         'documents': documents,
+        if (_applyCover(images, data['coverIndex']) != null)
+          'coverImageDocumentDetailId': _applyCover(images, data['coverIndex']),
         'images': images,
         'isSelfOwned': data['isSelfOwned'] ?? true,
         'extraProperties': data['extraProperties'],
@@ -708,6 +870,21 @@ class PropertyRepository {
       AppLogger.e('PropertyRepository', 'Update PG property error', e, stack);
       rethrow;
     }
+  }
+
+  List<Map<String, dynamic>> _keptImages(Map data, List rawImages) {
+    final urls = data['existingImages'] as List? ?? [];
+    final ids = data['existingImageIds'] as List? ?? [];
+    final images = <Map<String, dynamic>>[];
+    for (var i = 0; i < urls.length; i++) {
+      final obj = _imageObject(urls[i].toString(), rawImages);
+      final id = i < ids.length ? ids[i]?.toString() ?? '' : '';
+      if ((obj['id']?.toString() ?? '').isEmpty && id.isNotEmpty) {
+        obj['id'] = id;
+      }
+      images.add(obj);
+    }
+    return images;
   }
 
   Map<String, dynamic> _imageObject(String url, [List rawImages = const []]) {
@@ -742,7 +919,8 @@ class PropertyRepository {
     try {
       if (existing.status != PropertyStatus.available &&
           existing.status != PropertyStatus.rented &&
-          existing.status != PropertyStatus.booked) {
+          existing.status != PropertyStatus.booked &&
+          existing.status != PropertyStatus.requested) {
         throw Exception(
           'Editing "${existing.statusLabel}" properties is not supported yet.',
         );
@@ -750,21 +928,30 @@ class PropertyRepository {
       final raw = existing.rawJson;
 
       final rawImages = raw['images'] is List ? raw['images'] as List : const [];
-      final images = <Map<String, dynamic>>[
-        for (final u in (data['existingImages'] as List? ?? []))
-          _imageObject(u.toString(), rawImages),
-      ];
+      final images = _keptImages(data, rawImages);
       final documents = <Map<String, dynamic>>[
         for (final d in (data['existingDocuments'] as List? ?? []))
           if (d is Map) _documentObject(d),
       ];
 
-      for (final p in (data['photos'] as List<PickedFile>? ?? [])) {
-        images.add(await _uploadFile(p));
-      }
-      for (final d in (data['documents'] as List<PickedFile>? ?? [])) {
-        documents.add(await _uploadFile(d));
-      }
+      final newPhotos = (data['photos'] as List<PickedFile>? ?? []);
+      final newDocs = (data['documents'] as List<PickedFile>? ?? []);
+      final uploadTotal = newPhotos.length + newDocs.length;
+      images.addAll(await _uploadFiles(
+        newPhotos,
+        data,
+        kind: 'image',
+        doneBefore: 0,
+        total: uploadTotal,
+      ));
+      documents.addAll(await _uploadFiles(
+        newDocs,
+        data,
+        kind: 'document',
+        doneBefore: newPhotos.length,
+        total: uploadTotal,
+      ));
+      _report(data, 'Saving property...', -1);
 
       final selected = (data['amenities'] as List? ?? [])
           .map((e) => Map<String, dynamic>.from(e as Map))
@@ -806,6 +993,8 @@ class PropertyRepository {
         'amenitiesDetails': amenitiesDetails,
         'documents': documents,
         'images': images,
+        if (_applyCover(images, data['coverIndex']) != null)
+          'coverImageDocumentDetailId': _applyCover(images, data['coverIndex']),
         'isSelfOwned': raw['isSelfOwned'] ?? true,
         if (landlord != null) ...{
           'landlordId': (raw['landlord'] is Map ? raw['landlord']['id'] : null) ??
@@ -835,7 +1024,9 @@ class PropertyRepository {
         'kitchen': features['kitchens'] ?? 0,
         'builtYear': features['builtYear'] ?? 0,
         if (_intOrNull(raw['zone']) != null) 'zone': _intOrNull(raw['zone']),
-        'propertyType': data['propertyType'] ?? 0,
+        if (data['bhkType'] != null) 'bhkType': data['bhkType'],
+        if (data['carpetArea'] != null) 'carpetArea': data['carpetArea'],
+        if (data['squareFeetArea'] != null) 'squareFeetArea': data['squareFeetArea'],
         'contractReference': raw['contractReference']?.toString() ?? '',
       };
       AppLogger.i('PropertyRepository',
@@ -888,6 +1079,9 @@ class PropertyRepository {
   }
 
   int _statusForUpdate(PropertyModel existing, Map<String, dynamic>? tenant) {
+    if (existing.status == PropertyStatus.requested) {
+      return _intOrNull(existing.rawJson['status']) ?? _statusRequested;
+    }
     if (existing.status == PropertyStatus.booked) {
       final raw = existing.rawJson['status'];
       if (raw is num) return raw.toInt();
@@ -975,13 +1169,34 @@ class PropertyRepository {
 
   Future<List<TenantModel>> getAllTenants() async {
     try {
-      final response = await DioClient.instance.get(AppEndpoints.allTenants);
-      final result = _extractList(response.data);
-      final tenants = result
-          .whereType<Map>()
-          .map((json) => TenantModel.fromJson(Map<String, dynamic>.from(json)))
-          .toList();
-      return _filterTenantsForCurrentUser(tenants);
+      const pageSize = 50;
+      const maxPages = 1000;
+      final all = <TenantModel>[];
+      final seen = <String>{};
+
+      for (var page = 1; page <= maxPages; page++) {
+        final response = await DioClient.instance.get(
+          AppEndpoints.allTenants,
+          queryParameters: {'page': page, 'pageSize': pageSize},
+        );
+        final items = _extractList(response.data)
+            .whereType<Map>()
+            .map((json) => TenantModel.fromJson(Map<String, dynamic>.from(json)))
+            .toList();
+
+        var added = 0;
+        for (final t in items) {
+          final key = '${t.id}|${_phoneDigits(t.phone)}|${t.propertyName}|${t.name}';
+          if (seen.add(key)) {
+            all.add(t);
+            added++;
+          }
+        }
+        AppLogger.i('PropertyRepository',
+            'getAllTenants page=$page got=${items.length} added=$added total=${all.length}');
+        if (items.isEmpty || added == 0) break;
+      }
+      return _filterTenantsForCurrentUser(all);
     } catch (e) {
       rethrow;
     }
@@ -989,19 +1204,66 @@ class PropertyRepository {
 
   Future<List<LandlordModel>> getAllLandlords() async {
     try {
-      final response =
-      await DioClient.instance.get(AppEndpoints.allLandlordDetails);
-      final result = _extractList(response.data);
-      final landlords = result
-          .whereType<Map>()
-          .map((json) =>
-          LandlordModel.fromJson(Map<String, dynamic>.from(json)))
-          .toList();
-      return _filterLandlordsForCurrentUser(landlords);
+      const pageSize = 50;
+      const maxPages = 1000;
+      final all = <LandlordModel>[];
+      final seen = <String>{};
+
+      for (var page = 1; page <= maxPages; page++) {
+        final response = await DioClient.instance.get(
+          AppEndpoints.allLandlordDetails,
+          queryParameters: {'page': page, 'pageSize': pageSize},
+        );
+        final items = _extractList(response.data)
+            .whereType<Map>()
+            .map((json) => LandlordModel.fromJson(Map<String, dynamic>.from(json)))
+            .toList();
+
+        var added = 0;
+        for (final l in items) {
+          final key = '${l.id}|${_phoneDigits(l.phone)}|${l.name.trim().toLowerCase()}';
+          if (seen.add(key)) {
+            all.add(l);
+            added++;
+          }
+        }
+        AppLogger.i('PropertyRepository',
+            'getAllLandlords page=$page got=${items.length} added=$added total=${all.length}');
+
+        if (items.isEmpty || added == 0) break;
+      }
+      return _filterLandlordsForCurrentUser(all);
     } catch (e) {
       rethrow;
     }
   }
+
+  Future<List<LandlordModel>> getLandlordsPage({int page = 1, int pageSize = 50}) async {
+    final response = await DioClient.instance.get(
+      AppEndpoints.allLandlordDetails,
+      queryParameters: {'page': page, 'pageSize': pageSize},
+    );
+    return _extractList(response.data)
+        .whereType<Map>()
+        .map((j) => LandlordModel.fromJson(Map<String, dynamic>.from(j)))
+        .toList();
+  }
+
+  Future<List<TenantModel>> getTenantsPage({int page = 1, int pageSize = 50}) async {
+    final response = await DioClient.instance.get(
+      AppEndpoints.allTenants,
+      queryParameters: {'page': page, 'pageSize': pageSize},
+    );
+    return _extractList(response.data)
+        .whereType<Map>()
+        .map((j) => TenantModel.fromJson(Map<String, dynamic>.from(j)))
+        .toList();
+  }
+
+  List<LandlordModel> filterLandlords(List<LandlordModel> l) =>
+      _filterLandlordsForCurrentUser(l);
+  List<TenantModel> filterTenants(List<TenantModel> t) =>
+      _filterTenantsForCurrentUser(t);
 
   bool _matchesLoggedInUser(
       AuthController auth,
