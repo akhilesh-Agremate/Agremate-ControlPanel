@@ -38,11 +38,25 @@ class _TopBarState extends State<TopBar> {
         final double overlayWidth =
         screenW < _compactBreakpoint ? screenW - 32 : 320;
 
+        final box = _searchKey.currentContext?.findRenderObject() as RenderBox?;
+        var left = 16.0;
+        var top = 56.0;
+        var width = overlayWidth;
+        var passBelow = 64.0;
+        if (box != null && box.hasSize) {
+          final origin = box.localToGlobal(Offset.zero);
+          left = origin.dx;
+          top = origin.dy + box.size.height + 6;
+          width = box.size.width;
+          passBelow = origin.dy + box.size.height;
+        }
+
         return Stack(
           children: [
             Positioned.fill(
               child: _OutsideTap(
                 passThrough: _tapInsideSearch,
+                passBelow: passBelow,
                 onOutside: () {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     _hideOverlay();
@@ -54,12 +68,10 @@ class _TopBarState extends State<TopBar> {
               ),
             ),
             Positioned(
-          width: overlayWidth,
-          child: CompositedTransformFollower(
-            link: _layerLink,
-            showWhenUnlinked: false,
-            offset: const Offset(0, 48),
-            child: Material(
+          left: left,
+          top: top,
+          width: width,
+          child: Material(
               elevation: 8,
               borderRadius: BorderRadius.circular(12),
               color: AppTheme.bgDark,
@@ -148,7 +160,6 @@ class _TopBarState extends State<TopBar> {
               ),
             ),
           ),
-        ),
           ],
         );
       },
@@ -392,35 +403,40 @@ class _TopBarState extends State<TopBar> {
 
 class _OutsideTap extends SingleChildRenderObjectWidget {
   final bool Function(Offset global) passThrough;
+  final double passBelow;
   final VoidCallback onOutside;
 
   const _OutsideTap({
     required this.passThrough,
+    required this.passBelow,
     required this.onOutside,
   }) : super(child: const SizedBox.expand());
 
   @override
   RenderObject createRenderObject(BuildContext context) {
-    return _RenderOutsideTap(passThrough, onOutside);
+    return _RenderOutsideTap(passThrough, passBelow, onOutside);
   }
 
   @override
   void updateRenderObject(BuildContext context, _RenderOutsideTap renderObject) {
     renderObject
       ..passThrough = passThrough
+      ..passBelow = passBelow
       ..onOutside = onOutside;
   }
 }
 
 class _RenderOutsideTap extends RenderProxyBox {
   bool Function(Offset global) passThrough;
+  double passBelow;
   VoidCallback onOutside;
 
-  _RenderOutsideTap(this.passThrough, this.onOutside);
+  _RenderOutsideTap(this.passThrough, this.passBelow, this.onOutside);
 
   @override
   bool hitTest(BoxHitTestResult result, {required Offset position}) {
-    if (passThrough(localToGlobal(position))) return false;
+    final global = localToGlobal(position);
+    if (passThrough(global) || global.dy > passBelow) return false;
     result.add(BoxHitTestEntry(this, position));
     return true;
   }

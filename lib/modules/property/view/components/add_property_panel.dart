@@ -1,6 +1,9 @@
+import 'dart:html' as html;
 import 'dart:typed_data';
+import 'dart:ui_web' as ui_web;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show PlatformViewHitTestBehavior;
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -15,7 +18,6 @@ import 'map_picker_dialog.dart';
 import 'property_upload.dart';
 import 'package:agremate_admin/modules/property/repository/property_repository.dart';
 import 'package:agremate_admin/core/widgets/app_toast.dart';
-import 'package:agremate_admin/core/widgets/web_network_image.dart';
 
 class PickedFile {
   final String name;
@@ -102,6 +104,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
 
   bool get _isEdit => widget.initial != null;
   final List<String> existingPhotoUrls = [];
+  final List<String> existingPhotoIds = [];
   int coverIndex = 0;
   final List<Map<String, dynamic>> existingDocs = [];
   bool get _showLandlordSection {
@@ -355,9 +358,12 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
     }
 
     existingPhotoUrls.clear();
-    for (final img in p.images) {
+    existingPhotoIds.clear();
+    for (var i = 0; i < p.images.length; i++) {
+      final img = p.images[i];
       if (img.isNotEmpty && !existingPhotoUrls.contains(img)) {
         existingPhotoUrls.add(img);
+        existingPhotoIds.add(i < p.imageIds.length ? p.imageIds[i] : '');
       }
     }
     if (existingPhotoUrls.isEmpty && raw['images'] is List) {
@@ -370,11 +376,16 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
                       e['relativePath'] ??
                       '')
                   .toString();
-          if (u.isNotEmpty && !existingPhotoUrls.contains(u))
+          if (u.isNotEmpty && !existingPhotoUrls.contains(u)) {
             existingPhotoUrls.add(u);
+            existingPhotoIds.add(e['id']?.toString() ?? '');
+          }
         } else if (e != null && e.toString().trim().isNotEmpty) {
           final u = e.toString().trim();
-          if (!existingPhotoUrls.contains(u)) existingPhotoUrls.add(u);
+          if (!existingPhotoUrls.contains(u)) {
+            existingPhotoUrls.add(u);
+            existingPhotoIds.add('');
+          }
         }
       }
     }
@@ -382,6 +393,10 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
         p.imageUrl!.isNotEmpty &&
         !existingPhotoUrls.contains(p.imageUrl)) {
       existingPhotoUrls.insert(0, p.imageUrl!);
+      existingPhotoIds.insert(
+        0,
+        p.imageIds.isNotEmpty ? p.imageIds.first : '',
+      );
     }
 
     existingDocs.clear();
@@ -780,6 +795,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
       'documents': documents,
       'coverIndex': coverIndex,
       'existingImages': List<String>.from(existingPhotoUrls),
+      'existingImageIds': List<String>.from(existingPhotoIds),
       'existingDocuments': existingDocs,
     };
 
@@ -1695,6 +1711,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
   void _removeExistingPhoto(int i) {
     setState(() {
       existingPhotoUrls.removeAt(i);
+      if (i < existingPhotoIds.length) existingPhotoIds.removeAt(i);
       if (coverIndex == i) {
         coverIndex = 0;
       } else if (coverIndex > i) {
@@ -1791,6 +1808,48 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
           ],
         ),
       ],
+    );
+  }
+
+  Widget _editablePhoto(String url, bool isCover) {
+    final viewId = 'edit-photo-${url.hashCode}-$isCover';
+    try {
+      ui_web.platformViewRegistry.registerViewFactory(viewId, (int _) {
+        final box = html.DivElement()
+          ..style.width = '100%'
+          ..style.height = '100%'
+          ..style.position = 'relative'
+          ..style.pointerEvents = 'none';
+        box.append(
+          html.ImageElement()
+            ..src = url
+            ..style.width = '100%'
+            ..style.height = '100%'
+            ..style.objectFit = 'cover'
+            ..style.pointerEvents = 'none',
+        );
+        if (isCover) {
+          box.append(
+            html.DivElement()
+              ..text = 'Cover'
+              ..style.position = 'absolute'
+              ..style.left = '6px'
+              ..style.bottom = '6px'
+              ..style.padding = '2px 6px'
+              ..style.borderRadius = '8px'
+              ..style.backgroundColor = '#2083D5'
+              ..style.color = 'white'
+              ..style.fontSize = '10px'
+              ..style.fontWeight = '700'
+              ..style.pointerEvents = 'none',
+          );
+        }
+        return box;
+      });
+    } catch (_) {}
+    return HtmlElementView(
+      viewType: viewId,
+      hitTestBehavior: PlatformViewHitTestBehavior.transparent,
     );
   }
 
@@ -1910,7 +1969,7 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
             ),
             child:
                 isImage
-                    ? WebNetworkImage(url: url, fit: BoxFit.cover)
+                    ? _editablePhoto(url, isCover)
                     : const Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [

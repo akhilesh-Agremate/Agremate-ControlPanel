@@ -365,6 +365,7 @@ class PropertyRepository {
   static const int _statusAvailable = 0;
   static const int _statusRented = 1;
   static const int _statusBooked = 2;
+  static const int _statusRequested = 3;
   static const String _uploadCategory = 'TempPropertyUploads';
 
   int _propertyTypeFor(Map<String, dynamic> data) =>
@@ -871,6 +872,21 @@ class PropertyRepository {
     }
   }
 
+  List<Map<String, dynamic>> _keptImages(Map data, List rawImages) {
+    final urls = data['existingImages'] as List? ?? [];
+    final ids = data['existingImageIds'] as List? ?? [];
+    final images = <Map<String, dynamic>>[];
+    for (var i = 0; i < urls.length; i++) {
+      final obj = _imageObject(urls[i].toString(), rawImages);
+      final id = i < ids.length ? ids[i]?.toString() ?? '' : '';
+      if ((obj['id']?.toString() ?? '').isEmpty && id.isNotEmpty) {
+        obj['id'] = id;
+      }
+      images.add(obj);
+    }
+    return images;
+  }
+
   Map<String, dynamic> _imageObject(String url, [List rawImages = const []]) {
     for (final e in rawImages) {
       if (e is! Map) continue;
@@ -903,7 +919,8 @@ class PropertyRepository {
     try {
       if (existing.status != PropertyStatus.available &&
           existing.status != PropertyStatus.rented &&
-          existing.status != PropertyStatus.booked) {
+          existing.status != PropertyStatus.booked &&
+          existing.status != PropertyStatus.requested) {
         throw Exception(
           'Editing "${existing.statusLabel}" properties is not supported yet.',
         );
@@ -911,10 +928,7 @@ class PropertyRepository {
       final raw = existing.rawJson;
 
       final rawImages = raw['images'] is List ? raw['images'] as List : const [];
-      final images = <Map<String, dynamic>>[
-        for (final u in (data['existingImages'] as List? ?? []))
-          _imageObject(u.toString(), rawImages),
-      ];
+      final images = _keptImages(data, rawImages);
       final documents = <Map<String, dynamic>>[
         for (final d in (data['existingDocuments'] as List? ?? []))
           if (d is Map) _documentObject(d),
@@ -1065,6 +1079,9 @@ class PropertyRepository {
   }
 
   int _statusForUpdate(PropertyModel existing, Map<String, dynamic>? tenant) {
+    if (existing.status == PropertyStatus.requested) {
+      return _intOrNull(existing.rawJson['status']) ?? _statusRequested;
+    }
     if (existing.status == PropertyStatus.booked) {
       final raw = existing.rawJson['status'];
       if (raw is num) return raw.toInt();

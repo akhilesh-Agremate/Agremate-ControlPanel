@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 import 'package:agremate_admin/modules/property/controller/property_controller.dart';
+import 'package:agremate_admin/modules/property/model/property_model.dart';
 import 'package:agremate_admin/modules/services/controller/services_controller.dart';
 import 'package:agremate_admin/core/utils/app_logger.dart';
 import 'package:agremate_admin/core/utils/browser_url.dart';
@@ -275,8 +276,11 @@ class NavigationController extends GetxController {
     switch (result.type) {
       case SearchResultType.property:
       case SearchResultType.location:
-        pc.selectedProperty.value = result.originalData;
         currentIndex.value = 1;
+        final picked = result.originalData;
+        if (picked is PropertyModel) {
+          pc.openPropertyDetails(picked);
+        }
         break;
       case SearchResultType.landlord:
         currentIndex.value = 1;

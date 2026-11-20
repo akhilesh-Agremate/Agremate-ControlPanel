@@ -208,10 +208,12 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
         children: [
           Padding(
             padding: EdgeInsets.symmetric(
-              horizontal: MediaQuery.sizeOf(context).width < 600 ? 10 : 20,
-              vertical: 10,
+              horizontal: MediaQuery.sizeOf(context).width < 600 ? 12 : 20,
+              vertical: MediaQuery.sizeOf(context).width < 600 ? 8 : 10,
             ),
-            child: _AdaptiveHeader(
+            child: MediaQuery.sizeOf(context).width < 600
+                ? _mobileDetailHeader(pc, nav, statusBadge)
+                : _AdaptiveHeader(
               children: [
                 IconButton(
                   onPressed: () {
@@ -322,6 +324,113 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
     final shown = _deleting ? _deleteLoader(page) : page;
     if (!widget.property.isDeleted) return shown;
     return GreyScale(child: shown);
+  }
+
+  void _goBack(PropertyController pc, NavigationController nav) {
+    if (_openDocName != null) {
+      setState(() {
+        _openDocName = null;
+        _openDocUrl = null;
+      });
+      return;
+    }
+    if (pc.returnTabIndex.value != null) {
+      nav.currentIndex.value = pc.returnTabIndex.value!;
+      pc.returnTabIndex.value = null;
+    }
+    pc.search('');
+    pc.closePropertyDetails();
+  }
+
+  Widget _mobileDetailHeader(
+    PropertyController pc,
+    NavigationController nav,
+    Widget statusBadge,
+  ) {
+    final buttonShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(20),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            IconButton(
+              onPressed: () => _goBack(pc, nav),
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              icon: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: Colors.black,
+                size: 18,
+              ),
+              tooltip: 'Back',
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                _openDocName ?? 'Property Detail',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTheme.heading2.copyWith(
+                  color: Colors.black,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (_openDocName == null) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (_canEdit)
+                OutlinedButton.icon(
+                  onPressed: _startEdit,
+                  icon: const Icon(Icons.edit_rounded, size: 15),
+                  label: const Text('Edit', style: TextStyle(fontSize: 13)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF2083D5),
+                    side: const BorderSide(color: Color(0xFF2083D5)),
+                    backgroundColor: const Color(0xFFF3F8FF),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    minimumSize: const Size(0, 36),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: buttonShape,
+                  ),
+                ),
+              if (_canDelete)
+                OutlinedButton.icon(
+                  onPressed: () => _confirmDelete(context, pc),
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    size: 15,
+                    color: AppTheme.accentRed,
+                  ),
+                  label: const Text(
+                    'Delete',
+                    style: TextStyle(color: AppTheme.accentRed, fontSize: 13),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFFF5F5),
+                    side: const BorderSide(color: AppTheme.accentRed),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    minimumSize: const Size(0, 36),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: buttonShape,
+                  ),
+                ),
+              statusBadge,
+            ],
+          ),
+        ],
+      ],
+    );
   }
 
   Widget _deleteLoader(Widget child) {

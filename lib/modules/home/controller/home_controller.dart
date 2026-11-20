@@ -402,7 +402,7 @@ class HomeController extends GetxController {
               'raisedDate': _formatDate(model.requestDate),
               'resolvedDate': model.completedDate != null
                   ? _formatDate(model.completedDate!)
-                  : null,
+                      : null,
               'status': item['status'] ?? model.status,
               'chatMessages': model.chatMessages,
               'type': 'service',
@@ -942,7 +942,7 @@ class HomeController extends GetxController {
         }
       }
       return false;
-    }).toList();
+          }).toList();
   }
 
   int get registeredLandlordCount {
