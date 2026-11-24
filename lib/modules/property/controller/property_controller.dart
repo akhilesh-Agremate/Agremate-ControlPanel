@@ -166,7 +166,7 @@ class PropertyController extends GetxController {
     _applyFilters();
   }
 
-  void _applyFilters() {
+  void _applyFilters({bool resetPage = true}) {
     var result = properties.toList();
 
     if (selectedCategoryFilter.value == PropertyCategoryFilter.pg) {
@@ -187,7 +187,11 @@ class PropertyController extends GetxController {
     }
 
     filteredProperties.assignAll(result);
-    currentPage.value = 1;
+    if (resetPage) {
+      currentPage.value = 1;
+    } else if (currentPage.value > totalPages) {
+      currentPage.value = totalPages;
+    }
   }
 
   @override
@@ -218,7 +222,7 @@ class PropertyController extends GetxController {
       final fetched = await _repository.getAllProperties();
       final prevCount = properties.length;
       properties.assignAll(fetched);
-      _applyFilters();
+      _applyFilters(resetPage: false);
       _buildDependentLists();
       await fetchStats();
       _refreshKpiStats();

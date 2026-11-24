@@ -17,9 +17,6 @@ class AmenityModel {
     description: j['description']?.toString() ?? '',
     type: j['type']?.toString() ?? '',
   );
-  bool get isPool => name.toLowerCase().contains('pool');
-  bool get isGym => name.toLowerCase().contains('gym');
-
   String? get featureKey {
     final n = name.toLowerCase();
     if (n.contains('bedroom')) return 'Bedrooms';
