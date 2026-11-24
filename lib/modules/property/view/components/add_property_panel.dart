@@ -89,6 +89,12 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
   final Set<String> selectedFeatures = {};
   int? bedrooms, bathrooms, kitchens, builtYear;
   final Set<String> selectedAmenityIds = {};
+  final poolFromC = TextEditingController();
+  final poolToC = TextEditingController();
+  final poolCommentC = TextEditingController();
+  final gymFromC = TextEditingController();
+  final gymToC = TextEditingController();
+  final gymCommentC = TextEditingController();
   final List<PickedFile> photos = [];
   final List<PickedFile> documents = [];
   static const int _maxDocs = 5;
@@ -465,6 +471,18 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
       );
       for (final a in matches) {
         selectedAmenityIds.add(a.id);
+        final m = RegExp(
+          r'^(.*?) - (.*?)(?:\. (.*))?$',
+        ).firstMatch(item['details'] ?? '');
+        if (m != null && a.isPool) {
+          poolFromC.text = m.group(1)!.trim();
+          poolToC.text = m.group(2)!.trim();
+          poolCommentC.text = m.group(3) ?? '';
+        } else if (m != null && a.isGym) {
+          gymFromC.text = m.group(1)!.trim();
+          gymToC.text = m.group(2)!.trim();
+          gymCommentC.text = m.group(3) ?? '';
+        }
       }
     }
 
@@ -472,9 +490,29 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
       for (final ad in raw['amenitiesDetails']) {
         if (ad is Map) {
           final id = ad['id']?.toString() ?? '';
+          final details = ad['details']?.toString() ?? '';
           final a =
               widget.amenityOptions.where((opt) => opt.id == id).firstOrNull;
           if (a != null) selectedAmenityIds.add(a.id);
+          if (a != null && a.isPool && details.isNotEmpty) {
+            final m = RegExp(
+              r'^(.*?) - (.*?)(?:\. (.*))?$',
+            ).firstMatch(details);
+            if (m != null) {
+              poolFromC.text = m.group(1)!.trim();
+              poolToC.text = m.group(2)!.trim();
+              poolCommentC.text = m.group(3) ?? '';
+            }
+          } else if (a != null && a.isGym && details.isNotEmpty) {
+            final m = RegExp(
+              r'^(.*?) - (.*?)(?:\. (.*))?$',
+            ).firstMatch(details);
+            if (m != null) {
+              gymFromC.text = m.group(1)!.trim();
+              gymToC.text = m.group(2)!.trim();
+              gymCommentC.text = m.group(3) ?? '';
+            }
+          }
         }
       }
     }
@@ -484,6 +522,8 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
       widget.amenityOptions
           .where((a) => selectedAmenityIds.contains(a.id))
           .toList();
+  bool get _poolOn => _selectedAmenities.any((a) => a.isPool);
+  bool get _gymOn => _selectedAmenities.any((a) => a.isGym);
 
   @override
   void dispose() {
@@ -501,6 +541,12 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
       tenantPhoneC,
       tenantEmailC,
       startDateC,
+      poolFromC,
+      poolToC,
+      poolCommentC,
+      gymFromC,
+      gymToC,
+      gymCommentC,
       landlordNameC,
       landlordPhoneC,
       landlordEmailC,
@@ -722,6 +768,18 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
       },
       'amenities':
           _selectedAmenities.map((a) => {'id': a.id, 'name': a.name}).toList(),
+      if (_poolOn)
+        'pool': {
+          'from': poolFromC.text,
+          'to': poolToC.text,
+          'comment': poolCommentC.text.trim(),
+        },
+      if (_gymOn)
+        'gym': {
+          'from': gymFromC.text,
+          'to': gymToC.text,
+          'comment': gymCommentC.text.trim(),
+        },
       'advance': _amount(advanceC.text),
       'rent': _amount(rentC.text),
       'rentPaymentDate': paymentDate,
@@ -1092,6 +1150,16 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
                         : Tooltip(message: a.description, child: chip);
                   }).toList(),
             ),
+          if (_poolOn)
+            _timingBlock(
+              'Pool Timing',
+              poolFromC,
+              poolToC,
+              poolCommentC,
+              'Pool',
+            ),
+          if (_gymOn)
+            _timingBlock('Gym Timing', gymFromC, gymToC, gymCommentC, 'Gym'),
         ],
       ),
     ),
@@ -1331,8 +1399,81 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
     }
   }
 
+  Future<void> _pickTime(TextEditingController c, String help) async {
+    final t = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+      helpText: help,
+    );
+    if (t != null && mounted) c.text = t.format(context);
+  }
+
   String? _required(String? v, String label) =>
       (v == null || v.trim().isEmpty) ? '$label is required' : null;
+
+  Widget _timingBlock(
+    String title,
+    TextEditingController from,
+    TextEditingController to,
+    TextEditingController comment,
+    String name,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _field(
+                  '$name Timing From',
+                  'Select time',
+                  from,
+                  readOnly: true,
+                  suffix: const Icon(
+                    Icons.access_time,
+                    size: 20,
+                    color: AppColors.textGrey,
+                  ),
+                  onTap: () => _pickTime(from, '$name Timing From'),
+                  validator: (v) => _required(v, '$name Timing From'),
+                ),
+              ),
+              SizedBox(width: Responsive.isMobile(context) ? 12 : 20),
+              Expanded(
+                child: _field(
+                  '$name Timing To',
+                  'Select time',
+                  to,
+                  readOnly: true,
+                  suffix: const Icon(
+                    Icons.access_time,
+                    size: 20,
+                    color: AppColors.textGrey,
+                  ),
+                  onTap: () => _pickTime(to, '$name Timing To'),
+                  validator: (v) => _required(v, '$name Timing To'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _field(
+            '$name Additional Comment',
+            '$name Additional Comment',
+            comment,
+            validator: (v) => _required(v, '$name Additional Comment'),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _card({
     required IconData icon,
