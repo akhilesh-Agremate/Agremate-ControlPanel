@@ -474,16 +474,14 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
         final m = RegExp(
           r'^(.*?) - (.*?)(?:\. (.*))?$',
         ).firstMatch(item['details'] ?? '');
-        if (m != null) {
-          if (a.isPool) {
-            poolFromC.text = m.group(1)!.trim();
-            poolToC.text = m.group(2)!.trim();
-            poolCommentC.text = m.group(3) ?? '';
-          } else if (a.isGym) {
-            gymFromC.text = m.group(1)!.trim();
-            gymToC.text = m.group(2)!.trim();
-            gymCommentC.text = m.group(3) ?? '';
-          }
+        if (m != null && a.isPool) {
+          poolFromC.text = m.group(1)!.trim();
+          poolToC.text = m.group(2)!.trim();
+          poolCommentC.text = m.group(3) ?? '';
+        } else if (m != null && a.isGym) {
+          gymFromC.text = m.group(1)!.trim();
+          gymToC.text = m.group(2)!.trim();
+          gymCommentC.text = m.group(3) ?? '';
         }
       }
     }
@@ -495,20 +493,24 @@ class _AddPropertyPanelState extends State<AddPropertyPanel> {
           final details = ad['details']?.toString() ?? '';
           final a =
               widget.amenityOptions.where((opt) => opt.id == id).firstOrNull;
-          if (a != null && details.isNotEmpty) {
+          if (a != null) selectedAmenityIds.add(a.id);
+          if (a != null && a.isPool && details.isNotEmpty) {
             final m = RegExp(
               r'^(.*?) - (.*?)(?:\. (.*))?$',
             ).firstMatch(details);
             if (m != null) {
-              if (a.isPool) {
-                poolFromC.text = m.group(1)!.trim();
-                poolToC.text = m.group(2)!.trim();
-                poolCommentC.text = m.group(3) ?? '';
-              } else if (a.isGym) {
-                gymFromC.text = m.group(1)!.trim();
-                gymToC.text = m.group(2)!.trim();
-                gymCommentC.text = m.group(3) ?? '';
-              }
+              poolFromC.text = m.group(1)!.trim();
+              poolToC.text = m.group(2)!.trim();
+              poolCommentC.text = m.group(3) ?? '';
+            }
+          } else if (a != null && a.isGym && details.isNotEmpty) {
+            final m = RegExp(
+              r'^(.*?) - (.*?)(?:\. (.*))?$',
+            ).firstMatch(details);
+            if (m != null) {
+              gymFromC.text = m.group(1)!.trim();
+              gymToC.text = m.group(2)!.trim();
+              gymCommentC.text = m.group(3) ?? '';
             }
           }
         }

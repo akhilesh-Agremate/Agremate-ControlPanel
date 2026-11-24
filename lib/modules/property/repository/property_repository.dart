@@ -17,25 +17,6 @@ import 'package:agremate_admin/core/utils/app_logger.dart';
 class PropertyRepository {
   Future<List<PropertyModel>> getAllProperties({String? category}) async {
     try {
-      if (Get.isRegistered<AuthController>()) {
-        final auth = Get.find<AuthController>();
-        if (auth.isRestrictedRole) {
-          await _hydrateIdentity(auth);
-          final owned = await _fetchTokenScopedProperties();
-          AppLogger.i(
-            'PropertyRepository',
-            'Token-scoped properties count=${owned.length} role=${auth.role.value}',
-          );
-          if (owned.isNotEmpty) {
-            if (category == null || category.isEmpty) return owned;
-            final wanted = category.toLowerCase();
-            return owned
-                .where((p) => p.category.toLowerCase() == wanted)
-                .toList();
-          }
-        }
-      }
-
       if (category != null && category.isNotEmpty) {
         final endpoint =
             '${AppEndpoints.adminDashboardProperties}?category=$category';
@@ -47,7 +28,9 @@ class PropertyRepository {
         final properties =
             await _fetchPropertyList(AppEndpoints.adminDashboardProperties);
         if (properties.isNotEmpty) {
-          return _scopeForCurrentUser(properties);
+          final scoped = await _scopeForCurrentUser(properties);
+          _applyLoggedInLandlordName(scoped);
+          return scoped;
         }
       } catch (e) {
         AppLogger.w('PropertyRepository',
@@ -63,7 +46,9 @@ class PropertyRepository {
       for (final p in [...residentialList, ...pgList]) {
         combinedMap[p.id] = p;
       }
-      return _scopeForCurrentUser(combinedMap.values.toList());
+      final scoped = await _scopeForCurrentUser(combinedMap.values.toList());
+      _applyLoggedInLandlordName(scoped);
+      return scoped;
     } catch (e, stack) {
       AppLogger.e('PropertyRepository', 'getAllProperties failed', e, stack);
       rethrow;
@@ -154,7 +139,10 @@ class PropertyRepository {
       'PropertyRepository',
       'Role filter role=${auth.role.value} in=${properties.length} out=${filtered.length} ids=${auth.identityIds.length}',
     );
-    if (filtered.isNotEmpty) return filtered;
+    if (filtered.isNotEmpty) {
+      _applyLoggedInLandlordName(filtered);
+      return filtered;
+    }
 
     final mine = await _fetchTokenScopedProperties();
     if (mine.isNotEmpty) {
@@ -162,6 +150,7 @@ class PropertyRepository {
         'PropertyRepository',
         'Restricted-role token-scoped fallback count=${mine.length}',
       );
+      _applyLoggedInLandlordName(mine);
       return mine;
     }
 
@@ -195,6 +184,7 @@ class PropertyRepository {
               'PropertyRepository',
               'Landlord fallback via landlord.properties count=${matched.length}',
             );
+            _applyLoggedInLandlordName(matched);
             return matched;
           }
         }
@@ -221,11 +211,26 @@ class PropertyRepository {
           'PropertyRepository',
           'Restricted role using token-scoped list count=${properties.length}',
         );
+        _applyLoggedInLandlordName(properties);
         return properties;
       }
     }
 
     return filtered;
+  }
+
+  void _applyLoggedInLandlordName(List<PropertyModel> properties) {
+    if (!Get.isRegistered<AuthController>()) return;
+    final auth = Get.find<AuthController>();
+    if (!auth.isLandlord) return;
+    final name = auth.userName.value.trim();
+    if (name.isEmpty) return;
+    for (final property in properties) {
+      final current = property.landlordName.trim().toLowerCase();
+      if (current.isEmpty || current == 'n/a') {
+        property.landlordName = name;
+      }
+    }
   }
 
   Future<List<PropertyModel>> _fetchPropertyListSafely(String endpoint) async {
@@ -1156,9 +1161,11 @@ class PropertyRepository {
 
       final data = response.data;
       if (data is Map && data['result'] is Map) {
-        return PropertyModel.fromJson(
+        final property = PropertyModel.fromJson(
           Map<String, dynamic>.from(data['result']),
         );
+        _applyLoggedInLandlordName([property]);
+        return property;
       }
       throw Exception('Unexpected property details response');
     } catch (e, stack) {

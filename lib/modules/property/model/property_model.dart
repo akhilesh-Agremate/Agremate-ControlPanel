@@ -49,7 +49,7 @@ class PropertyModel {
   final String? imageUrl;
   final String city;
   final String landlordId;
-  final String landlordName;
+  String landlordName;
   final String? landlordPhone;
   final String? landlordEmail;
   final String? landlordAddress;
