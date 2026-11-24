@@ -3,11 +3,15 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:agremate_admin/core/widgets/app_toast.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/utils/responsive.dart';
 import '../../../auth/controller/auth_controller.dart';
 import '../../model/amenity_model.dart';
 import '../../model/pg_property_detail_model.dart';
 import 'add_property_panel.dart' show PickedFile;
+import 'property_upload.dart';
+import 'package:agremate_admin/modules/property/repository/property_repository.dart';
 import 'map_picker_dialog.dart';
 
 class CreatePgPropertyPanel extends StatefulWidget {
@@ -148,6 +152,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
   final maintenanceFeesC = TextEditingController();
   final rentIncrementC = TextEditingController();
   final List<PickedFile> photos = [];
+  int coverIndex = 0;
   final List<PickedFile> documents = [];
   final List<String> existingImageUrls = [];
   final List<Map<String, dynamic>> existingDocs = [];
@@ -172,6 +177,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
   ];
 
   bool _submitting = false;
+  bool _reading = false;
   bool get _showLandlordSection {
     final auth =
     Get.isRegistered<AuthController>() ? Get.find<AuthController>() : null;
@@ -184,7 +190,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
     if (widget.initial != null) {
       _prefill(widget.initial!);
     } else {
-      _buildLayoutFromPattern();
+    _buildLayoutFromPattern();
     }
   }
 
@@ -642,21 +648,37 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
   }
 
   Future<void> _pickPhotos() async {
+    final added = <PickedFile>[];
     try {
       final res = await FilePicker.pickFiles(type: FileType.image);
       if (res.isEmpty) return;
-      final picked = await _readAll(res);
+      setState(() => _reading = true);
       if (!mounted) return;
-      setState(() => photos.addAll(picked));
+      final ok = PropertyUpload.withinLimit(await _readAll(res));
+      if (ok.isEmpty) return;
+      added.addAll(ok);
+      setState(() => photos.addAll(ok));
     } catch (e) {
-      Get.snackbar('Picker error', '$e');
+      AppToast.error('$e');
+    } finally {
+      if (mounted) setState(() => _reading = false);
+    }
+    if (added.isNotEmpty && mounted) {
+      await PropertyUpload.uploadNow(
+        added,
+        PropertyRepository().uploadPropertyFile,
+        () => mounted,
+        setState,
+        context,
+      );
     }
   }
 
   Future<void> _pickDocuments() async {
+    final addedDocs = <PickedFile>[];
     final remaining = _maxDocs - documents.length;
     if (remaining <= 0) {
-      Get.snackbar('Limit reached', 'You can add up to $_maxDocs documents.');
+      AppToast.error('You can add up to $_maxDocs documents.');
       return;
     }
     try {
@@ -665,11 +687,28 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
         allowedExtensions: ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'],
       );
       if (res.isEmpty) return;
-      final picked = await _readAll(res.take(remaining).toList());
+      setState(() => _reading = true);
+      final picked = PropertyUpload.withinLimit(await _readAll(res));
       if (!mounted) return;
-      setState(() => documents.addAll(picked));
+      final limited = picked.take(remaining).toList();
+      if (picked.length > remaining) {
+        AppToast.error('You can add up to $_maxDocs documents.');
+      }
+      setState(() => documents.addAll(limited));
+      addedDocs.addAll(limited);
     } catch (e) {
-      Get.snackbar('Picker error', '$e');
+      AppToast.error('$e');
+    } finally {
+      if (mounted) setState(() => _reading = false);
+    }
+    if (addedDocs.isNotEmpty && mounted) {
+      await PropertyUpload.uploadNow(
+        addedDocs,
+        PropertyRepository().uploadPropertyFile,
+        () => mounted,
+        setState,
+        context,
+      );
     }
   }
 
@@ -680,9 +719,9 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
   void _saveCustomRule() {
     final txt = customRuleC.text.trim();
     if (txt.isEmpty) return;
-    setState(() {
-      if (!availableRules.contains(txt)) availableRules.add(txt);
-      selectedRules.add(txt);
+      setState(() {
+        if (!availableRules.contains(txt)) availableRules.add(txt);
+        selectedRules.add(txt);
       customRuleC.clear();
       _showAddRule = false;
     });
@@ -713,12 +752,12 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setD) => AlertDialog(
-          backgroundColor: Colors.white,
+        backgroundColor: Colors.white,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Text(floor.name),
-          content: SizedBox(
-            width: 320,
+        content: SizedBox(
+            width: min(320.0, MediaQuery.sizeOf(ctx).width - 128),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -733,20 +772,20 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                 ),
               ],
             ),
-          ),
-          actions: [
+        ),
+        actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, 'default'),
               child: const Text('Use default',
                   style: TextStyle(color: _muted)),
             ),
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, 'save'),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'save'),
               child: const Text('Save',
                   style: TextStyle(
                       color: _blue, fontWeight: FontWeight.w700)),
-            ),
-          ],
+          ),
+        ],
         ),
       ),
     );
@@ -759,10 +798,10 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
     }
   }
 
-    Future<void> _openRoomDetails(int fi, int ri) async {
-      final room = floors[fi].rooms[ri];
-      final nameCtl = TextEditingController(text: room.name);
-      final rentCtl = TextEditingController(text: _money(_roomRent(room)));
+  Future<void> _openRoomDetails(int fi, int ri) async {
+    final room = floors[fi].rooms[ri];
+    final nameCtl = TextEditingController(text: room.name);
+    final rentCtl = TextEditingController(text: _money(_roomRent(room)));
       final advanceCtl = TextEditingController(
         text: room.advanceOverride != null
             ? _money(room.advanceOverride!)
@@ -779,7 +818,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
 
       final hadBedOverrides =
       room.beds.any((b) => b.rent != null || b.advance != null);
-      final features = List<String>.from(room.roomAmenities);
+    final features = List<String>.from(room.roomAmenities);
       var applyAll = !hadBedOverrides;
       int? roomPayDate = paymentDate;
       final amenityNames = widget.amenityOptions.isNotEmpty
@@ -856,10 +895,13 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
       }
 
       final res = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => StatefulBuilder(
-          builder: (ctx, setD) => AlertDialog(
-            backgroundColor: Colors.white,
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          backgroundColor: Colors.white,
+            insetPadding: Responsive.isMobile(ctx)
+                ? const EdgeInsets.symmetric(horizontal: 12, vertical: 24)
+                : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
             contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
@@ -914,13 +956,17 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                 ),
               ],
             ),
-            content: SizedBox(
-              width: 480,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+          content: SizedBox(
+              width: min(
+                480.0,
+                MediaQuery.sizeOf(ctx).width -
+                    (Responsive.isMobile(ctx) ? 24 : 80) - 40,
+              ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                     const Text('Photos',
                         style: TextStyle(
                             fontSize: 14,
@@ -936,13 +982,17 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                       onRemoveExisting: (i) => setD(() => room.existingPhotoUrls.removeAt(i)),
                       onAdd: () async {
                         try {
-                          final picked =
-                          await FilePicker.pickFiles(type: FileType.image);
-                          if (picked.isEmpty) return;
-                          final files = await _readAll(picked);
-                          setD(() => room.photos.addAll(files));
+                          final res = await FilePicker.pickFiles(
+                            type: FileType.image,
+                          );
+                          if (res.isEmpty) return;
+                          final ok = PropertyUpload.withinLimit(
+                            await _readAll(res),
+                          );
+                          if (ok.isEmpty) return;
+                          setD(() => room.photos.addAll(ok));
                         } catch (e) {
-                          Get.snackbar('Picker error', '$e');
+                          AppToast.error('$e');
                         }
                       },
                       onRemove: (i) => setD(() => room.photos.removeAt(i)),
@@ -1007,14 +1057,14 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                     const SizedBox(height: 12),
                     if (applyAll)
                       _twoCol(
-                        _uField(
-                          'Rent per bed',
-                          'e.g. 6,000',
-                          rentCtl,
-                          prefix: '₹ ',
-                          keyboard: TextInputType.number,
-                          formatters: [_IndianAmountFormatter()],
-                        ),
+                  _uField(
+                    'Rent per bed',
+                    'e.g. 6,000',
+                    rentCtl,
+                    prefix: '₹ ',
+                    keyboard: TextInputType.number,
+                    formatters: [_IndianAmountFormatter()],
+                  ),
                         _uField(
                           'Advance Amount',
                           '10000',
@@ -1026,7 +1076,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                     else
                       for (int i = 0; i < room.beds.length; i++)
                         bedPricingCard(i, setD),
-                    _gap,
+                  _gap,
                     _dropdownBox<int>(
                       'Rent Payment Date',
                       roomPayDate,
@@ -1042,7 +1092,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                         Icon(Icons.star_outline, size: 18, color: _blue),
                         SizedBox(width: 6),
                         Text('Amenities',
-                            style: TextStyle(
+                      style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                                 color: _ink)),
@@ -1054,22 +1104,22 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                       style: TextStyle(fontSize: 12.5, color: _muted),
                     ),
                     const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                       children: amenityNames.map((a) {
-                        final sel = features.contains(a);
-                        return _chip(a, sel, (v) {
-                          setD(() {
-                            if (v) {
-                              features.add(a);
-                            } else {
-                              features.remove(a);
-                            }
-                          });
+                      final sel = features.contains(a);
+                      return _chip(a, sel, (v) {
+                        setD(() {
+                          if (v) {
+                            features.add(a);
+                          } else {
+                            features.remove(a);
+                          }
                         });
-                      }).toList(),
-                    ),
+                      });
+                    }).toList(),
+                  ),
                     const SizedBox(height: 18),
                     SizedBox(
                       width: double.infinity,
@@ -1084,17 +1134,17 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                 ),
               ),
             ),
-          ),
         ),
-      );
+      ),
+    );
 
-      final newName = nameCtl.text.trim();
-      final newRent = _amount(rentCtl.text);
+    final newName = nameCtl.text.trim();
+    final newRent = _amount(rentCtl.text);
       final newAdvance = _amount(advanceCtl.text);
       final bedRents = bedRentCtls.map((c) => _amount(c.text)).toList();
       final bedAdvs = bedAdvCtls.map((c) => _amount(c.text)).toList();
-      nameCtl.dispose();
-      rentCtl.dispose();
+    nameCtl.dispose();
+    rentCtl.dispose();
       advanceCtl.dispose();
       for (final c in bedRentCtls) {
         c.dispose();
@@ -1102,12 +1152,12 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
       for (final c in bedAdvCtls) {
         c.dispose();
       }
-      if (!mounted) return;
+    if (!mounted) return;
 
       if (res == true) {
-        setState(() {
-          if (newName.isNotEmpty) room.name = newName;
-          room.roomAmenities = features;
+      setState(() {
+        if (newName.isNotEmpty) room.name = newName;
+        room.roomAmenities = features;
           if (roomPayDate != null) paymentDate = roomPayDate;
 
           if (applyAll) {
@@ -1133,9 +1183,9 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
               room.beds[i].advance = bedAdvs[i] > 0 ? bedAdvs[i] : null;
             }
           }
-        });
-      }
+      });
     }
+  }
 
   Future<void> _openEditBeds(_PgRoomDraft room) async {
     int count = room.beds.length;
@@ -1240,14 +1290,17 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setD) => Dialog(
           backgroundColor: Colors.white,
-          insetPadding:
-          const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          insetPadding: Responsive.isMobile(ctx)
+              ? const EdgeInsets.symmetric(horizontal: 12, vertical: 16)
+              : const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
           shape:
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520, maxHeight: 700),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
+              padding: Responsive.isMobile(ctx)
+                  ? const EdgeInsets.fromLTRB(18, 18, 18, 22)
+                  : const EdgeInsets.fromLTRB(28, 24, 28, 28),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1331,7 +1384,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,
                                     color: Color(0xFF475569))),
-                            const SizedBox(height: 8),
+                    const SizedBox(height: 8),
                             TextField(
                               controller: rentCtl,
                               keyboardType: TextInputType.number,
@@ -1380,9 +1433,9 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                     controller: phoneCtl,
                     keyboardType: TextInputType.phone,
                     inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(10),
-                    ],
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(10),
+                      ],
                     style: fieldStyle,
                     decoration:
                     deco('90000 00000', icon: Icons.phone_outlined),
@@ -1402,12 +1455,12 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                     borderRadius: BorderRadius.circular(12),
                     onTap: () async {
                       final now = DateTime.now();
-                      final d = await showDatePicker(
-                        context: ctx,
+                            final d = await showDatePicker(
+                              context: ctx,
                         initialDate: start ?? now,
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2100),
-                      );
+                              firstDate: DateTime(2000),
+                              lastDate: DateTime(2100),
+                            );
                       if (d != null) {
                         setD(() {
                           start = d;
@@ -1522,13 +1575,16 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
-      Get.snackbar('Missing details', 'Please fix the highlighted fields.');
+      AppToast.error('Please fix the highlighted fields.');
+      return;
+    }
+    if (photos.isEmpty && existingImageUrls.isEmpty) {
+      AppToast.error('Please upload at least one property image.');
       return;
     }
 
     if (floors.isEmpty || floors.any((f) => f.rooms.isEmpty)) {
-      Get.snackbar(
-          'Missing layout', 'Every floor needs at least one room.');
+      AppToast.error('Every floor needs at least one room.');
       return;
     }
 
@@ -1604,7 +1660,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
       'genderAllowed': genderAllowed,
       'city': cityC.text.trim().isNotEmpty ? cityC.text.trim() : 'Bengaluru',
       'pincode':
-          pincodeC.text.trim().isNotEmpty ? pincodeC.text.trim() : '560001',
+      pincodeC.text.trim().isNotEmpty ? pincodeC.text.trim() : '560001',
       'rentPaymentDate': paymentDate ?? 5,
       'zone': zone ?? 1,
       'contractReference': contractRefC.text.trim().isNotEmpty
@@ -1621,6 +1677,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
       'amenityIds': amenityIds,
       'floors': floorsJson,
       'photos': photos,
+      'coverIndex': coverIndex,
       'documents': documents,
       'rent': rentVal,
       'advance': advanceVal,
@@ -1644,15 +1701,17 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
     };
 
     setState(() => _submitting = true);
+    PropertyUpload.listen(data, () => mounted, context);
+    data['onUploadUi'] = () {
+      if (mounted) setState(() {});
+    };
     try {
       await widget.onSubmit(data);
       widget.onBack();
     } catch (e) {
-      Get.snackbar(
-          'Error',
-          'Failed to ${_isEdit ? 'update' : 'create'} PG property: $e',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 4));
+      AppToast.error(
+        'Failed to ${_isEdit ? 'update' : 'create'} PG property: $e',
+      );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -1660,7 +1719,9 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
+    return Stack(
+      children: [
+        ColoredBox(
       color: const Color(0xFFF8FAFD),
       child: Column(
         children: [
@@ -1668,7 +1729,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
           const Divider(height: 1, color: _line),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(28),
+              padding: EdgeInsets.all(Responsive.isMobile(context) ? 14 : 28),
               child: Form(
                 key: _formKey,
                 child: LayoutBuilder(
@@ -1695,54 +1756,93 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
           ),
         ],
       ),
+        ),
+        PropertyUpload.overlay(
+          visible: (_reading || _submitting) &&
+              !photos.any((f) => f.uploading) &&
+              !documents.any((f) => f.uploading),
+        ),
+      ],
     );
   }
 
   Widget _header() {
+    final mobile = Responsive.isMobile(context);
+
+    final cancelBtn = OutlinedButton(
+            onPressed: _submitting || _reading ? null : widget.onBack,
+            style: OutlinedButton.styleFrom(
+              shape: const StadiumBorder(),
+        padding: EdgeInsets.symmetric(
+            horizontal: mobile ? 18 : 22, vertical: mobile ? 12 : 14),
+            ),
+            child: const Text('Cancel'),
+    );
+
+    final submitBtn = ElevatedButton(
+              onPressed: _submitting || _reading ? null : _submit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _blue,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: const StadiumBorder(),
+        padding: EdgeInsets.symmetric(
+            horizontal: mobile ? 22 : 32, vertical: mobile ? 12 : 14),
+              ),
+              child: _submitting
+                  ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white),
+              )
+          : Text(_isEdit ? 'Update' : 'Create Property'),
+    );
+
+    final title = Text(
+      _isEdit ? 'Update Property (PG)' : 'Create Property (PG)',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+          fontSize: mobile ? 17 : 20, fontWeight: FontWeight.w600),
+    );
+
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      child: Row(
+      padding: EdgeInsets.symmetric(
+          horizontal: mobile ? 8 : 20, vertical: mobile ? 10 : 14),
+      child: mobile
+          ? Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+          Row(children: [
+            IconButton(
+              onPressed: widget.onBack,
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+            ),
+            Expanded(child: title),
+          ]),
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [cancelBtn, const SizedBox(width: 10), submitBtn],
+              ),
+            ),
+          ],
+      )
+          : Row(
         children: [
           IconButton(
             onPressed: widget.onBack,
             icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           ),
           const SizedBox(width: 8),
-          Text(
-            _isEdit ? 'Update Property (PG)' : 'Create Property (PG)',
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-          ),
-          const Spacer(),
-          OutlinedButton(
-            onPressed: _submitting ? null : widget.onBack,
-            style: OutlinedButton.styleFrom(
-              shape: const StadiumBorder(),
-              padding:
-              const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-            ),
-            child: const Text('Cancel'),
-          ),
+          Expanded(child: title),
+          cancelBtn,
           const SizedBox(width: 12),
-          ElevatedButton(
-            onPressed: _submitting ? null : _submit,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _blue,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: const StadiumBorder(),
-              padding:
-              const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-            ),
-            child: _submitting
-                ? const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                  strokeWidth: 2, color: Colors.white),
-            )
-                : Text(_isEdit ? 'Update' : 'Create Property'),
-          ),
+          submitBtn,
         ],
       ),
     );
@@ -1805,11 +1905,27 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
           _fileGrid(
             files: photos,
             onAdd: _pickPhotos,
-            onRemove: (i) => setState(() => photos.removeAt(i)),
+            onRemove: (i) => setState(() {
+              final index = existingImageUrls.length + i;
+              photos.removeAt(i);
+              if (coverIndex == index) {
+                coverIndex = 0;
+              } else if (coverIndex > index) {
+                coverIndex--;
+              }
+            }),
             isImage: true,
             existingUrls: existingImageUrls,
-            onRemoveExisting: (i) =>
-                setState(() => existingImageUrls.removeAt(i)),
+            onRemoveExisting: (i) => setState(() {
+              existingImageUrls.removeAt(i);
+              if (coverIndex == i) {
+                coverIndex = 0;
+              } else if (coverIndex > i) {
+                coverIndex--;
+              }
+            }),
+            coverIndex: coverIndex,
+            onSetCover: (i) => setState(() => coverIndex = i),
           ),
           const SizedBox(height: 12),
           const Text(
@@ -1833,19 +1949,19 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
               maxLines: 2,
               validator: (v) => _required(v, 'Description')),
           _gap,
-          _dropdownBox<int>(
-            'PG type',
-            pgType,
-            [1, 2, 3],
+            _dropdownBox<int>(
+              'PG type',
+              pgType,
+              [1, 2, 3],
                 (v) => setState(() {
               pgType = v ?? 1;
               genderAllowed = pgType;
             }),
-            itemLabel: (v) => v == 1
-                ? 'Co-ed'
-                : v == 2
-                ? 'Boys'
-                : 'Girls',
+              itemLabel: (v) => v == 1
+                  ? 'Co-ed'
+                  : v == 2
+                  ? 'Boys'
+                  : 'Girls',
           ),
           _gap,
           _twoCol(
@@ -1908,17 +2024,17 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
         children: [
           if (availableRules.isNotEmpty)
             Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: availableRules.map((rule) {
+        spacing: 10,
+        runSpacing: 10,
+        children: availableRules.map((rule) {
                 return InputChip(
                   label: Text(rule),
                   selected: true,
                   showCheckmark: false,
                   onDeleted: () {
-                    setState(() {
+            setState(() {
                       availableRules.remove(rule);
-                      selectedRules.remove(rule);
+                selectedRules.remove(rule);
                     });
                   },
                   backgroundColor: _lightBlue,
@@ -1940,7 +2056,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
           if (_showAddRule) ...[
             if (availableRules.isNotEmpty) const SizedBox(height: 14),
             Row(
-              children: [
+        children: [
                 Expanded(
                   child: TextField(
                     controller: customRuleC,
@@ -2564,6 +2680,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
     Widget? child,
     Widget? trailing,
   }) {
+    final mobile = Responsive.isMobile(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       decoration: BoxDecoration(
@@ -2582,7 +2699,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(18),
+            padding: EdgeInsets.all(mobile ? 14 : 18),
             child: Row(
               children: [
                 Container(
@@ -2609,11 +2726,11 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
             ),
           ),
           if (child != null) ...[
-            const Divider(height: 1, color: _line),
-            Padding(
-              padding: const EdgeInsets.all(18),
-              child: child,
-            ),
+          const Divider(height: 1, color: _line),
+          Padding(
+              padding: EdgeInsets.all(mobile ? 14 : 18),
+            child: child,
+          ),
           ],
         ],
       ),
@@ -2638,7 +2755,7 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Expanded(child: a),
-      const SizedBox(width: 20),
+      SizedBox(width: Responsive.isMobile(context) ? 12 : 20),
       Expanded(child: b),
     ],
   );
@@ -2833,13 +2950,13 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
             items: list
                 .map((e) => DropdownMenuItem<T>(
               value: e,
-              child: Text(
+          child: Text(
                 itemLabel != null ? itemLabel(e) : '$e',
-                style: const TextStyle(fontSize: 14),
-              ),
-            ))
-                .toList(),
-            onChanged: onChanged,
+            style: const TextStyle(fontSize: 14),
+          ),
+        ))
+            .toList(),
+        onChanged: onChanged,
           ),
         ),
       ),
@@ -2898,6 +3015,8 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
     ValueChanged<int>? onRemoveExisting,
     double? tileWidth,
     double? tileHeight,
+    int? coverIndex,
+    ValueChanged<int>? onSetCover,
   }) {
     final double w = tileWidth ?? 130;
     final double h = tileHeight ?? (isImage ? 170 : 130);
@@ -2931,14 +3050,20 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
         ...existingUrls.asMap().entries.map((entry) {
           final idx = entry.key;
           final url = entry.value;
+          final isCover = onSetCover != null && coverIndex == idx;
           return Stack(
             children: [
-              Container(
+              GestureDetector(
+                onTap: onSetCover == null ? null : () => onSetCover(idx),
+                child: Container(
                 width: w,
                 height: h,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _line),
+                  border: Border.all(
+                    color: isCover ? _blue : _line,
+                    width: isCover ? 2 : 1,
+                  ),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: isImage
@@ -2949,6 +3074,17 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                     : const Icon(Icons.insert_drive_file_outlined,
                         size: 30, color: _blue),
               ),
+              ),
+              if (isCover)
+                const Positioned(
+                  left: 6,
+                  bottom: 6,
+                  child: Text('Cover',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700)),
+                ),
               if (onRemoveExisting != null)
                 Positioned(
                   top: 4,
@@ -2970,14 +3106,21 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
         ...files.asMap().entries.map((entry) {
           final idx = entry.key;
           final f = entry.value;
+          final combined = existingUrls.length + idx;
+          final isCover = onSetCover != null && coverIndex == combined;
           return Stack(
             children: [
-              Container(
+              GestureDetector(
+                onTap: onSetCover == null ? null : () => onSetCover(combined),
+                child: Container(
                 width: w,
                 height: h,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _line),
+                  border: Border.all(
+                    color: isCover ? _blue : _line,
+                    width: isCover ? 2 : 1,
+                  ),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: isImage
@@ -3002,6 +3145,18 @@ class _CreatePgPropertyPanelState extends State<CreatePgPropertyPanel> {
                   ],
                 ),
               ),
+              ),
+              if (isCover)
+                const Positioned(
+                  left: 6,
+                  bottom: 6,
+                  child: Text('Cover',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700)),
+                ),
+              PropertyUpload.tileLoader(f.uploading),
               Positioned(
                 top: 4,
                 right: 4,

@@ -14,19 +14,30 @@ class PdfIframeView extends StatefulWidget {
 
 class _PdfIframeViewState extends State<PdfIframeView> {
   late final String _viewType;
+  html.IFrameElement? _iframe;
 
   @override
   void initState() {
     super.initState();
     _viewType = 'pdf-iframe-${DateTime.now().microsecondsSinceEpoch}';
     ui_web.platformViewRegistry.registerViewFactory(_viewType, (int viewId) {
-      final iframe = html.IFrameElement()
+      _iframe = html.IFrameElement()
         ..src = widget.url
         ..style.border = 'none'
         ..style.width = '100%'
         ..style.height = '100%';
-      return iframe;
+      return _iframe!;
     });
+  }
+
+  @override
+  void dispose() {
+    try {
+      _iframe?.src = 'about:blank';
+      _iframe?.remove();
+      _iframe = null;
+    } catch (_) {}
+    super.dispose();
   }
 
   @override

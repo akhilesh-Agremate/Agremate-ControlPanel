@@ -1,9 +1,14 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:agremate_admin/core/widgets/app_toast.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/responsive.dart';
 import '../../model/amenity_model.dart';
 import '../../model/pg_property_detail_model.dart';
 import 'add_property_panel.dart' show PickedFile;
+import 'property_upload.dart';
+import 'package:agremate_admin/modules/property/repository/property_repository.dart';
 import 'map_picker_dialog.dart';
 
 class EditPgPropertyPanel extends StatefulWidget {
@@ -27,13 +32,9 @@ class EditPgPropertyPanel extends StatefulWidget {
 }
 
 class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
-  static const _blue = Color(0xFF2F6BFF);
-  static const _line = Color(0xFFE2E8F0);
-  static const _muted = Color(0xFF64748B);
-  static const _surface = Color(0xFFF8FAFD);
-
   final _formKey = GlobalKey<FormState>();
   bool _submitting = false;
+  bool _reading = false;
 
   late final TextEditingController _nameC;
   late final TextEditingController _descC;
@@ -60,6 +61,7 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
   late Set<String> _selectedAmenityIds;
   late List<String> _existingImageUrls;
   final List<PickedFile> _newPhotos = [];
+  int _coverIndex = 0;
   late List<Map<String, dynamic>> _existingDocs;
   final List<PickedFile> _newDocs = [];
 
@@ -264,19 +266,38 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
   }
 
   Future<void> _pickPhotos() async {
+    final added = <PickedFile>[];
     try {
       final res = await FilePicker.pickFiles(type: FileType.image);
       if (res.isEmpty) return;
-      final picked = await _readAll(res);
+      setState(() => _reading = true);
       if (!mounted) return;
-      setState(() => _newPhotos.addAll(picked));
+      final ok = PropertyUpload.withinLimit(await _readAll(res));
+      if (ok.isEmpty) return;
+      added.addAll(ok);
+      setState(() => _newPhotos.addAll(ok));
     } catch (e) {
-      Get.snackbar('Picker error', '$e');
+      AppToast.error('$e');
+    } finally {
+      if (mounted) setState(() => _reading = false);
+    }
+    if (added.isNotEmpty && mounted) {
+      await PropertyUpload.uploadNow(
+        added,
+        PropertyRepository().uploadPropertyFile,
+        () => mounted,
+        setState,
+        context,
+      );
     }
   }
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_newPhotos.isEmpty && _existingImageUrls.isEmpty) {
+      AppToast.error('Please upload at least one property image.');
+      return;
+    }
 
     final amenitiesList = _selectedAmenityIds.map((id) {
       final match = widget.amenityOptions.firstWhereOrNull((a) => a.id == id);
@@ -308,17 +329,20 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
       'existingImages': _existingImageUrls,
       'existingDocuments': _existingDocs,
       'photos': _newPhotos,
+      'coverIndex': _coverIndex,
       'documents': _newDocs,
     };
 
     setState(() => _submitting = true);
+    PropertyUpload.listen(data, () => mounted, context);
+    data['onUploadUi'] = () {
+      if (mounted) setState(() {});
+    };
     try {
       await widget.onSubmit(data);
       widget.onBack();
     } catch (e) {
-      Get.snackbar('Error', 'Failed to update PG property: $e',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 4));
+      AppToast.error('Failed to update PG property: $e');
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -326,15 +350,17 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: _surface,
+    return Stack(
+      children: [
+        ColoredBox(
+      color: AppColors.scaffoldLight,
       child: Column(
         children: [
           _buildHeader(),
-          const Divider(height: 1, color: _line),
+          const Divider(height: 1, color: AppColors.inputBorder),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(28),
+              padding: EdgeInsets.all(Responsive.isMobile(context) ? 14 : 28),
               child: Form(
                 key: _formKey,
                 child: LayoutBuilder(builder: (context, c) {
@@ -360,12 +386,21 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
           ),
         ],
       ),
+        ),
+        PropertyUpload.overlay(
+          visible: (_reading || _submitting) &&
+              !_newPhotos.any((f) => f.uploading) &&
+              !_newDocs.any((f) => f.uploading),
+        ),
+      ],
     );
   }
 
   Widget _buildHeader() {
+    final mobile = Responsive.isMobile(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      padding: EdgeInsets.symmetric(
+          horizontal: mobile ? 8 : 20, vertical: mobile ? 10 : 14),
       color: Colors.white,
       child: Row(
         children: [
@@ -373,49 +408,52 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
             onPressed: widget.onBack,
             icon: const Icon(Icons.arrow_back_rounded, size: 22),
             tooltip: 'Back',
-            style: IconButton.styleFrom(foregroundColor: _muted),
+            style: IconButton.styleFrom(foregroundColor: AppColors.textGrey),
           ),
-          const SizedBox(width: 8),
-          const Text(
-            'Update Property',
-            style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1A2340)),
+          SizedBox(width: mobile ? 0 : 8),
+          Expanded(
+            child: Text(
+              'Update Property',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  fontSize: mobile ? 16 : 18,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1A2340)),
+            ),
           ),
-          const Spacer(),
           OutlinedButton(
-            onPressed: _submitting ? null : widget.onBack,
+            onPressed: _submitting || _reading ? null : widget.onBack,
             style: OutlinedButton.styleFrom(
-              foregroundColor: _muted,
-              side: const BorderSide(color: _line),
+              foregroundColor: AppColors.textGrey,
+              side: const BorderSide(color: AppColors.inputBorder),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(22)),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: EdgeInsets.symmetric(
+                  horizontal: mobile ? 14 : 20, vertical: mobile ? 10 : 12),
             ),
             child: const Text('Cancel'),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: mobile ? 8 : 12),
           ElevatedButton(
-            onPressed: _submitting ? null : _submit,
+            onPressed: _submitting || _reading ? null : _submit,
             style: ElevatedButton.styleFrom(
-              backgroundColor: _blue,
+              backgroundColor: AppColors.primaryBlue,
               foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(22)),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+              padding: EdgeInsets.symmetric(
+                  horizontal: mobile ? 18 : 28, vertical: mobile ? 10 : 12),
             ),
             child: _submitting
                 ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white))
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white))
                 : const Text('Update',
-                    style: TextStyle(fontWeight: FontWeight.w700)),
+                style: TextStyle(fontWeight: FontWeight.w700)),
           ),
         ],
       ),
@@ -448,7 +486,7 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Add Photos',
-                style: TextStyle(fontSize: 13, color: _muted)),
+                style: TextStyle(fontSize: 13, color: AppColors.textGrey)),
             const SizedBox(height: 12),
             Wrap(
               spacing: 10,
@@ -456,11 +494,30 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
               children: [
                 ..._existingImageUrls.asMap().entries.map((e) =>
                     _photoThumb(e.value,
-                        onRemove: () =>
-                            setState(() => _existingImageUrls.removeAt(e.key)))),
-                ..._newPhotos.asMap().entries.map((e) => _newPhotoThumb(e.value,
-                    onRemove: () =>
-                        setState(() => _newPhotos.removeAt(e.key)))),
+                        isCover: _coverIndex == e.key,
+                        onCover: () => setState(() => _coverIndex = e.key),
+                        onRemove: () => setState(() {
+                          _existingImageUrls.removeAt(e.key);
+                          if (_coverIndex == e.key) {
+                            _coverIndex = 0;
+                          } else if (_coverIndex > e.key) {
+                            _coverIndex--;
+                          }
+                        }))),
+                ..._newPhotos.asMap().entries.map((e) {
+                  final index = _existingImageUrls.length + e.key;
+                  return _newPhotoThumb(e.value,
+                    isCover: _coverIndex == index,
+                    onCover: () => setState(() => _coverIndex = index),
+                    onRemove: () => setState(() {
+                      _newPhotos.removeAt(e.key);
+                      if (_coverIndex == index) {
+                        _coverIndex = 0;
+                      } else if (_coverIndex > index) {
+                        _coverIndex--;
+                      }
+                    }));
+                }),
                 _addPhotoButton(),
               ],
             ),
@@ -537,13 +594,13 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: active ? _blue : Colors.transparent,
+                    color: active ? AppColors.primaryBlue : Colors.transparent,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: active ? _blue : _line),
+                    border: Border.all(color: active ? AppColors.primaryBlue : AppColors.inputBorder),
                   ),
                   child: Text(tab,
                       style: TextStyle(
-                          color: active ? Colors.white : _muted,
+                          color: active ? Colors.white : AppColors.textGrey,
                           fontWeight: active
                               ? FontWeight.w700
                               : FontWeight.w500,
@@ -632,13 +689,13 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
                           : Colors.white,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: selected ? _blue : const Color(0xFFD6E8FA),
+                        color: selected ? AppColors.primaryBlue : const Color(0xFFD6E8FA),
                         width: selected ? 1.5 : 1,
                       ),
                     ),
                     child: Text(a.name,
                         style: TextStyle(
-                            color: selected ? _blue : _muted,
+                            color: selected ? AppColors.primaryBlue : AppColors.textGrey,
                             fontWeight: selected
                                 ? FontWeight.w600
                                 : FontWeight.w400,
@@ -672,8 +729,8 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
           icon: const Icon(Icons.map_outlined, size: 16),
           label: const Text('Pick on Map'),
           style: OutlinedButton.styleFrom(
-            foregroundColor: _blue,
-            side: const BorderSide(color: _blue),
+            foregroundColor: AppColors.primaryBlue,
+            side: const BorderSide(color: AppColors.primaryBlue),
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20)),
           ),
@@ -681,7 +738,7 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
         if (_lat != null && _lng != null) ...[
           const SizedBox(height: 8),
           Text('$_lat, $_lng',
-              style: const TextStyle(fontSize: 12, color: _muted)),
+              style: const TextStyle(fontSize: 12, color: AppColors.textGrey)),
         ],
       ]),
     );
@@ -693,11 +750,11 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
       required Widget child}) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(Responsive.isMobile(context) ? 14 : 20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _line),
+        border: Border.all(color: AppColors.inputBorder),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
@@ -709,7 +766,7 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            Icon(icon, size: 18, color: _blue),
+            Icon(icon, size: 18, color: AppColors.primaryBlue),
             const SizedBox(width: 8),
             Text(title,
                 style: const TextStyle(
@@ -718,7 +775,7 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
                     color: Color(0xFF1A2340))),
           ]),
           const SizedBox(height: 16),
-          const Divider(color: _line, height: 1),
+          const Divider(color: AppColors.inputBorder, height: 1),
           const SizedBox(height: 16),
           child,
         ],
@@ -728,14 +785,14 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
 
   Widget _label(String text) => Text(text,
       style: const TextStyle(
-          fontSize: 13, color: _muted, fontWeight: FontWeight.w500));
+          fontSize: 13, color: AppColors.textGrey, fontWeight: FontWeight.w500));
 
   Widget _readOnlyField(String value, {String hint = ''}) {
     return TextFormField(
       initialValue: value,
       readOnly: true,
       decoration: _inputDecoration(hint),
-      style: const TextStyle(color: _muted, fontSize: 14),
+      style: const TextStyle(color: AppColors.textGrey, fontSize: 14),
     );
   }
 
@@ -775,19 +832,22 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
           const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: _line)),
+          borderSide: const BorderSide(color: AppColors.inputBorder)),
       enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: _line)),
+          borderSide: const BorderSide(color: AppColors.inputBorder)),
       focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: _blue, width: 1.5)),
+          borderSide: const BorderSide(color: AppColors.primaryBlue, width: 1.5)),
     );
   }
 
-  Widget _photoThumb(String url, {required VoidCallback onRemove}) {
+  Widget _photoThumb(String url,
+      {required VoidCallback onRemove, bool isCover = false, VoidCallback? onCover}) {
     return Stack(children: [
-      ClipRRect(
+      GestureDetector(
+        onTap: onCover,
+        child: ClipRRect(
         borderRadius: BorderRadius.circular(10),
         child: Image.network(url,
             width: 90,
@@ -796,6 +856,15 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
             errorBuilder: (c, e, s) => Container(
                 width: 90, height: 90, color: const Color(0xFFEEF4FF))),
       ),
+      ),
+      if (isCover)
+        const Positioned(
+          left: 4,
+          bottom: 4,
+          child: Text('Cover',
+              style: TextStyle(
+                  color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+        ),
       Positioned(
         top: 4,
         right: 4,
@@ -812,18 +881,30 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
     ]);
   }
 
-  Widget _newPhotoThumb(PickedFile f, {required VoidCallback onRemove}) {
+  Widget _newPhotoThumb(PickedFile f,
+      {required VoidCallback onRemove, bool isCover = false, VoidCallback? onCover}) {
     return Stack(children: [
-      ClipRRect(
+      GestureDetector(
+        onTap: onCover,
+        child: ClipRRect(
         borderRadius: BorderRadius.circular(10),
         child: Container(
           width: 90,
           height: 90,
           color: const Color(0xFFEEF4FF),
-          child:
-              const Icon(Icons.image_outlined, color: _blue, size: 32),
+          child: Image.memory(f.bytes, fit: BoxFit.cover),
         ),
       ),
+      ),
+      PropertyUpload.tileLoader(f.uploading),
+      if (isCover)
+        const Positioned(
+          left: 4,
+          bottom: 4,
+          child: Text('Cover',
+              style: TextStyle(
+                  color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+        ),
       Positioned(
         top: 4,
         right: 4,
@@ -847,13 +928,13 @@ class _EditPgPropertyPanelState extends State<EditPgPropertyPanel> {
         width: 90,
         height: 90,
         decoration: BoxDecoration(
-          border: Border.all(color: _line, width: 1.5),
+          border: Border.all(color: AppColors.inputBorder, width: 1.5),
           borderRadius: BorderRadius.circular(10),
           color: const Color(0xFFF8FAFD),
         ),
         child: const Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: [Icon(Icons.add_rounded, color: _muted, size: 28)],
+          children: [Icon(Icons.add_rounded, color: AppColors.textGrey, size: 28)],
         ),
       ),
     );

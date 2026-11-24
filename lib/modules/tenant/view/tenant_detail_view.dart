@@ -5,7 +5,7 @@ import 'package:agremate_admin/core/theme/theme.dart';
 import 'package:agremate_admin/modules/property/controller/property_controller.dart';
 import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
 import 'package:agremate_admin/core/widgets/glass_card.dart';
-import 'package:agremate_admin/modules/tenant/model/tenant_details_model.dart';
+import '../../../core/utils/responsive.dart';
 
 class TenantDetailView extends StatelessWidget {
   const TenantDetailView({super.key});
@@ -15,6 +15,7 @@ class TenantDetailView extends StatelessWidget {
     final pc = Get.find<PropertyController>();
     final nav = Get.find<NavigationController>();
     final fmt = NumberFormat.currency(symbol: '₹', locale: 'en_IN', decimalDigits: 0);
+    final mobile = Responsive.isMobile(context);
 
     return Obx(() {
       final details = pc.selectedTenantDetails.value;
@@ -25,7 +26,7 @@ class TenantDetailView extends StatelessWidget {
       final user = details.userRole.users;
 
       return SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
+        padding: EdgeInsets.all(mobile ? 14 : 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -39,8 +40,13 @@ class TenantDetailView extends StatelessWidget {
                   icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
                 ),
                 const SizedBox(width: 8),
-                Text('Tenant Details', style: AppTheme.heading1),
-                const Spacer(),
+                Expanded(
+                  child: Text('Tenant Details',
+                      style: AppTheme.heading1,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                ),
+                const SizedBox(width: 8),
                 if (details.isVerified)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -61,15 +67,18 @@ class TenantDetailView extends StatelessWidget {
             ),
             const SizedBox(height: 32),
 
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            Flex(
+              direction: mobile ? Axis.vertical : Axis.horizontal,
+              crossAxisAlignment:
+              mobile ? CrossAxisAlignment.stretch : CrossAxisAlignment.start,
               children: [
-                Expanded(
+                _pane(
+                  stacked: mobile,
                   flex: 3,
                   child: Column(
                     children: [
                       GlassCard(
-                        padding: const EdgeInsets.all(28),
+                        padding: EdgeInsets.all(mobile ? 16 : 28),
                         child: Column(
                           children: [
                             CircleAvatar(
@@ -113,7 +122,7 @@ class TenantDetailView extends StatelessWidget {
                       const SizedBox(height: 24),
                       if (user.familyMembers.isNotEmpty)
                         GlassCard(
-                          padding: const EdgeInsets.all(24),
+                          padding: EdgeInsets.all(mobile ? 16 : 24),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -137,8 +146,12 @@ class TenantDetailView extends StatelessWidget {
                                     child: const Icon(Icons.person_rounded, size: 16, color: AppTheme.accentPurple),
                                   ),
                                   const SizedBox(width: 12),
-                                  Text(member.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                                  const Spacer(),
+                                  Expanded(
+                                    child: Text(member.name,
+                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                                        overflow: TextOverflow.ellipsis),
+                                  ),
+                                  const SizedBox(width: 8),
                                   Text('${member.age} years', style: AppTheme.caption),
                                 ],
                               );
@@ -150,7 +163,7 @@ class TenantDetailView extends StatelessWidget {
                       const SizedBox(height: 24),
                       if (user.vehicles.isNotEmpty)
                         GlassCard(
-                          padding: const EdgeInsets.all(24),
+                          padding: EdgeInsets.all(mobile ? 16 : 24),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -178,12 +191,16 @@ class TenantDetailView extends StatelessWidget {
                                     ),
                                   ),
                                   const SizedBox(width: 12),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('${vehicle.model} (${vehicle.type})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                                      Text(vehicle.number, style: AppTheme.caption),
-                                    ],
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text('${vehicle.model} (${vehicle.type})',
+                                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                                            overflow: TextOverflow.ellipsis),
+                                        Text(vehicle.number, style: AppTheme.caption),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               );
@@ -195,9 +212,10 @@ class TenantDetailView extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 24),
+                SizedBox(width: mobile ? 0 : 24, height: mobile ? 24 : 0),
 
-                Expanded(
+                _pane(
+                  stacked: mobile,
                   flex: 5,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,7 +244,7 @@ class TenantDetailView extends StatelessWidget {
                           itemBuilder: (context, index) {
                             final prop = details.socialProperties[index];
                             return GlassCard(
-                              padding: const EdgeInsets.all(24),
+                              padding: EdgeInsets.all(mobile ? 16 : 24),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -238,15 +256,15 @@ class TenantDetailView extends StatelessWidget {
                                           borderRadius: BorderRadius.circular(12),
                                           child: Image.network(
                                             prop.documents.first.thumbnailUrl,
-                                            width: 120,
-                                            height: 120,
+                                            width: mobile ? 90.0 : 120.0,
+                                            height: mobile ? 90.0 : 120.0,
                                             fit: BoxFit.cover,
-                                            errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                                            errorBuilder: (_, __, ___) => _buildPlaceholder(mobile ? 90.0 : 120.0),
                                           ),
                                         )
                                       else
-                                        _buildPlaceholder(),
-                                      const SizedBox(width: 20),
+                                        _buildPlaceholder(mobile ? 90.0 : 120.0),
+                                      SizedBox(width: mobile ? 12 : 20),
                                       Expanded(
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -254,22 +272,29 @@ class TenantDetailView extends StatelessWidget {
                                             Row(
                                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                               children: [
-                                                Text(prop.name, style: AppTheme.heading3),
+                                                Expanded(
+                                                  child: Text(prop.name,
+                                                      style: AppTheme.heading3,
+                                                      maxLines: 2,
+                                                      overflow: TextOverflow.ellipsis),
+                                                ),
+                                                const SizedBox(width: 8),
                                                 _buildStatusBadge(prop.status),
                                               ],
                                             ),
                                             const SizedBox(height: 8),
                                             Text(prop.address, style: AppTheme.caption, maxLines: 2, overflow: TextOverflow.ellipsis),
                                             const SizedBox(height: 16),
-                                            Row(
+                                            Wrap(
+                                              spacing: 16,
+                                              runSpacing: 8,
                                               children: [
                                                 _buildPropertyFeature(Icons.bed_rounded, '${prop.bedrooms} Bed'),
-                                                const SizedBox(width: 16),
                                                 _buildPropertyFeature(Icons.bathroom_rounded, '${prop.bathrooms} Bath'),
-                                                const SizedBox(width: 16),
                                                 _buildPropertyFeature(Icons.kitchen_rounded, '${prop.kitchen} Kitchen'),
                                               ],
                                             ),
+
                                           ],
                                         ),
                                       ),
@@ -317,10 +342,17 @@ class TenantDetailView extends StatelessWidget {
     });
   }
 
-  Widget _buildPlaceholder() {
+  Widget _pane({
+    required bool stacked,
+    required int flex,
+    required Widget child,
+  }) =>
+      stacked ? child : Expanded(flex: flex, child: child);
+
+  Widget _buildPlaceholder([double size = 120]) {
     return Container(
-      width: 120,
-      height: 120,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         color: AppTheme.bgCardLight,
         borderRadius: BorderRadius.circular(12),
@@ -334,12 +366,14 @@ class TenantDetailView extends StatelessWidget {
       children: [
         Icon(icon, color: AppTheme.textMuted, size: 20),
         const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: AppTheme.caption.copyWith(fontSize: 10)),
-            Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
-          ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: AppTheme.caption.copyWith(fontSize: 10)),
+              Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)),
+            ],
+          ),
         ),
       ],
     );

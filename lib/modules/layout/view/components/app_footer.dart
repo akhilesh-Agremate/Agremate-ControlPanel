@@ -28,8 +28,6 @@ class _AppFooterState extends State<AppFooter> {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      
       child: Center(
         child: Wrap(
           alignment: WrapAlignment.center,

@@ -37,6 +37,7 @@ class TenantModel {
   final String tenancyStartDate;
   final int openMaintenanceCount;
   final TenantPropertyModel? property;
+  final String? profilePictureUrl;
 
   String get propertyId => property?.id ?? '';
   String get propertyName => property?.name ?? 'No Property Assigned';
@@ -54,6 +55,7 @@ class TenantModel {
     this.tenancyStartDate = '',
     this.openMaintenanceCount = 0,
     this.property,
+    this.profilePictureUrl,
   });
 
   factory TenantModel.fromJson(Map<String, dynamic> json) {
@@ -83,6 +85,10 @@ class TenantModel {
       tenancyStartDate: json['tenancyStartDate']?.toString() ?? '',
       openMaintenanceCount: json['openMaintenanceCount'] ?? 0,
       property: property,
+      profilePictureUrl: () {
+        final v = (json['profilePictureUrl'] ?? '').toString().trim();
+        return (v.isEmpty || v.toLowerCase() == 'null') ? null : v;
+      }(),
     );
   }
 }

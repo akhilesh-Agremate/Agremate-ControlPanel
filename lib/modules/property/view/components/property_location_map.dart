@@ -1,12 +1,11 @@
 import 'dart:convert';
 import 'dart:html' as html;
 import 'dart:ui_web' as ui_web;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:agremate_admin/core/theme/theme.dart';
-
+import 'package:agremate_admin/core/widgets/app_toast.dart';
 import '../../../../core/services/config_service.dart';
 
 class PropertyLocationMap extends StatefulWidget {
@@ -15,6 +14,7 @@ class PropertyLocationMap extends StatefulWidget {
   final double? latitude;
   final double? longitude;
   final double height;
+  final bool grey;
 
   const PropertyLocationMap({
     super.key,
@@ -23,6 +23,7 @@ class PropertyLocationMap extends StatefulWidget {
     this.latitude,
     this.longitude,
     this.height = 190,
+    this.grey = false,
   });
 
   @override
@@ -78,11 +79,18 @@ class _PropertyLocationMapState extends State<PropertyLocationMap> {
         ..style.border = 'none'
         ..style.width = '100%'
         ..style.height = '100%'
+        ..style.pointerEvents =
+        html.window.matchMedia('(pointer: coarse)').matches
+            ? 'none'
+            : 'auto'
         ..allowFullscreen = true;
+      if (widget.grey) {
+        _iframe!.style.filter = 'grayscale(1)';
+      }
       return _iframe!;
     });
 
-    _init();   // instead of the if (!_hasCoords ...) _geocodeAddress() block
+    _init();
   }
 
   Future<void> _init() async {
@@ -137,9 +145,7 @@ class _PropertyLocationMapState extends State<PropertyLocationMap> {
 
   void _copyLink() {
     Clipboard.setData(ClipboardData(text: _shareUrl));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Location link copied')),
-    );
+    AppToast.success('Location link copied');
   }
 
   void _onShareSelected(String value) {
@@ -172,6 +178,16 @@ class _PropertyLocationMapState extends State<PropertyLocationMap> {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    try {
+      _iframe?.src = 'about:blank';
+      _iframe?.remove();
+      _iframe = null;
+    } catch (_) {}
+    super.dispose();
   }
 
   @override

@@ -17,6 +17,7 @@ class AuthController extends GetxController {
   static const _kId = 'auth.idToken';
   static const _kRefresh = 'auth.refreshToken';
   static const _kUserId = 'auth.userId';
+  static const _kAltUserIds = 'auth.altUserIds';
   static const _kUserName = 'auth.userName';
   static const _kUserEmail = 'auth.userEmail';
   static const _kUserPhone = 'auth.userPhone';
@@ -31,18 +32,89 @@ class AuthController extends GetxController {
   final idToken = ''.obs;
   final refreshToken = ''.obs;
   final userId = ''.obs;
+  final alternateUserIds = <String>[].obs;
   final userName = ''.obs;
   final userEmail = ''.obs;
   final userPhone = ''.obs;
   final role = ''.obs;
+
+  Set<String> get identityIds {
+    final ids = <String>{};
+    void add(String? v) {
+      final s = (v ?? '').trim();
+      if (s.isNotEmpty) ids.add(s);
+    }
+
+    add(userId.value);
+    for (final id in alternateUserIds) {
+      add(id);
+    }
+    for (final claim in _jwtClaimIds(accessToken.value)) {
+      add(claim);
+    }
+    for (final claim in _jwtClaimIds(idToken.value)) {
+      add(claim);
+    }
+    return ids;
+  }
+
+  List<String> _jwtClaimIds(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return const [];
+      final payload = utf8.decode(
+        base64Url.decode(base64Url.normalize(parts[1])),
+      );
+      final map = jsonDecode(payload);
+      if (map is! Map) return const [];
+      final out = <String>[];
+      for (final key in [
+        'sub',
+        'username',
+        'cognito:username',
+        'userId',
+        'userid',
+        'user_id',
+      ]) {
+        final v = map[key]?.toString().trim() ?? '';
+        if (v.isNotEmpty) out.add(v);
+      }
+      return out;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  void _rememberUserId(String? id) {
+    final s = (id ?? '').trim();
+    if (s.isEmpty) return;
+    if (userId.value.trim().isEmpty) userId.value = s;
+    final exists = alternateUserIds.any(
+      (e) => e.toLowerCase() == s.toLowerCase(),
+    );
+    if (!exists) alternateUserIds.add(s);
+  }
+
+  void rememberIdentityId(String? id) => _rememberUserId(id);
+
+  void persistIdentity() {
+    _box.write(_kUserId, userId.value);
+    _box.write(_kAltUserIds, alternateUserIds.toList());
+    _box.write(_kUserName, userName.value);
+    _box.write(_kUserEmail, userEmail.value);
+    _box.write(_kUserPhone, userPhone.value);
+    _box.write(_kRole, role.value);
+  }
 
   String get _normalizedRole =>
       role.value.replaceAll(' ', '').replaceAll('-', '').replaceAll('_', '').toLowerCase();
 
   bool get isSuperAdmin =>
       _normalizedRole == 'superadmin' || _normalizedRole.contains('superadmin');
-  bool get isLandlord => _normalizedRole == 'landlord';
-  bool get isTenant => _normalizedRole == 'tenant';
+  bool get isLandlord =>
+      _normalizedRole == 'landlord' || _normalizedRole.contains('landlord');
+  bool get isTenant =>
+      _normalizedRole == 'tenant' || _normalizedRole.contains('tenant');
   bool get isRestrictedRole => isLandlord || isTenant;
 
   String get roleLabel {
@@ -111,6 +183,13 @@ class AuthController extends GetxController {
     idToken.value = _box.read<String>(_kId) ?? '';
     refreshToken.value = _box.read<String>(_kRefresh) ?? '';
     userId.value = _box.read<String>(_kUserId) ?? '';
+    final savedAlt = _box.read(_kAltUserIds);
+    if (savedAlt is List) {
+      alternateUserIds.assignAll(
+        savedAlt.map((e) => e.toString()).where((e) => e.trim().isNotEmpty),
+      );
+    }
+    _rememberUserId(userId.value);
     userName.value = _box.read<String>(_kUserName) ?? '';
     userEmail.value = _box.read<String>(_kUserEmail) ?? '';
     userPhone.value = _box.read<String>(_kUserPhone) ?? '';
@@ -118,7 +197,10 @@ class AuthController extends GetxController {
 
     _service.setAuthToken(_box.read<String>(_kTokenType) ?? 'Bearer', access);
     isLoggedIn.value = true;
-    AppLogger.i('AuthController', 'Session restored role=${role.value}');
+    AppLogger.i(
+      'AuthController',
+      'Session restored role=${role.value} ids=${identityIds.length}',
+    );
   }
 
   /// Reads the JWT "exp" claim. If the token isn't a readable JWT,
@@ -144,6 +226,7 @@ class AuthController extends GetxController {
     _box.write(_kId, idToken.value);
     _box.write(_kRefresh, refreshToken.value);
     _box.write(_kUserId, userId.value);
+    _box.write(_kAltUserIds, alternateUserIds.toList());
     _box.write(_kUserName, userName.value);
     _box.write(_kUserEmail, userEmail.value);
     _box.write(_kUserPhone, userPhone.value);
@@ -270,6 +353,9 @@ class AuthController extends GetxController {
       if (_pendingAccess != null) {
         _applyAccess(_pendingAccess!);
       }
+      if (userPhone.value.trim().isEmpty && phoneNumber.value.trim().isNotEmpty) {
+        userPhone.value = phoneNumber.value.trim();
+      }
 
       _persistSession(authSession);
       isLoggedIn.value = true;
@@ -321,17 +407,26 @@ class AuthController extends GetxController {
 
     final user = authSession.userInfo;
     if (user != null) {
-      userId.value = user.id;
-      userName.value = user.fullName;
-      userEmail.value = user.email;
-      userPhone.value = user.phoneNumber;
+      _rememberUserId(user.id);
+      if (user.fullName.isNotEmpty) userName.value = user.fullName;
+      if (user.email.isNotEmpty) userEmail.value = user.email;
+      if (user.phoneNumber.isNotEmpty) userPhone.value = user.phoneNumber;
       if (user.role.isNotEmpty) role.value = user.role;
+    }
+    for (final claim in _jwtClaimIds(authSession.accessToken)) {
+      _rememberUserId(claim);
+    }
+    for (final claim in _jwtClaimIds(authSession.idToken)) {
+      _rememberUserId(claim);
     }
   }
 
   void _applyAccess(AccessCheckResult access) {
     if (access.role.isNotEmpty) role.value = access.role;
-    if (access.userId.isNotEmpty) userId.value = access.userId;
+    if (access.userId.isNotEmpty) {
+      _rememberUserId(access.userId);
+      userId.value = access.userId;
+    }
     if (access.fullName.isNotEmpty) userName.value = access.fullName;
     if (access.email.isNotEmpty) userEmail.value = access.email;
     if (access.phoneNumber.isNotEmpty) userPhone.value = access.phoneNumber;
@@ -339,6 +434,7 @@ class AuthController extends GetxController {
 
   void _clearIdentity() {
     userId.value = '';
+    alternateUserIds.clear();
     userName.value = '';
     userEmail.value = '';
     userPhone.value = '';
@@ -356,6 +452,7 @@ class AuthController extends GetxController {
     idToken.value = '';
     refreshToken.value = '';
     userId.value = '';
+    alternateUserIds.clear();
     userName.value = '';
     userEmail.value = '';
     userPhone.value = '';

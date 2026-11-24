@@ -5,11 +5,13 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:agremate_admin/network_utils/dio_client.dart';
 import 'package:agremate_admin/network_utils/app_end_points.dart';
 import 'package:agremate_admin/modules/property/model/property_model.dart';
+import 'package:agremate_admin/modules/property/repository/property_repository.dart';
 import 'package:agremate_admin/modules/property/controller/property_controller.dart';
 import 'package:agremate_admin/modules/property/model/pg_property_detail_model.dart';
 import 'package:agremate_admin/modules/auth/controller/auth_controller.dart';
 import 'package:agremate_admin/core/theme/theme.dart';
 import 'package:agremate_admin/core/utils/app_logger.dart';
+import 'package:agremate_admin/core/widgets/app_toast.dart';
 
 class PgPropertyDetailController extends GetxController {
   final property = Rxn<PgPropertyDetailData>();
@@ -20,22 +22,28 @@ class PgPropertyDetailController extends GetxController {
   final openDocName = Rxn<String>();
   final openDocUrl = Rxn<String>();
   final isEditing = false.obs;
+  final isDeleting = false.obs;
 
   String? _currentPropertyId;
 
+  bool _listDeleted = false;
+
   bool get canEdit {
+    if (_listDeleted) return false;
     if (!Get.isRegistered<AuthController>()) return true;
     final auth = Get.find<AuthController>();
     return auth.isSuperAdmin || auth.isLandlord;
   }
 
   bool get canDelete {
+    if (_listDeleted) return false;
     if (!Get.isRegistered<AuthController>()) return true;
     final auth = Get.find<AuthController>();
     return !auth.isTenant;
   }
 
   void init(PropertyModel model) {
+    _listDeleted = model.isDeleted;
     if (_currentPropertyId == model.id && property.value != null) {
       return;
     }
@@ -89,6 +97,21 @@ class PgPropertyDetailController extends GetxController {
     }
   }
 
+  Future<void> setCover(String documentId) async {
+    final id = property.value?.id ?? _currentPropertyId;
+    if (id == null || id.isEmpty || documentId.isEmpty) {
+      AppToast.error('Selected image not found. Please refresh.');
+      return;
+    }
+    try {
+      await PropertyRepository().setCoverImage(id, documentId);
+      await refreshProperty();
+      AppToast.success('Cover image updated');
+    } catch (e) {
+      AppToast.error(e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
   void selectImage(int index) {
     final max = (property.value?.photoPaths.length ?? 1) - 1;
     selectedImageIndex.value = index.clamp(0, max < 0 ? 0 : max);
@@ -109,6 +132,7 @@ class PgPropertyDetailController extends GetxController {
   }
 
   void startEdit() {
+    if (_listDeleted) return;
     if (Get.isRegistered<PropertyController>()) {
       final pc = Get.find<PropertyController>();
       if (pc.amenities.isEmpty) pc.fetchAmenities();
@@ -142,17 +166,10 @@ class PgPropertyDetailController extends GetxController {
         : 'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(locationLine)}';
 
     await Clipboard.setData(ClipboardData(text: url));
-    Get.snackbar(
-      'Copied',
+    AppToast.success(
       'Location link copied to clipboard',
-      snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: Colors.black87,
-      colorText: Colors.white,
-      duration: const Duration(seconds: 3),
-      mainButton: TextButton(
-        onPressed: () => openGoogleMaps(),
-        child: const Text('OPEN', style: TextStyle(color: Colors.lightBlueAccent, fontWeight: FontWeight.bold)),
-      ),
+      actionLabel: 'OPEN',
+      onAction: openGoogleMaps,
     );
   }
 
@@ -192,8 +209,13 @@ class PgPropertyDetailController extends GetxController {
           ElevatedButton(
             onPressed: () async {
               Navigator.of(ctx).pop();
-              if (Get.isRegistered<PropertyController>()) {
-                await Get.find<PropertyController>().deleteProperty(propId);
+              isDeleting.value = true;
+              try {
+                if (Get.isRegistered<PropertyController>()) {
+                  await Get.find<PropertyController>().deleteProperty(propId);
+                }
+              } finally {
+                isDeleting.value = false;
               }
             },
             style: ElevatedButton.styleFrom(

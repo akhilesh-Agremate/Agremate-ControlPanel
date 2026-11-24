@@ -2,6 +2,8 @@ import 'package:agremate_admin/network_utils/dio_client.dart';
 import 'package:agremate_admin/network_utils/app_end_points.dart';
 import 'package:agremate_admin/modules/service_request/model/service_request_model.dart';
 import 'package:agremate_admin/core/utils/app_logger.dart';
+import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
 
 class ServicesRepository {
   Future<Map<String, dynamic>> getDashboardServices() async {
@@ -57,8 +59,126 @@ class ServicesRepository {
     }
   }
 
+  Future<ServiceRequestModel> getServiceDetail(String id) async {
+    final response =
+        await DioClient.instance.get(AppEndpoints.adminServiceDetail(id));
+    AppLogger.d(
+      'ServicesRepository',
+      'getServiceDetail status=${response.statusCode}',
+    );
+    final data = response.data;
+    final result = data is Map ? data['result'] : null;
+    if (result is! Map) throw Exception('Unexpected chat response');
+    final map = Map<String, dynamic>.from(result);
+    final inner = map['serviceRequest'];
+    final json = inner is Map ? Map<String, dynamic>.from(inner) : map;
+    if (json['messages'] == null && map['messages'] is List) {
+      json['messages'] = map['messages'];
+    }
+    if (json['chatMessages'] == null && map['chatMessages'] is List) {
+      json['chatMessages'] = map['chatMessages'];
+    }
+    return ServiceRequestModel.fromJson(json);
+  }
+
+  List<dynamic>? _messageList(dynamic data) {
+    if (data is List) return data;
+    if (data is! Map) return null;
+    final result = data['result'] ?? data['messages'];
+    if (result is List) return result;
+    if (result is Map) {
+      final nested = result['messages'] ??
+          result['chatMessages'] ??
+          result['items'];
+      if (nested is List) return nested;
+    }
+    return null;
+  }
+
+  Future<void> sendMessage(
+      String id,
+      String message, {
+        List<PlatformFile> files = const [],
+      }) async {
+    try {
+      final form = FormData();
+      form.fields.add(MapEntry('Message', message));
+
+      for (final f in files) {
+        final bytes = await f.readAsBytes();
+        form.files.add(
+          MapEntry('Files', MultipartFile.fromBytes(bytes, filename: f.name)),
+        );
+      }
+
+      final response = await DioClient.instance.post(
+        AppEndpoints.adminServiceMessages(id),
+        data: form,
+        options: Options(contentType: 'multipart/form-data'),
+      );
+      final data = response.data;
+      if (data is Map && data['status'] == false) {
+        throw Exception(data['message'] ?? 'Failed to send message');
+      }
+    } on DioException catch (e) {
+      final d = e.response?.data;
+      throw Exception(d is Map && d['message'] != null
+          ? d['message'].toString()
+          : (e.message ?? 'Failed to send message'));
+    }
+  }
+
   Future<List<ServiceRequestModel>> getAllMaintenanceRequests() async {
     final data = await getDashboardServices();
     return List<ServiceRequestModel>.from(data['requests'] as List);
+  }
+  Future<List<String>> getStatuses() async {
+    AppLogger.i('ServicesRepository', 'Fetch statuses started');
+    try {
+      final response = await DioClient.instance
+          .get(AppEndpoints.maintenanceRequestStatuses);
+      final data = response.data;
+      if (data is! Map || data['result'] is! List) {
+        AppLogger.w('ServicesRepository', 'Unexpected statuses response');
+        return <String>[];
+      }
+      final statuses =
+      (data['result'] as List).map((e) => e.toString()).toList();
+      AppLogger.i(
+        'ServicesRepository',
+        'Fetch statuses success count=${statuses.length}',
+      );
+      return statuses;
+    } catch (e) {
+      AppLogger.e('ServicesRepository', 'Fetch statuses failed', e);
+      rethrow;
+    }
+  }
+
+  Future<void> updateStatus({
+    required String requestId,
+    required String newStatus,
+    String? rejectionReason,
+  }) async {
+    AppLogger.i('ServicesRepository', 'Update status $requestId -> $newStatus');
+    try {
+      final response = await DioClient.instance.put(
+        AppEndpoints.maintenanceRequestUpdateStatus,
+        queryParameters: {'newStatus': newStatus},
+        data: {
+          'requestId': requestId,
+          'newStatus': newStatus,
+          'rejectionReason': rejectionReason ?? '',
+        },
+      );
+      final data = response.data;
+      if (data is Map && data['status'] == true) return;
+      throw Exception(
+        data is Map ? (data['message'] ?? 'Update failed') : 'Update failed',
+      );
+    } catch (e) {
+      AppLogger.e('ServicesRepository', 'Update status failed', e);
+      rethrow;
+    }
   }
 }

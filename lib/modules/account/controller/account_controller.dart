@@ -1,9 +1,8 @@
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:agremate_admin/modules/account/repository/account_repository.dart';
 import 'package:agremate_admin/modules/account/model/role_model.dart';
-import 'package:agremate_admin/core/theme/theme.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../auth/controller/auth_controller.dart';
 import '../model/account_model.dart';
 
@@ -199,14 +198,7 @@ class AccountController extends GetxController {
         password: password,
         role: selectedRole!,
       );
-      Get.snackbar(
-        AppStrings.success,
-        AppStrings.accountRegistered,
-        backgroundColor: const Color(0xFF10B981),
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        margin: const EdgeInsets.all(16),
-      );
+      AppToast.success(AppStrings.accountRegistered);
       return true;
     } catch (e) {
       errorMessage.value = e.toString();
@@ -227,24 +219,10 @@ class AccountController extends GetxController {
         roleId: roleId,
         phoneNumber: formattedPhone,
       );
-      Get.snackbar(
-        AppStrings.success,
-        AppStrings.userCreated,
-        backgroundColor: AppTheme.accentGreen,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        margin: const EdgeInsets.all(16),
-      );
+      AppToast.success(AppStrings.userCreated);
       return true;
     } catch (e) {
-      Get.snackbar(
-        AppStrings.error,
-        e.toString().replaceAll('Exception: ', ''),
-        backgroundColor: AppTheme.accentRed,
-        colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
-        margin: const EdgeInsets.all(16),
-      );
+      AppToast.error(e.toString().replaceAll('Exception: ', ''));
       return false;
     } finally {
       isCreatingUser.value = false;

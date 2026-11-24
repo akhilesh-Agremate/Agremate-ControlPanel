@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 import 'package:agremate_admin/modules/finance/model/finance_model.dart';
+import 'package:agremate_admin/modules/layout/controller/navigation_controller.dart';
 import 'package:agremate_admin/network_utils/app_end_points.dart';
 import 'package:agremate_admin/network_utils/dio_client.dart';
 import 'package:agremate_admin/core/utils/app_logger.dart';
@@ -28,7 +29,18 @@ class FinanceController extends GetxController {
     error.value = null;
     await Future.wait([fetchOverview(), fetchProperties()]);
     isLoading.value = false;
+    await _restoreDetailIfNeeded();
     AppLogger.i('FinanceController', 'Load finance finished');
+  }
+
+  Future<void> _restoreDetailIfNeeded() async {
+    if (selectedPropertyId.value != null) return;
+    if (!Get.isRegistered<NavigationController>()) return;
+    final nav = Get.find<NavigationController>();
+    final id = nav.financeDetailId;
+    if (id == null || id.isEmpty) return;
+    final name = nav.financeDetailName ?? '';
+    await selectProperty(id, name);
   }
 
   Future<void> fetchOverview() async {
@@ -63,6 +75,9 @@ class FinanceController extends GetxController {
   Future<void> selectProperty(String id, String name) async {
     selectedPropertyId.value = id;
     selectedPropertyName.value = name;
+    if (Get.isRegistered<NavigationController>()) {
+      Get.find<NavigationController>().setFinanceDetail(id, name);
+    }
     detail.value = null;
     detailError.value = null;
     isDetailLoading.value = true;
@@ -89,6 +104,9 @@ class FinanceController extends GetxController {
     selectedPropertyName.value = '';
     detail.value = null;
     detailError.value = null;
+    if (Get.isRegistered<NavigationController>()) {
+      Get.find<NavigationController>().setFinanceDetail(null, null);
+    }
   }
 
   List<RevenueRecord> get revenueRecords {

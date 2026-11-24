@@ -11,7 +11,9 @@ import 'package:agremate_admin/core/widgets/glass_card.dart';
 import 'package:agremate_admin/core/widgets/kpi_card.dart';
 import 'package:agremate_admin/core/widgets/status_badge.dart';
 import '../../../core/constants/app_strings.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/responsive.dart';
 
 class FinanceView extends StatelessWidget {
   const FinanceView({super.key});
@@ -50,14 +52,63 @@ class FinanceView extends StatelessWidget {
         color: AppColors.scaffoldLight,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(28),
+          padding: EdgeInsets.all(Responsive.isMobile(context) ? 14 : 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (isDetailOpen)
                 _detailSection(fc)
               else ...[
-                Row(
+                Responsive.isMobile(context)
+                    ? Column(
+                        children: [
+                          KpiCard(
+                            title: AppStrings.totalRevenue,
+                            value: o?.totalRevenueFormatted ?? '₹0',
+                            icon: Icons.account_balance_wallet_rounded,
+                            accentColor: AppTheme.accentGreen,
+                            subtitle: AppStrings.allLandlordsCombined,
+                            sparkData: o?.totalRevenueSparkline,
+                            sparkLabels: o?.chartLabels.isEmpty == false
+                                ? o!.chartLabels
+                                : null,
+                          ),
+                          const SizedBox(height: 12),
+                          KpiCard(
+                            title: AppStrings.totalRevenue,
+                            value: '${o?.rentedPropertiesCount ?? 0}',
+                            icon: Icons.home_rounded,
+                            accentColor: AppTheme.accentOrange,
+                            sparkData: o?.rentedPropertiesSparkline,
+                            sparkLabels: o?.chartLabels.isEmpty == false
+                                ? o!.chartLabels
+                                : null,
+                          ),
+                          const SizedBox(height: 12),
+                          KpiCard(
+                            title: AppStrings.paid,
+                            value: '${o?.paidCount ?? 0}',
+                            icon: Icons.check_circle_rounded,
+                            accentColor: AppTheme.accentCyan,
+                            sparkData: o?.paidSparkline,
+                            sparkLabels: o?.chartLabels.isEmpty == false
+                                ? o!.chartLabels
+                                : null,
+                          ),
+                          const SizedBox(height: 12),
+                          KpiCard(
+                            title: AppStrings.overdue,
+                            value: '${o?.overdueCount ?? 0}',
+                            icon: Icons.warning_rounded,
+                            accentColor: AppTheme.accentRed,
+                            sparkData: o?.overdueSparkline,
+                            sparkLabels: o?.chartLabels.isEmpty == false
+                                ? o!.chartLabels
+                                : null,
+                          ),
+                        ],
+                      )
+                    : Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
@@ -226,13 +277,14 @@ class FinanceView extends StatelessWidget {
           Text(AppStrings.noRentedPropertiesFound, style: AppTheme.caption)
         else
           ...list.map(
-                (prop) => GlassCard(
+            (prop) => GlassCard(
               color: Colors.white,
               borderColor: AppColors.cardBorderBlue,
               glowColor: Colors.transparent,
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(16),
-              onTap: () => fc.selectProperty(prop.propertyId, prop.propertyName),
+              onTap: () =>
+                  fc.selectProperty(prop.propertyId, prop.propertyName),
               child: Row(
                 children: [
                   Container(
@@ -311,7 +363,12 @@ class FinanceView extends StatelessWidget {
               onPressed: fc.clearSelection,
               icon: const Icon(Icons.arrow_back, color: AppTheme.textPrimary),
             ),
-            Text(fc.selectedPropertyName.value, style: AppTheme.heading2),
+            Expanded(
+              child: Text(
+                fc.selectedPropertyName.value,
+                style: AppTheme.heading2,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 16),
@@ -471,7 +528,7 @@ class FinanceView extends StatelessWidget {
   void _showCashProof(BuildContext context, FinanceMonthPayment p) {
     final url = p.receiptImageUrl;
     if (url == null || url.isEmpty) {
-      Get.snackbar(AppStrings.noProof, AppStrings.noReceiptAttached);
+      AppToast.error(AppStrings.noReceiptAttached);
       return;
     }
 

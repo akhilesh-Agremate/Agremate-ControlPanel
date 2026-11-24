@@ -6,12 +6,14 @@ class UserModel {
   final String role;
   final String avatar;
   final DateTime createdAt;
+  final String? profilePictureUrl;
 
   UserModel({
     required this.id,
     required this.name,
     required this.email,
     required this.phone,
+    this.profilePictureUrl,
     this.role = 'Super Admin',
     this.avatar = '',
     required this.createdAt,
@@ -30,6 +32,7 @@ class UserModel {
       role: role,
       avatar: avatar,
       createdAt: createdAt,
+      profilePictureUrl: profilePictureUrl,
     );
   }
 }

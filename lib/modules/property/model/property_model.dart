@@ -40,13 +40,16 @@ class PropertyModel {
   final int bathrooms;
   final int kitchen;
   final int builtYear;
+  final double? carpetArea;
+  final double? squareFeetArea;
   final String? description;
   final List<dynamic> documents;
   final List<String> images;
+  final List<String> imageIds;
   final String? imageUrl;
   final String city;
   final String landlordId;
-  final String landlordName;
+  String landlordName;
   final String? landlordPhone;
   final String? landlordEmail;
   final String? landlordAddress;
@@ -89,8 +92,11 @@ class PropertyModel {
     this.kitchen = 0,
     this.builtYear = 0,
     this.description,
+    this.carpetArea,
+    this.squareFeetArea,
     this.documents = const [],
     this.images = const <String>[],
+    this.imageIds = const <String>[],
     this.imageUrl,
     this.city = 'Unknown',
     this.landlordId = '',
@@ -122,7 +128,10 @@ class PropertyModel {
     this.totalRooms,
     this.totalBeds,
     this.availableBeds,
+    this.isDeleted = false,
   });
+
+  bool isDeleted;
 
   factory PropertyModel.fromJson(Map<String, dynamic> json) {
     try {
@@ -145,9 +154,24 @@ class PropertyModel {
           json['placeDetails'] as Map<String, dynamic>? ?? {},
         );
       }
+      final featuresObj = json['features'] is Map
+          ? Map<String, dynamic>.from(json['features'])
+          : <String, dynamic>{};
+      double? areaOf(String key) {
+        final v = featuresObj[key] ?? json[key];
+        if (v == null) return null;
+        if (v is num) return v.toDouble();
+        return double.tryParse(v.toString());
+      }
 
       final landlordObj = json['landlord'] as Map<String, dynamic>?;
-      final landlordId = landlordObj?['id']?.toString() ?? json['landlordId']?.toString() ?? '';
+      final landlordId = landlordObj?['userId']?.toString() ??
+          landlordObj?['id']?.toString() ??
+          json['landlordUserId']?.toString() ??
+          json['landlordId']?.toString() ??
+          json['ownerId']?.toString() ??
+          json['createdBy']?.toString() ??
+          '';
       final landlordName = landlordObj?['name']?.toString() ??
           landlordObj?['fullName']?.toString() ??
           json['landlordName']?.toString() ??
@@ -222,6 +246,7 @@ class PropertyModel {
 
       final thumbnailUrl = _resolveMediaUrl(json['thumbnailUrl']?.toString());
       final images = <String>[];
+      final imageIds = <String>[];
       final rawImages = json['images'];
       if (rawImages is List) {
         for (final item in rawImages) {
@@ -229,6 +254,7 @@ class PropertyModel {
             final u = (item['absolutePath'] ??
                 item['fileUrl'] ??
                 item['url'] ??
+                item['thumbnailUrl'] ??
                 item['relativePath'] ??
                 '')
                 .toString();
@@ -236,18 +262,21 @@ class PropertyModel {
               final resolved = _resolveMediaUrl(u);
               if (resolved.isNotEmpty && !images.contains(resolved)) {
                 images.add(resolved);
+                imageIds.add(item['id']?.toString() ?? '');
               }
             }
           } else if (item != null && item.toString().trim().isNotEmpty) {
             final resolved = _resolveMediaUrl(item.toString());
             if (resolved.isNotEmpty && !images.contains(resolved)) {
               images.add(resolved);
+              imageIds.add('');
             }
           }
         }
       }
       if (thumbnailUrl.isNotEmpty && !images.contains(thumbnailUrl)) {
         images.insert(0, thumbnailUrl);
+        imageIds.insert(0, imageIds.isNotEmpty ? imageIds.first : '');
       }
       final rentInfoObj = json['rentInfo'];
       final rentRange = rentInfoObj is Map
@@ -273,9 +302,12 @@ class PropertyModel {
         bathrooms: (json['bathrooms'] as num?)?.toInt() ?? 0,
         kitchen: (json['kitchen'] as num?)?.toInt() ?? 0,
         builtYear: (json['builtYear'] as num?)?.toInt() ?? 0,
+        carpetArea: areaOf('carpetArea'),
+        squareFeetArea: areaOf('squareFeetArea'),
         description: json['description']?.toString(),
         documents: json['documents'] ?? [],
         images: images,
+        imageIds: imageIds,
         imageUrl: images.isNotEmpty ? images[0] : null,
         createdAt: DateTime.now(),
         city: addr.address
@@ -310,6 +342,7 @@ class PropertyModel {
         totalRooms: (json['totalRooms'] as num?)?.toInt(),
         totalBeds: (json['totalBeds'] as num?)?.toInt(),
         availableBeds: (json['availableBeds'] as num?)?.toInt(),
+        isDeleted: json['isDeleted'] == true,
       );
     } catch (e, stack) {
       AppLogger.e('PropertyModel', 'fromJson failed', e, stack);

@@ -122,43 +122,77 @@ class ServiceRequestModel {
     final tenantMessage = json['tenantMessage']?.toString().trim() ?? '';
     final landlordMessage = json['landlordMessage']?.toString().trim() ?? '';
 
-    final rawMessages = json['messages'] as List<dynamic>? ?? [];
+    final rawMessages = json['messages'] as List<dynamic>? ??
+        json['chatMessages'] as List<dynamic>? ??
+        json['chat'] as List<dynamic>? ??
+        [];
     final messages = rawMessages
         .whereType<Map>()
         .map((m) => ServiceMessage.fromJson(Map<String, dynamic>.from(m)))
         .toList();
 
+
     final chatMessages = <Map<String, dynamic>>[];
+    final rawMaps = rawMessages.whereType<Map>().toList();
+
     if (messages.isNotEmpty) {
-      for (final m in messages) {
-        if (m.message.trim().isEmpty) continue;
-        final isTenant =
-            _isTenantMessage(
-              senderUserId: m.senderUserId,
-              senderName: m.senderName,
-              senderRole: m.senderRole,
-              tenantId: tenantId,
-              tenantName: tenantName,
-              landlordName: landlordName,
-            ) ||
-            (tenantMessage.isNotEmpty &&
-                m.message.trim().toLowerCase() == tenantMessage.toLowerCase());
+      for (var i = 0; i < messages.length; i++) {
+        final m = messages[i];
+        final raw = rawMaps[i];
+
+        final attachments = _readAttachments(raw);
+        if (raw['isAttachment'] == true) {
+        }
+
+        final isFileMsg = raw['isAttachment'] == true;
+        if (m.message.trim().isEmpty && attachments.isEmpty && !isFileMsg) {
+          continue;
+        }
+
+        final sender = _senderKind(
+          senderUserId: m.senderUserId,
+          senderName: m.senderName,
+          senderRole: m.senderRole,
+          tenantId: tenantId,
+          tenantName: tenantName,
+          landlordName: landlordName,
+        );
+        String senderName;
+        if (sender == 'admin') {
+          senderName = 'Support Team';
+        } else if (sender == 'tenant') {
+          senderName = m.senderName.isNotEmpty
+              ? m.senderName
+              : (tenantName.isNotEmpty ? tenantName : 'Tenant');
+        } else {
+          senderName = m.senderName.isNotEmpty
+              ? m.senderName
+              : (landlordName != 'N/A' ? landlordName : 'Landlord');
+        }
+
         chatMessages.add({
-          'sender': isTenant ? 'tenant' : 'landlord',
-          'senderName': isTenant
-              ? (m.senderName.isNotEmpty
-                  ? m.senderName
-                  : (tenantName.isNotEmpty ? tenantName : 'Tenant'))
-              : (m.senderName.isNotEmpty
-                  ? m.senderName
-                  : (landlordName != 'N/A' ? landlordName : 'Landlord')),
-          'message': m.message,
+          'sender': sender,
+          'senderName': senderName,
+          'message': (m.message.trim().isEmpty && attachments.isEmpty && isFileMsg)
+              ? '📎 Attachment'
+              : m.message,
           'time': _formatTime(m.sentAt),
           'isRead': m.isSeen,
           'senderUserId': m.senderUserId,
           'sentAt': m.sentAt,
+          if (attachments.isNotEmpty) 'attachments': attachments,
+          if (attachments.isNotEmpty) 'attachmentName': attachments.first['name'],
+          if (attachments.isNotEmpty &&
+              (attachments.first['url'] ?? '').isNotEmpty)
+            'attachmentUrl': attachments.first['url'],
         });
       }
+      chatMessages.sort((a, b) {
+        final da = a['sentAt'];
+        final db = b['sentAt'];
+        if (da is DateTime && db is DateTime) return da.compareTo(db);
+        return 0;
+      });
     }
 
     final hasTenantChat = chatMessages.any((m) => m['sender'] == 'tenant');
@@ -220,8 +254,95 @@ class ServiceRequestModel {
       messages: messages,
     );
   }
+  static List<Map<String, String>> _readAttachments(Map raw) {
+    final atts = raw['attachments'] ??
+        raw['fileAttachments'] ??
+        raw['files'] ??
+        raw['documents'] ??
+        raw['media'] ??
+        raw['images'];
+    final out = <Map<String, String>>[];
+    if (atts is List) {
+      for (final item in atts) {
+        final one = _oneAttachment(item);
+        if (one != null) out.add(one);
+      }
+    }
+    if (out.isEmpty) {
+      final direct = _oneAttachment(raw);
+      if (direct != null &&
+          (raw['fileUrl'] != null ||
+              raw['attachmentUrl'] != null ||
+              raw['imageUrl'] != null ||
+              raw['absolutePath'] != null ||
+              raw['url'] != null ||
+              raw['thumbnailUrl'] != null)) {
+        out.add(direct);
+      }
+    }
+    return out;
+  }
 
-  static bool _isTenantMessage({
+  static Map<String, String>? _oneAttachment(dynamic item) {
+    if (item is! Map) {
+      final s = item?.toString().trim() ?? '';
+      if (s.isEmpty || s == 'null') return null;
+      if (!s.startsWith('http') && !s.contains('.')) return null;
+      return {
+        'name': s.split('?').first.split('/').last,
+        'url': _fileUrl(s),
+        'thumb': '',
+      };
+    }
+    final name = _pick(item, [
+          'fileName',
+          'name',
+          'originalName',
+          'originalFileName',
+        ]) ??
+        '';
+    final url = _fileUrl(_pick(item, [
+      'absolutePath',
+      'fileUrl',
+      'url',
+      'fileURL',
+      'attachmentUrl',
+      'signedUrl',
+      'presignedUrl',
+      'imageUrl',
+      'mediaUrl',
+      'filePath',
+      'path',
+      'relativePath',
+      'location',
+    ]) ??
+        '');
+    final thumb = _fileUrl(_pick(item, ['thumbnailUrl', 'thumbnailPath']) ?? '');
+    if (name.isEmpty && url.isEmpty && thumb.isEmpty) return null;
+    final shown = name.isNotEmpty
+        ? name
+        : (url.isNotEmpty ? url : thumb).split('?').first.split('/').last;
+    return {'name': shown, 'url': url.isNotEmpty ? url : thumb, 'thumb': thumb};
+  }
+
+  static String _fileUrl(String path) {
+    final value = path.trim();
+    if (value.isEmpty || value.toLowerCase() == 'null') return '';
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      return value;
+    }
+    return 'https://amplify-agremate-dev-76a83-deployment.s3.ap-south-1.amazonaws.com/${value.startsWith('/') ? value.substring(1) : value}';
+  }
+
+  static String? _pick(Map m, List<String> keys) {
+    for (final k in keys) {
+      final v = m[k];
+      if (v != null && v.toString().isNotEmpty) return v.toString();
+    }
+    return null;
+  }
+
+  static String _senderKind({
     required String senderUserId,
     required String senderName,
     required String senderRole,
@@ -229,18 +350,23 @@ class ServiceRequestModel {
     required String tenantName,
     required String landlordName,
   }) {
-    final role = senderRole.toLowerCase();
-    if (role.contains('tenant')) return true;
-    if (role.contains('landlord')) return false;
-    if (tenantId.isNotEmpty && senderUserId == tenantId) return true;
+    final role = senderRole.toLowerCase().replaceAll(' ', '');
+    if (role.contains('superadmin') ||
+        role.contains('admin') ||
+        role.contains('support')) {
+      return 'admin';
+    }
+    if (role.contains('landlord')) return 'landlord';
+    if (role.contains('tenant')) return 'tenant';
+    if (tenantId.isNotEmpty && senderUserId == tenantId) return 'tenant';
     final name = senderName.trim().toLowerCase();
     final tenant = tenantName.trim().toLowerCase();
-    if (tenant.isNotEmpty && name == tenant) return true;
+    if (tenant.isNotEmpty && name == tenant) return 'tenant';
     final landlord = landlordName.trim().toLowerCase();
     if (landlord.isNotEmpty && landlord != 'n/a' && name == landlord) {
-      return false;
+      return 'landlord';
     }
-    return false;
+    return 'tenant';
   }
 
   static String? _tryParseAddress(String raw) {

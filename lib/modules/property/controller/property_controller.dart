@@ -13,6 +13,8 @@ import 'package:agremate_admin/modules/layout/controller/navigation_controller.d
 import 'package:agremate_admin/core/utils/app_logger.dart';
 import 'package:intl/intl.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../network_utils/app_end_points.dart';
+import '../../../network_utils/dio_client.dart';
 import '../model/amenity_model.dart';
 import '../view/components/property_type_dialog.dart';
 
@@ -46,8 +48,96 @@ class PropertyController extends GetxController {
 
   final scrollController = ScrollController();
   static const int perPage = 32;
+  final bhkTypes = <Map<String, dynamic>>[].obs;
+  final isBhkLoading = false.obs;
+
+  Future<void> fetchBhkTypes() async {
+    if (bhkTypes.isNotEmpty || isBhkLoading.value) return;
+    try {
+      isBhkLoading.value = true;
+      final res = await DioClient.instance.get(AppEndpoints.bhkTypes);
+      final data = res.data;
+      final raw = data is Map && data['result'] is List ? data['result'] as List : const [];
+      bhkTypes.assignAll([
+        for (final e in raw)
+          if (e is Map && e['code'] != null)
+            {
+              'id': e['id'],
+              'code': e['code'].toString(),
+              'name': (e['name'] ?? e['code']).toString(),
+              'bedrooms': e['bedrooms'],
+            }
+      ]);
+    } catch (e) {
+      AppLogger.e('PropertyController', 'Error fetching BHK types', e);
+    } finally {
+      isBhkLoading.value = false;
+    }
+  }
+
+  /// "2bhk", "2 BHK", "1-rk" -> "2BHK", "1RK"
+  String normalizeBhk(String? t) =>
+      (t ?? '').replaceAll(RegExp(r'[\s\-_]+'), '').toUpperCase();
+
+  String? matchBhkCode(String? stored) {
+    final n = normalizeBhk(stored);
+    if (n.isEmpty) return null;
+    for (final t in bhkTypes) {
+      if (t['code'] == n) return n;
+    }
+    return null;
+  }
+
+  /// Name for display; falls back to the stored text if there is no match.
+  String bhkDisplayName(String? stored) {
+    final n = normalizeBhk(stored);
+    for (final t in bhkTypes) {
+      if (t['code'] == n) return t['name'].toString();
+    }
+    return (stored ?? '').trim();
+  }
+
+  final propertyTypes = <Map<String, dynamic>>[].obs;
+
+  Future<void> fetchPropertyTypes() async {
+    if (propertyTypes.isNotEmpty) return;
+    try {
+      final res = await DioClient.instance.get(AppEndpoints.propertyTypes);
+      final data = res.data;
+      final raw = data is Map && data['result'] is List ? data['result'] as List : const [];
+      propertyTypes.assignAll([
+        for (final e in raw)
+          if (e is Map && e['name'] != null)
+            {'id': e['id'].toString(), 'name': e['name'].toString()}
+      ]);
+    } catch (e) {
+      AppLogger.e('PropertyController', 'Error fetching property types', e);
+    }
+  }
+
+  /// Accepts an id ("1") or a name ("Apartment"). Returns '' if it can't be resolved.
+  String propertyTypeName(dynamic stored) {
+    final s = stored?.toString().trim() ?? '';
+    if (s.isEmpty) return '';
+    for (final t in propertyTypes) {
+      if (t['id'] == s || t['name'].toString().toLowerCase() == s.toLowerCase()) {
+        return t['name'].toString();
+      }
+    }
+    return int.tryParse(s) == null ? s : '';
+  }
 
   Timer? _autoRefreshTimer;
+  bool _usersLoading = false;
+  bool _usersLoaded = false;
+  final isLandlordsLoading = false.obs;
+  final isTenantsLoading = false.obs;
+
+  Future<void> loadUsersIfNeeded() async {
+    if (_usersLoaded || _usersLoading) return;
+    _usersLoaded = true;
+    await _loadUsersInBackground();
+  }
 
   int get totalPropertiesCount => properties.length;
   int get pgPropertiesCount => properties.where((p) => p.isPg).length;
@@ -76,7 +166,7 @@ class PropertyController extends GetxController {
     _applyFilters();
   }
 
-  void _applyFilters() {
+  void _applyFilters({bool resetPage = true}) {
     var result = properties.toList();
 
     if (selectedCategoryFilter.value == PropertyCategoryFilter.pg) {
@@ -97,7 +187,11 @@ class PropertyController extends GetxController {
     }
 
     filteredProperties.assignAll(result);
-    currentPage.value = 1;
+    if (resetPage) {
+      currentPage.value = 1;
+    } else if (currentPage.value > totalPages) {
+      currentPage.value = totalPages;
+    }
   }
 
   @override
@@ -128,18 +222,15 @@ class PropertyController extends GetxController {
       final fetched = await _repository.getAllProperties();
       final prevCount = properties.length;
       properties.assignAll(fetched);
-      _applyFilters();
+      _applyFilters(resetPage: false);
       _buildDependentLists();
       await fetchStats();
-      await fetchTenants();
-      await fetchLandlords();
       _refreshKpiStats();
+      if (_usersLoaded) unawaited(_refreshUsersQuick());
       if (currentPage.value > totalPages) currentPage.value = totalPages;
       if (fetched.length > prevCount) {
-        Get.snackbar(
-          'Updated',
+        AppToast.success(
           '${fetched.length - prevCount} new propert${fetched.length - prevCount == 1 ? "y" : "ies"} added',
-          duration: const Duration(seconds: 3),
         );
       }
     } catch (_) {
@@ -182,44 +273,43 @@ class PropertyController extends GetxController {
     AppToast.success('Property updated');
   }
 
+  Future<void> setCoverImage(PropertyModel property, String documentId) async {
+    if (documentId.isEmpty) {
+      AppToast.error('Selected image not found. Please refresh.');
+      return;
+    }
+    try {
+      await _repository.setCoverImage(property.id, documentId);
+      final detail = await _repository.getPropertyById(property.id);
+      if (property.isDeleted) detail.isDeleted = true;
+      selectedProperty.value = detail;
+      unawaited(refreshProperties());
+      AppToast.success('Cover image updated');
+    } catch (e) {
+      AppToast.error(e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
   Future<void> deleteProperty(String id) async {
     if (Get.isRegistered<AuthController>()) {
       final auth = Get.find<AuthController>();
       if (auth.isTenant) {
-        Get.snackbar(
-          'Permission Denied',
+        AppToast.error(
           'You do not have permission to delete properties',
-          snackPosition: SnackPosition.BOTTOM,
         );
         return;
       }
     }
     try {
-      isLoading.value = true;
       final message = await _repository.deleteProperty(id);
       properties.removeWhere((p) => p.id == id);
       _applyFilters();
-      closePropertyDetails();
       await refreshProperties();
-      Get.snackbar(
-        'Success',
-        message,
-        snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 4),
-        backgroundColor: Colors.white,
-        colorText: Colors.black,
-      );
+      closePropertyDetails();
+      AppToast.success(message);
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to delete property: $e',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.white,
-        colorText: Colors.red,
-      );
+      AppToast.error('Failed to delete property: $e');
       rethrow;
-    } finally {
-      isLoading.value = false;
     }
   }
 
@@ -228,6 +318,7 @@ class PropertyController extends GetxController {
     isAddOpen.value = true;
     if (amenities.isEmpty) fetchAmenities();
     if (featureOptions.isEmpty) fetchFeatures();
+    fetchBhkTypes();
   }
 
   Future<void> fetchProperties() async {
@@ -239,14 +330,35 @@ class PropertyController extends GetxController {
       _applyFilters();
       _buildDependentLists();
       await fetchStats();
-      await fetchTenants();
-      await fetchLandlords();
       _refreshKpiStats();
     } catch (e) {
-      Get.snackbar('Error', 'Failed to fetch properties: $e');
+      AppToast.error('Failed to fetch properties: $e');
     } finally {
       isLoading.value = false;
+      await _restoreDetailIfNeeded();
     }
+  }
+
+  Future<void> _restoreDetailIfNeeded() async {
+    if (selectedProperty.value != null) return;
+    if (!Get.isRegistered<NavigationController>()) return;
+    final id = Get.find<NavigationController>().propertyDetailId;
+    if (id == null || id.isEmpty) return;
+    PropertyModel? match;
+    for (final p in properties) {
+      if (p.id == id) {
+        match = p;
+        break;
+      }
+    }
+    if (match != null) {
+      await openPropertyDetails(match);
+      return;
+    }
+    try {
+      final detail = await _repository.getPropertyById(id);
+      selectedProperty.value = detail;
+    } catch (_) {}
   }
 
   Future<void> createProperty(Map<String, dynamic> data) async {
@@ -255,11 +367,7 @@ class PropertyController extends GetxController {
       await _repository.createProperty(data);
       await refreshProperties();
       AppLogger.i('PropertyController', 'Create property success');
-      Get.snackbar(
-        'Success',
-        'Property created successfully',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      AppToast.success('Property created successfully');
     } catch (e) {
       AppLogger.e('PropertyController', 'Create property failed', e);
       rethrow;
@@ -272,11 +380,7 @@ class PropertyController extends GetxController {
       await _repository.createPgProperty(data);
       await refreshProperties();
       AppLogger.i('PropertyController', 'Create PG property success');
-      Get.snackbar(
-        'Success',
-        'PG Property created successfully',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      AppToast.success('PG Property created successfully');
     } catch (e) {
       AppLogger.e('PropertyController', 'Create PG property failed', e);
       rethrow;
@@ -289,11 +393,7 @@ class PropertyController extends GetxController {
       await _repository.updatePgProperty(propertyId, data);
       await refreshProperties();
       AppLogger.i('PropertyController', 'Update PG property success');
-      Get.snackbar(
-        'Success',
-        'PG Property updated successfully',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      AppToast.success('PG Property updated successfully');
     } catch (e) {
       AppLogger.e('PropertyController', 'Update PG property failed', e);
       rethrow;
@@ -462,7 +562,126 @@ class PropertyController extends GetxController {
     );
   }
 
+  String _landlordKey(LandlordModel l) =>
+      '${l.id}|${l.phone.replaceAll(RegExp(r'\D'), '')}|${l.name.trim().toLowerCase()}';
+  String _tenantKey(TenantModel t) =>
+      '${t.id}|${t.phone.replaceAll(RegExp(r'\D'), '')}|${t.propertyName}|${t.name}';
+
+  List<LandlordModel> _applyLandlordRules(List<LandlordModel> list) {
+    var out = _repository.filterLandlords(list);
+    if (Get.isRegistered<AuthController>() && Get.find<AuthController>().isTenant) {
+      final names = properties.map((p) => p.landlordName.toLowerCase()).toSet();
+      final ids = properties.map((p) => p.landlordId).toSet();
+      out = out
+          .where((l) => ids.contains(l.id) || names.contains(l.name.toLowerCase()))
+          .toList();
+    }
+    return out;
+  }
+
+  List<TenantModel> _applyTenantRules(List<TenantModel> list) {
+    var out = _repository.filterTenants(list);
+    if (Get.isRegistered<AuthController>() && Get.find<AuthController>().isLandlord) {
+      final names = properties.map((p) => p.name.toLowerCase()).toSet();
+      out = out.where((t) => names.contains(t.propertyName.toLowerCase())).toList();
+    }
+    return out;
+  }
+
+  Future<void> _loadUsersInBackground() async {
+    if (_usersLoading) return;
+    _usersLoading = true;
+    try {
+      await Future.wait([_loadLandlordsProgressive(), _loadTenantsProgressive()]);
+      _refreshKpiStats();
+    } finally {
+      _usersLoading = false;
+    }
+  }
+
+  Future<void> _loadLandlordsProgressive() async {
+    isLandlordsLoading.value = true;
+    final all = <LandlordModel>[];
+    final seen = <String>{};
+    try {
+      for (var page = 1; page <= 1000; page++) {
+        final items = await _repository.getLandlordsPage(page: page);
+        var added = 0;
+        for (final l in items) {
+          if (seen.add(_landlordKey(l))) {
+            all.add(l);
+            added++;
+          }
+        }
+        if (page == 1 || page % 3 == 0) {
+          landlords.assignAll(_applyLandlordRules(all));
+        }
+        await Future.delayed(const Duration(milliseconds: 60));
+        AppLogger.i('PropertyController',
+            'landlords page=$page got=${items.length} added=$added total=${all.length}');
+        if (items.isEmpty || added == 0) break;
+      }
+    } catch (e) {
+      AppLogger.e('PropertyController', 'Error fetching landlords', e);
+    } finally {
+      landlords.assignAll(_applyLandlordRules(all));
+      isLandlordsLoading.value = false;
+    }
+  }
+
+  Future<void> _loadTenantsProgressive() async {
+    isTenantsLoading.value = true;
+    final all = <TenantModel>[];
+    final seen = <String>{};
+    try {
+      for (var page = 1; page <= 1000; page++) {
+        final items = await _repository.getTenantsPage(page: page);
+        var added = 0;
+        for (final t in items) {
+          if (seen.add(_tenantKey(t))) {
+            all.add(t);
+            added++;
+          }
+        }
+        if (page == 1 || page % 3 == 0) {
+          tenants.assignAll(_applyTenantRules(all));
+        }
+        await Future.delayed(const Duration(milliseconds: 60));
+        AppLogger.i('PropertyController',
+            'tenants page=$page got=${items.length} added=$added total=${all.length}');
+        if (items.isEmpty || added == 0) break;
+      }
+    } catch (e) {
+      AppLogger.e('PropertyController', 'Error fetching tenants', e);
+    } finally {
+      tenants.assignAll(_applyTenantRules(all));
+      isTenantsLoading.value = false;
+    }
+  }
+
+  Future<void> _refreshUsersQuick() async {
+    if (_usersLoading) return;
+    if (landlords.isEmpty && tenants.isEmpty) {
+      await _loadUsersInBackground();
+      return;
+    }
+    try {
+      final knownL = landlords.map(_landlordKey).toSet();
+      final freshL = _applyLandlordRules(await _repository.getLandlordsPage(page: 1))
+          .where((l) => !knownL.contains(_landlordKey(l)))
+          .toList();
+      if (freshL.isNotEmpty) landlords.insertAll(0, freshL);
+
+      final knownT = tenants.map(_tenantKey).toSet();
+      final freshT = _applyTenantRules(await _repository.getTenantsPage(page: 1))
+          .where((t) => !knownT.contains(_tenantKey(t)))
+          .toList();
+      if (freshT.isNotEmpty) tenants.insertAll(0, freshT);
+    } catch (_) {}
+  }
+
   Future<void> fetchTenants() async {
+    isTenantsLoading.value = true;
     try {
       var fetchedTenants = await _repository.getAllTenants();
       if (Get.isRegistered<AuthController>() &&
@@ -475,10 +694,13 @@ class PropertyController extends GetxController {
       tenants.assignAll(fetchedTenants);
     } catch (e) {
       AppLogger.e('PropertyController', 'Error fetching tenants', e);
+    } finally {
+      isTenantsLoading.value = false;
     }
   }
 
   Future<void> fetchLandlords() async {
+    isLandlordsLoading.value = true;
     try {
       var fetchedLandlords = await _repository.getAllLandlords();
       if (Get.isRegistered<AuthController>() &&
@@ -486,15 +708,14 @@ class PropertyController extends GetxController {
         final names = properties.map((p) => p.landlordName.toLowerCase()).toSet();
         final ids = properties.map((p) => p.landlordId).toSet();
         fetchedLandlords = fetchedLandlords
-            .where(
-              (l) =>
-                  ids.contains(l.id) || names.contains(l.name.toLowerCase()),
-            )
+            .where((l) => ids.contains(l.id) || names.contains(l.name.toLowerCase()))
             .toList();
       }
       landlords.assignAll(fetchedLandlords);
     } catch (e) {
       AppLogger.e('PropertyController', 'Error fetching landlords', e);
+    } finally {
+      isLandlordsLoading.value = false;
     }
   }
 
@@ -509,14 +730,18 @@ class PropertyController extends GetxController {
 
   Future<void> openPropertyDetails(PropertyModel property) async {
     selectedProperty.value = property;
+    if (Get.isRegistered<NavigationController>()) {
+      Get.find<NavigationController>().setPropertyDetailId(property.id);
+    }
     try {
       isDetailLoading.value = true;
       final detail = await _repository.getPropertyById(property.id);
       if (selectedProperty.value?.id == property.id) {
+        if (property.isDeleted) detail.isDeleted = true;
         selectedProperty.value = detail;
       }
     } catch (e) {
-      Get.snackbar('Error', 'Failed to load property details');
+      AppToast.error('Failed to load property details');
     } finally {
       isDetailLoading.value = false;
     }
@@ -525,6 +750,9 @@ class PropertyController extends GetxController {
   void closePropertyDetails() {
     selectedProperty.value = null;
     isDetailLoading.value = false;
+    if (Get.isRegistered<NavigationController>()) {
+      Get.find<NavigationController>().setPropertyDetailId(null);
+    }
   }
 
   void deleteLandlord(String id) {
@@ -542,13 +770,7 @@ class PropertyController extends GetxController {
       address: '',
     );
     landlords.insert(0, newLandlord);
-    Get.snackbar(
-      'Success',
-      'Landlord $name added successfully',
-      snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: Colors.white,
-      colorText: Colors.black,
-    );
+    AppToast.success('Landlord $name added successfully');
   }
 
   Future<void> viewTenantDetails(String userId) async {
@@ -560,7 +782,7 @@ class PropertyController extends GetxController {
       nav.currentIndex.value =
           8;
     } catch (e) {
-      Get.snackbar('Error', 'Failed to fetch tenant details: $e');
+      AppToast.error('Failed to fetch tenant details: $e');
     } finally {
       isLoading.value = false;
     }

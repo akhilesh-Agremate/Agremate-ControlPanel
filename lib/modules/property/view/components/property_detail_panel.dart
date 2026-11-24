@@ -1,6 +1,7 @@
 import 'package:agremate_admin/modules/property/view/components/property_location_map.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:lottie/lottie.dart';
 import 'package:intl/intl.dart';
 import 'package:agremate_admin/core/theme/theme.dart';
 import 'package:agremate_admin/core/widgets/web_network_image.dart';
@@ -27,22 +28,28 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
   String? _currentImageUrl;
   String? _openDocName;
   String? _openDocUrl;
+  bool _galleryOpen = false;
+  bool _deleting = false;
 
   bool _isEditing = false;
 
   bool get _canEdit {
+    if (widget.property.isDeleted) return false;
     if (!Get.isRegistered<AuthController>()) return true;
     final auth = Get.find<AuthController>();
     return auth.isSuperAdmin || auth.isLandlord;
   }
 
   bool get _canDelete {
+    if (widget.property.isDeleted) return false;
     if (!Get.isRegistered<AuthController>()) return true;
     final auth = Get.find<AuthController>();
     return !auth.isTenant;
   }
 
   void _confirmDelete(BuildContext context, PropertyController pc) {
+    if (widget.property.isDeleted) return;
+    setState(() => _galleryOpen = true);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -60,7 +67,12 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           ElevatedButton(
             onPressed: () async {
               Navigator.of(ctx).pop();
-              await pc.deleteProperty(widget.property.id);
+              if (mounted) setState(() => _deleting = true);
+              try {
+                await pc.deleteProperty(widget.property.id);
+              } finally {
+                if (mounted) setState(() => _deleting = false);
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.accentRed,
@@ -71,16 +83,18 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           ),
         ],
       ),
-    );
+    ).whenComplete(() {
+      if (mounted) setState(() => _galleryOpen = false);
+    });
   }
 
-  void _startEdit() {
+  Future<void> _startEdit() async {
+    if (widget.property.isDeleted) return;
     final pc = Get.find<PropertyController>();
     if (pc.amenities.isEmpty) pc.fetchAmenities();
     if (pc.featureOptions.isEmpty) pc.fetchFeatures();
-    if (pc.selectedProperty.value == null || pc.selectedProperty.value!.id != widget.property.id) {
-      pc.openPropertyDetails(widget.property);
-    }
+    await pc.openPropertyDetails(widget.property);
+    if (!mounted) return;
     setState(() => _isEditing = true);
   }
 
@@ -88,6 +102,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
   void initState() {
     super.initState();
     _currentImageUrl = widget.property.imageUrl;
+    Get.find<PropertyController>().fetchBhkTypes();
   }
 
   @override
@@ -102,7 +117,9 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
   @override
   Widget build(BuildContext context) {
     if (widget.property.isPg) {
-      return PgPropertyDetailView(property: widget.property);
+      final page = PgPropertyDetailView(property: widget.property);
+      if (!widget.property.isDeleted) return page;
+      return GreyScale(child: page);
     }
     final pc = Get.find<PropertyController>();
     final nav = Get.find<NavigationController>();
@@ -183,15 +200,20 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           )
         : _buildEmptyTenantCard();
 
-    return Container(
+    final page = Container(
       width: double.infinity,
       height: double.infinity,
       color: const Color(0xFFF8FAFD),
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            child: Row(
+            padding: EdgeInsets.symmetric(
+              horizontal: MediaQuery.sizeOf(context).width < 600 ? 12 : 20,
+              vertical: MediaQuery.sizeOf(context).width < 600 ? 8 : 10,
+            ),
+            child: MediaQuery.sizeOf(context).width < 600
+                ? _mobileDetailHeader(pc, nav, statusBadge)
+                : _AdaptiveHeader(
               children: [
                 IconButton(
                   onPressed: () {
@@ -219,7 +241,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                 const SizedBox(width: 8),
                 Text(
                   _openDocName ?? 'Property Detail',
-                  style: AppTheme.heading2.copyWith(color: Colors.black),
+                  style: AppTheme.heading2.copyWith(color: Colors.black,fontSize: 20),
                 ),
                 const Spacer(),
                 if (_openDocName == null) ...[
@@ -227,7 +249,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                     OutlinedButton.icon(
                       onPressed: _startEdit,
                       icon: const Icon(Icons.edit_rounded, size: 16),
-                      label: const Text('Edit'),
+                      label: const Text('Edit',style: TextStyle(fontSize: 14)),
                     ),
                     const SizedBox(width: 12),
                   ],
@@ -241,7 +263,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                       ),
                       label: const Text(
                         'Delete',
-                        style: TextStyle(color: AppTheme.accentRed),
+                        style: TextStyle(color: AppTheme.accentRed,fontSize: 14),
                       ),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: AppTheme.accentRed),
@@ -272,7 +294,12 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                 final isWide = constraints.maxWidth >= 920;
 
                 return SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+                  padding: EdgeInsets.fromLTRB(
+                    constraints.maxWidth < 600 ? 14 : 24,
+                    16,
+                    constraints.maxWidth < 600 ? 14 : 24,
+                    20,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -294,6 +321,137 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
         ],
       ),
     );
+    final shown = _deleting ? _deleteLoader(page) : page;
+    if (!widget.property.isDeleted) return shown;
+    return GreyScale(child: shown);
+  }
+
+  void _goBack(PropertyController pc, NavigationController nav) {
+    if (_openDocName != null) {
+      setState(() {
+        _openDocName = null;
+        _openDocUrl = null;
+      });
+      return;
+    }
+    if (pc.returnTabIndex.value != null) {
+      nav.currentIndex.value = pc.returnTabIndex.value!;
+      pc.returnTabIndex.value = null;
+    }
+    pc.search('');
+    pc.closePropertyDetails();
+  }
+
+  Widget _mobileDetailHeader(
+    PropertyController pc,
+    NavigationController nav,
+    Widget statusBadge,
+  ) {
+    final buttonShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(20),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            IconButton(
+              onPressed: () => _goBack(pc, nav),
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              icon: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: Colors.black,
+                size: 18,
+              ),
+              tooltip: 'Back',
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                _openDocName ?? 'Property Detail',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTheme.heading2.copyWith(
+                  color: Colors.black,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (_openDocName == null) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (_canEdit)
+                OutlinedButton.icon(
+                  onPressed: _startEdit,
+                  icon: const Icon(Icons.edit_rounded, size: 15),
+                  label: const Text('Edit', style: TextStyle(fontSize: 13)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF2083D5),
+                    side: const BorderSide(color: Color(0xFF2083D5)),
+                    backgroundColor: const Color(0xFFF3F8FF),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    minimumSize: const Size(0, 36),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: buttonShape,
+                  ),
+                ),
+              if (_canDelete)
+                OutlinedButton.icon(
+                  onPressed: () => _confirmDelete(context, pc),
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    size: 15,
+                    color: AppTheme.accentRed,
+                  ),
+                  label: const Text(
+                    'Delete',
+                    style: TextStyle(color: AppTheme.accentRed, fontSize: 13),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFFF5F5),
+                    side: const BorderSide(color: AppTheme.accentRed),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    minimumSize: const Size(0, 36),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: buttonShape,
+                  ),
+                ),
+              statusBadge,
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _deleteLoader(Widget child) {
+    return Stack(
+      children: [
+        child,
+        Positioned.fill(
+          child: ColoredBox(
+            color: Colors.black.withValues(alpha: 0.25),
+            child: Center(
+              child: Lottie.asset(
+                'assets/lottie/ripple_loader.json',
+                width: 160,
+                height: 160,
+                repeat: true,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildDetailsAndContacts({
@@ -310,6 +468,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           _buildAboutCard(),
           const SizedBox(height: 16),
         ],
+        _buildTypeCard(),
         _buildSectionHeader('Features & Facilities'),
         const SizedBox(height: 8),
         _buildFeaturesWrap(),
@@ -333,7 +492,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                 'No amenities data available',
                 style: AppTheme.bodyText.copyWith(
                   color: Colors.black38,
-                  fontSize: 13,
+                  fontSize: 14,
                 ),
               ),
         const SizedBox(height: 16),
@@ -488,7 +647,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           Text(
             '$label: $value',
             style: const TextStyle(
-              fontSize: 12,
+              fontSize: 14,
               fontWeight: FontWeight.w600,
               color: Colors.black87,
             ),
@@ -519,27 +678,60 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                   itemBuilder: (context, index) {
                     final imgUrl = widget.property.images[index];
                     final isSelected = _currentImageUrl == imgUrl;
+                    final isCover = index == 0;
+                    final ids = widget.property.imageIds;
+                    final imageId = index < ids.length ? ids[index] : '';
                     return GestureDetector(
                       onTap: () {
                         setState(() => _currentImageUrl = imgUrl);
                         _showImageGallery(context, index);
                       },
-                      child: Container(
-                        width: 48,
-                        margin: const EdgeInsets.only(right: 8),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: isSelected
-                                ? AppTheme.accentBlue
-                                : Colors.black12,
-                            width: isSelected ? 2 : 1,
+                      child: Stack(
+                        children: [
+                          Container(
+                            width: 48,
+                            margin: const EdgeInsets.only(right: 8),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isSelected
+                                    ? AppTheme.accentBlue
+                                    : Colors.black12,
+                                width: isSelected ? 2 : 1,
+                              ),
+                              image: DecorationImage(
+                                image: NetworkImage(imgUrl),
+                                fit: BoxFit.cover,
+                              ),
+                            ),
                           ),
-                          image: DecorationImage(
-                            image: NetworkImage(imgUrl),
-                            fit: BoxFit.cover,
-                          ),
-                        ),
+                          if (isCover)
+                            Positioned(
+                              left: 2,
+                              bottom: 2,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 3, vertical: 1),
+                                color: const Color(0xFF2083D5),
+                                child: const Text(
+                                  'Cover',
+                                  style: TextStyle(
+                                      color: Colors.white, fontSize: 8),
+                                ),
+                              ),
+                            ),
+                          if (!isCover && _canEdit && imageId.isNotEmpty)
+                            Positioned(
+                              right: 10,
+                              top: 2,
+                              child: GestureDetector(
+                                onTap: () => Get.find<PropertyController>()
+                                    .setCoverImage(widget.property, imageId),
+                                child: const Icon(Icons.star_border,
+                                    size: 14, color: Colors.white),
+                              ),
+                            ),
+                        ],
                       ),
                     );
                   },
@@ -555,7 +747,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
             Text(
               widget.property.name,
               style: AppTheme.heading1.copyWith(
-                fontSize: 26,
+                fontSize: 24,
                 color: Colors.black,
               ),
             ),
@@ -594,19 +786,23 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                     style: AppTheme.bodyText.copyWith(
                       fontWeight: FontWeight.w600,
                       color: Colors.black,
-                      fontSize: 13,
+                      fontSize: 14,
                     ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            PropertyLocationMap(
-              title: widget.property.name,
-              address: widget.property.address.address,
-              latitude: widget.property.address.latitude,
-              longitude: widget.property.address.longitude,
-            ),
+            if (_galleryOpen)
+              const SizedBox(height: 190)
+            else
+              PropertyLocationMap(
+                title: widget.property.name,
+                address: widget.property.address.address,
+                latitude: widget.property.address.latitude,
+                longitude: widget.property.address.longitude,
+                grey: widget.property.isDeleted,
+              ),
           ],
         );
 
@@ -633,9 +829,13 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
     );
   }
 
-  Widget _buildHeroImage(double height) {
-    if (_currentImageUrl == null) {
-      return Container(
+  Widget _placeholderHero(double height) {
+    return Image.asset(
+      'assets/images/placer.png',
+      height: height,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (c, e, s) => Container(
         height: height,
         width: double.infinity,
         color: Colors.grey.shade100,
@@ -644,11 +844,18 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           color: Color(0xFFCBD5E1),
           size: 40,
         ),
-      );
+      ),
+    );
+  }
+
+  Widget _buildHeroImage(double height) {
+    final url = _currentImageUrl?.trim();
+    if (url == null || url.isEmpty || url.toLowerCase() == 'null') {
+      return _placeholderHero(height);
     }
 
     return Image.network(
-      _currentImageUrl!,
+      url,
       height: height,
       width: double.infinity,
       fit: BoxFit.cover,
@@ -663,23 +870,16 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           ),
         );
       },
-      errorBuilder: (context, error, stackTrace) {
-        return Container(
-          height: height,
-          width: double.infinity,
-          color: Colors.grey.shade100,
-          child: const Icon(
-            Icons.image_not_supported_rounded,
-            color: Color(0xFFCBD5E1),
-            size: 40,
-          ),
-        );
-      },
+      errorBuilder: (context, error, stackTrace) => _placeholderHero(height),
     );
   }
 
+  String _sqft(double v) =>
+      '${v == v.roundToDouble() ? v.toInt() : v} sq ft';
+
   Widget _buildFeaturesWrap() {
     final features = <Map<String, dynamic>>[];
+
     if (widget.property.bedrooms > 0) {
       features.add({
         'icon': Icons.bed_rounded,
@@ -711,7 +911,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
     if (features.isEmpty) {
       return Text(
         'No features data available',
-        style: AppTheme.bodyText.copyWith(color: Colors.black38, fontSize: 13),
+        style: AppTheme.bodyText.copyWith(color: Colors.black38, fontSize: 14),
       );
     }
 
@@ -727,6 +927,92 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           )
           .toList(),
     );
+  }
+
+  Widget _buildTypeCard() {
+    final pc = Get.find<PropertyController>();
+    return Obx(() {
+      pc.bhkTypes.length;
+      final room =
+      pc.bhkDisplayName(widget.property.rawJson['bhkType']?.toString());
+
+      final carpet = widget.property.carpetArea;
+      final builtUp = widget.property.squareFeetArea;
+      final carpetText = (carpet != null && carpet > 0) ? _sqft(carpet) : '';
+      final builtUpText = (builtUp != null && builtUp > 0) ? _sqft(builtUp) : '';
+
+      final hasTypeRow = room.isNotEmpty;
+      final hasAreaRow = carpetText.isNotEmpty || builtUpText.isNotEmpty;
+      if (!hasTypeRow && !hasAreaRow) return const SizedBox.shrink();
+
+      Widget cell(IconData icon, String label, String value) {
+        if (value.isEmpty) return const SizedBox.shrink();
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 18, color: AppTheme.accentBlue),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '$label: ',
+                      style: AppTheme.bodyText
+                          .copyWith(fontSize: 14, color: Colors.black54),
+                    ),
+                    TextSpan(
+                      text: value,
+                      style: AppTheme.bodyText.copyWith(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      }
+
+      Widget pair(Widget left, Widget right) => Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: left),
+          const SizedBox(width: 12),
+          Expanded(child: right),
+        ],
+      );
+
+      return Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (hasTypeRow)
+              pair(
+                cell(Icons.home_work_outlined, 'Room Type', room),
+                const SizedBox.shrink(),
+              ),
+            if (hasTypeRow && hasAreaRow) const SizedBox(height: 12),
+            if (hasAreaRow)
+              pair(
+                cell(Icons.square_foot_rounded, 'Carpet Area', carpetText),
+                cell(Icons.aspect_ratio_rounded, 'Built-up Area', builtUpText),
+              ),
+          ],
+        ),
+      );
+    });
   }
 
   Widget _buildAboutCard() {
@@ -822,7 +1108,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           Text(
             label,
             style: AppTheme.bodyText.copyWith(
-              fontSize: 12,
+              fontSize: 14,
               fontWeight: FontWeight.w600,
               color: Colors.black87,
             ),
@@ -899,11 +1185,15 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: AppTheme.caption.copyWith(color: Colors.black45)),
+          Text(label, style: AppTheme.caption.copyWith(color: Colors.black45,fontSize: 12)),
           const SizedBox(height: 6),
-          Text(
-            value,
-            style: AppTheme.heading1.copyWith(color: Colors.black, fontSize: 22),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: AppTheme.heading1.copyWith(color: Colors.black, fontSize: 20),
+            ),
           ),
         ],
       ),
@@ -948,7 +1238,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                       title,
                       style: AppTheme.caption.copyWith(
                         color: accentColor,
-                        fontSize: 10,
+                        fontSize: 12,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -956,7 +1246,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                       name,
                       style: AppTheme.bodyText.copyWith(
                         fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                        fontSize: 16,
                         color: Colors.black,
                       ),
                     ),
@@ -968,7 +1258,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           const SizedBox(height: 10),
           const Divider(color: Colors.black12, height: 1),
           const SizedBox(height: 10),
-          Row(
+          _AdaptivePair(
             children: [
               Expanded(
                 child: _buildContactRow(Icons.phone_rounded, phone),
@@ -1041,7 +1331,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                 'Documents',
                 style: AppTheme.caption.copyWith(
                   color: AppTheme.accentBlue,
-                  fontSize: 10,
+                  fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -1053,7 +1343,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
               'No documents available',
               style: AppTheme.bodyText.copyWith(
                 color: Colors.black38,
-                fontSize: 13,
+                fontSize: 14,
               ),
             )
           else
@@ -1164,11 +1454,11 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           ? Center(
         child: Text(
           'Document preview is not available.',
-          style: AppTheme.bodyText,
+          style: AppTheme.bodyText.copyWith(fontSize: 14),
         ),
       )
           : Padding(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 600 ? 10 : 24),
         child: isPdf
             ? ClipRRect(
           borderRadius: BorderRadius.circular(12),
@@ -1226,7 +1516,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
             'No Tenant Occupying',
             style: AppTheme.bodyText.copyWith(
               color: Colors.black45,
-              fontSize: 12,
+              fontSize: 14,
             ),
           ),
         ],
@@ -1243,7 +1533,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
           child: Text(
             text,
             style: AppTheme.bodyText.copyWith(
-              fontSize: 13,
+              fontSize: 14,
               color: Colors.black87,
             ),
             overflow: TextOverflow.ellipsis,
@@ -1254,8 +1544,10 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
   }
 
   void _showImageGallery(BuildContext context, int initialIndex) {
+    setState(() => _galleryOpen = true);
     showDialog(
       context: context,
+      barrierDismissible: true,
       builder: (context) {
         int currentIndex = initialIndex;
         return StatefulBuilder(
@@ -1278,10 +1570,10 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       IconButton(
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.arrow_back_ios_rounded,
                           color: Colors.white,
-                          size: 48,
+                          size: MediaQuery.sizeOf(context).width < 600 ? 26 : 48,
                         ),
                         onPressed: currentIndex > 0
                             ? () => setDialogState(() => currentIndex--)
@@ -1297,10 +1589,10 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.arrow_forward_ios_rounded,
                           color: Colors.white,
-                          size: 48,
+                          size: MediaQuery.sizeOf(context).width < 600 ? 26 : 48,
                         ),
                         onPressed: currentIndex <
                                 widget.property.images.length - 1
@@ -1310,8 +1602,8 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                     ],
                   ),
                   Positioned(
-                    top: 40,
-                    right: 40,
+                    top: MediaQuery.sizeOf(context).width < 600 ? 16 : 40,
+                    right: MediaQuery.sizeOf(context).width < 600 ? 12 : 40,
                     child: IconButton(
                       icon: const Icon(Icons.close, color: Colors.white, size: 32),
                       onPressed: () => Navigator.pop(context),
@@ -1323,7 +1615,7 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
                       '${currentIndex + 1} / ${widget.property.images.length}',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -1332,6 +1624,64 @@ class _PropertyDetailPanelState extends State<PropertyDetailPanel> {
               ),
             );
           },
+        );
+      },
+    ).whenComplete(() {
+      if (mounted) setState(() => _galleryOpen = false);
+    });
+  }
+}
+
+/// Row on wide containers; wraps (dropping Spacers/gaps) on narrow ones.
+class _AdaptiveHeader extends StatelessWidget {
+  final List<Widget> children;
+  final double breakpoint;
+  const _AdaptiveHeader({required this.children, this.breakpoint = 640});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, c) {
+        if (c.maxWidth >= breakpoint) {
+          return Row(children: children);
+        }
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: children
+              .where((x) => x is! Spacer && !(x is SizedBox && x.child == null))
+              .toList(),
+        );
+      },
+    );
+  }
+}
+
+/// Two Expanded items side by side; stacked when the space is narrow.
+class _AdaptivePair extends StatelessWidget {
+  final List<Widget> children;
+  final double breakpoint;
+  const _AdaptivePair({required this.children, this.breakpoint = 340});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, c) {
+        if (c.maxWidth >= breakpoint) {
+          return Row(children: children);
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final w in children)
+              if (w is Expanded)
+                w.child
+              else if (w is SizedBox && w.child == null)
+                const SizedBox(height: 8)
+              else
+                w,
+          ],
         );
       },
     );
